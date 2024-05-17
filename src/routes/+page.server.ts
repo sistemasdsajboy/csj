@@ -172,8 +172,15 @@ export const actions = {
 		const garantiasPage = fileData.find((page) => page.name === 'Garantias');
 		if (!oralPage || !garantiasPage) return { success: false };
 
+		let funcionario = data.get('funcionario') as string;
+		if (!funcionario) {
+			const funcionarios = _.uniq(_.map(oralPage.data, 'funcionario'));
+			if (funcionarios.length > 1)
+				return { success: true, step: 'selectFuncionario', funcionarios };
+			funcionario = funcionarios[0];
+		}
+
 		// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
-		const FUNCIONARIO = 'Funcionario: ADRIANA DEL PILAR ARENAS NIÑO Cédula: 46456640'; // 'Funcionario: FERNANDO IBAGUE  PINILLA Cédula: 7321266';
 		const TIPO_DESPACHO = 'Promiscuo Municipal';
 		const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO
 		const DIAS_HABILES_LABORADOS = 226; // 207; // TODO: REGISTRAR NOVEDADES CON DIAS DESCONTADOS
@@ -184,14 +191,14 @@ export const actions = {
 		const AUDIENCIAS_APLAZADAS_NO_JUSTIFICADAS = 0;
 
 		const oral = aggregatePageDataOral(
-			FUNCIONARIO,
+			funcionario,
 			DIAS_HABILES_DESPACHO,
 			DIAS_HABILES_LABORADOS,
 			oralPage.data
 		);
 
 		const garantias = aggregatePageDataGarantias(
-			FUNCIONARIO,
+			funcionario,
 			DIAS_HABILES_DESPACHO,
 			DIAS_HABILES_LABORADOS,
 			garantiasPage.data
@@ -211,6 +218,8 @@ export const actions = {
 
 		return {
 			success: true,
+			funcionario,
+			step: 'results',
 			oral,
 			garantias,
 			calificacionAudiencias,

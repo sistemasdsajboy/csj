@@ -12,10 +12,19 @@
 
 <form method="post" enctype="multipart/form-data">
 	<input type="file" name="file" />
+	{#if form?.success && form.step === 'selectFuncionario' && form.funcionarios}
+		<select name="funcionario">
+			{#each form.funcionarios as funcionario}
+				<option value={funcionario}>{funcionario}</option>
+			{/each}
+		</select>
+	{/if}
 	<button type="submit">Cargar</button>
 </form>
 
-{#if form?.success}
+{#if form?.success && form.step === 'results'}
+	<h2>{form.funcionario}</h2>
+
 	<h3>Oral</h3>
 	<p>Total inventario inicial: {form.oral?.totalInventarioInicial}</p>
 	<p>Carga base de calificación del despacho: {form.oral?.cargaBaseCalificacionDespacho}</p>
