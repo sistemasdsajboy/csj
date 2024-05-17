@@ -22,7 +22,6 @@ export const getFileRawGradeData = async (file: File): Promise<Array<GradeAccumu
 	return woorkbook.map(extractWorkbookPageData);
 };
 
-// ['Movimiento de Tutelas', 'Funcionario: FERNANDO IBAGUE  PINILLA Cédula: 7321266', '01/JAN/2023', '31/MAR/2023', 0, 0, 0, 0, 0, 0, undefined, undefined, 10]
 const consolidadoRowSchema = z.tuple([
 	z.string(),
 	z.string(),
@@ -78,36 +77,92 @@ const extractWorkbookPageData = (page: WorkbookPage) => {
 	return { name: page.name, data: pageData };
 };
 
+const getInventarioInicial = (data: Array<z.infer<typeof consolidadoExtractedDataSchema>>) => {
+	const minDate = _.minBy(data, 'desde')?.desde;
+	return _.sumBy(data, (d) => (dayjs(d.desde).isSame(minDate) ? d.inventarioInicial : 0));
+};
+
+const getIngresoEfectivo = (data: Array<z.infer<typeof consolidadoExtractedDataSchema>>) => {
+	return _.sumBy(data, (d) => d.ingresoEfectivo);
+};
+
+const getIngresoEfectivoUltimoPeriodo = (
+	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	excludedCategorias: Array<string>
+) => {
+	const dataProcesos = data.filter((d) => !excludedCategorias.includes(d.categoria));
+	return _.sumBy(dataProcesos, (d) => (dayjs(d.desde).month() >= 9 ? d.ingresoEfectivo : 0));
+};
+
+const getInventarioFinalByCategoria = (
+	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	funcionario: string,
+	categorias: Array<string>
+) => {
+	const maxDate = _.maxBy(data, 'desde')?.desde;
+	return _(data)
+		.filter(
+			(d) =>
+				d.funcionario === funcionario &&
+				categorias.includes(d.categoria) &&
+				dayjs(d.desde).isSame(maxDate)
+		)
+		.sumBy((d) => d.inventarioFinal);
+};
+
+const getEgresoFuncionario = (
+	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	funcionario: string
+) => {
+	return _.sumBy(data, (d) =>
+		d.funcionario === funcionario ? d.egresoEfectivo + d.conciliaciones : 0
+	);
+};
+
+const getEgresoOtrosFuncionarios = (
+	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	funcionario: string
+) => {
+	return _.sumBy(data, (d) =>
+		dayjs(d.desde).month() < 9 && d.funcionario !== funcionario ? d.egresoEfectivo : 0
+	);
+};
+
+const getCargaBaseCalificacionDespacho = (
+	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	funcionario: string
+) => {
+	const totalInventarioInicial = getInventarioInicial(data);
+	const ingresoEfectivo = getIngresoEfectivo(data);
+	return totalInventarioInicial + ingresoEfectivo;
+};
+
+const getCargaBaseCalificacionDespachoOral = (
+	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	funcionario: string
+) => {
+	const cargaBaseDespacho = getCargaBaseCalificacionDespacho(data, funcionario);
+	const ingresoEfectivoProcesosUltimoPeriodo = getIngresoEfectivoUltimoPeriodo(data, [
+		'Incidentes de Desacato',
+		'Movimiento de Tutelas'
+	]);
+	const inventarioFinalTutelas = getInventarioFinalByCategoria(data, funcionario, [
+		'Incidentes de Desacato',
+		'Movimiento de Tutelas'
+	]);
+	return cargaBaseDespacho - ingresoEfectivoProcesosUltimoPeriodo - inventarioFinalTutelas;
+};
+
 const aggregatePageDataOral = (
 	funcionario: string,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
 	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>
 ) => {
-	const firstFuncionarioRow = data.find((d) => d.funcionario === funcionario);
-	const minDate = firstFuncionarioRow?.desde;
-	const totalInventarioInicial = _.sumBy(data, (d) =>
-		dayjs(d.desde).isSame(minDate) ? d.inventarioInicial : 0
-	);
-	const ingresoEfectivo = _.sumBy(data, (d) => d.ingresoEfectivo);
-
-	const ingresoEfectivoUltimoPeriodo = _.sumBy(data, (d) =>
-		dayjs(d.desde).month() >= 9 &&
-		!['Incidentes de Desacato', 'Movimiento de Tutelas'].includes(d.categoria)
-			? d.ingresoEfectivo
-			: 0
-	);
-
-	const egresoFuncionario = _.sumBy(data, (d) =>
-		d.funcionario === funcionario ? d.egresoEfectivo : 0
-	);
-
-	const egresoOtrosFuncionarios = _.sumBy(data, (d) =>
-		dayjs(d.desde).month() < 9 && d.funcionario !== funcionario ? d.egresoEfectivo : 0
-	);
-
-	const cargaBaseCalificacionDespacho =
-		totalInventarioInicial + ingresoEfectivo - ingresoEfectivoUltimoPeriodo;
+	const totalInventarioInicial = getInventarioInicial(data);
+	const egresoFuncionario = getEgresoFuncionario(data, funcionario);
+	const egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionario);
+	const cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespachoOral(data, funcionario);
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
@@ -130,22 +185,14 @@ const aggregatePageDataGarantias = (
 	diasHabilesFuncionario: number,
 	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>
 ) => {
-	const firstFuncionarioRow = data.find((d) => d.funcionario === funcionario);
-	const minDate = firstFuncionarioRow?.desde;
-	const totalInventarioInicial = _.sumBy(data, (d) =>
-		dayjs(d.desde).isSame(minDate) ? d.inventarioInicial : 0
-	);
-	const ingresoEfectivo = _.sumBy(data, (d) => d.ingresoEfectivo);
-
+	const totalInventarioInicial = getInventarioInicial(data);
 	const egresoFuncionario = _.sumBy(data, (d) =>
 		d.funcionario === funcionario ? d.egresoEfectivo : 0
 	);
-
 	const egresoOtrosFuncionarios = _.sumBy(data, (d) =>
 		dayjs(d.desde).month() < 9 && d.funcionario !== funcionario ? d.egresoEfectivo : 0
 	);
-
-	const cargaBaseCalificacionDespacho = totalInventarioInicial + ingresoEfectivo;
+	const cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data, funcionario);
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
@@ -182,10 +229,10 @@ export function buildRendimientoGrades(
 	// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
 	const TIPO_DESPACHO = 'Promiscuo Municipal';
 	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO
-	const DIAS_HABILES_LABORADOS = 226; // 207; // TODO: REGISTRAR NOVEDADES CON DIAS DESCONTADOS
-	const AUDIENCIAS_PROGRAMADAS = 14; //60;
-	const AUDIENCIAS_ATENDIDAS = 9; // 60;
-	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 5; //0;
+	const DIAS_HABILES_LABORADOS = 227; // 207; // TODO: REGISTRAR NOVEDADES CON DIAS DESCONTADOS
+	const AUDIENCIAS_PROGRAMADAS = 34; //60;
+	const AUDIENCIAS_ATENDIDAS = 26; // 60;
+	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 8; //0;
 	const AUDIENCIAS_APLAZADAS_JUSTIFICADAS = 0;
 	const AUDIENCIAS_APLAZADAS_NO_JUSTIFICADAS = 0;
 
