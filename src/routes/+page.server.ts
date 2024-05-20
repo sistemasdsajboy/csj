@@ -6,7 +6,6 @@ import {
 } from '$lib/core/calificaciones';
 import {
 	createRegistroPorCalificar,
-	getRegistroPorCalificar,
 	getRegistroPorCalificarByDespacho,
 	getRegistrosPorCalificar
 } from '$lib/db';
@@ -14,7 +13,7 @@ import { fail } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load = (async () => {
-	return { records: await getRegistrosPorCalificar() };
+	return { records: await getRegistrosPorCalificar()  };
 }) satisfies PageServerLoad;
 
 export const actions = {
@@ -28,7 +27,7 @@ export const actions = {
 				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
 
 			const despacho = await getDespachoFromFileData(file);
-			const registro = await getRegistroPorCalificar(despacho);
+			const registro = await getRegistroPorCalificarByDespacho(despacho);
 			if (registro) return fail(400, { error: 'Ya existe un registro para este despacho' });
 
 			const fileData = await getFileRawGradeData(file);

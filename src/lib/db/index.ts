@@ -1,28 +1,41 @@
 import type { GradeAccumulatedData } from '$lib/core/calificaciones';
-import fs from 'node:fs';
+
+import { connect } from '$lib/db/mongo-client';
+import type { WithId } from 'mongodb';
 
 export type RegistroPorCalificar = {
 	despacho: string;
 	data: GradeAccumulatedData[];
 	funcionarios: string[];
 };
-let records: RegistroPorCalificar[] = [];
+
+const { db } = await connect();
+export const registroCalificacion = db.collection<RegistroPorCalificar>('registroCalificacion');
+
+function formatDocument<T>(doc: WithId<T> | null) {
+	if (!doc) return null;
+
+	const { _id, ...fields } = doc;
+	return { ...fields, id: doc._id.toString() };
+}
+
+function formatDocuments<T>(docs: WithId<T>[]) {
+	return docs.map((doc) => {
+		const { _id, ...fields } = doc;
+		return { ...fields, id: doc._id.toString() };
+	});
+}
 
 export async function getRegistrosPorCalificar() {
-	const data = fs.readFileSync('./static/records.json', 'utf8');
-	records = JSON.parse(data);
-	return records;
-}
-
-export async function getRegistroPorCalificar(despacho: string) {
-	return records.find((r) => r.despacho === despacho);
-}
-
-export async function createRegistroPorCalificar(registro: RegistroPorCalificar) {
-	records.push(registro);
-	fs.writeFileSync('./static/records.json', JSON.stringify(records));
+	const registros = await registroCalificacion.find({}).toArray();
+	return formatDocuments(registros);
 }
 
 export async function getRegistroPorCalificarByDespacho(despacho: string) {
-	return records.find((r) => r.despacho === despacho);
+	const registro = await registroCalificacion.findOne({ despacho });
+	return formatDocument(registro);
+}
+
+export async function createRegistroPorCalificar(registro: RegistroPorCalificar) {
+	registroCalificacion.insertOne(registro);
 }
