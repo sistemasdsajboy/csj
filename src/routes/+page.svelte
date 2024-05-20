@@ -1,12 +1,19 @@
 <script lang="ts">
+	import type { NovedadRegistroCalificacion } from '$lib/db';
 	import FileLoader from './FileLoader.svelte';
+	import NovedadForm from './NovedadForm.svelte';
+	import NovedadesList from './NovedadesList.svelte';
 
 	const { data, form } = $props();
-	let despacho: string = $state('');
+	let registroId: string = $state('');
+	let funcionario: string = $state('');
 	let funcionarios: string[] = $state([]);
+	let novedades: NovedadRegistroCalificacion[] = $state([]);
 
 	$effect(() => {
-		funcionarios = data.records.find((r) => r.despacho === despacho)?.funcionarios || [];
+		const registro = data.registros.find(({ id }) => id === registroId);
+		funcionarios = registro?.funcionarios || [];
+		novedades = registro?.novedades || [];
 	});
 </script>
 
@@ -16,28 +23,42 @@
 
 <FileLoader />
 
-{#if data.records.length}
+{#if data.registros.length}
 	<h3>Generar calificaciones de rendimiento</h3>
 	<form method="post" action="?/gradeData">
-		<select name="despacho" bind:value={despacho}>
-			{#each data.records as record}
-				<option value={record.despacho}>{record.despacho}</option>
-			{/each}
-		</select>
-		{#if funcionarios.length}
-			<select name="funcionario">
-				{#each funcionarios as funcionario}
-					<option value={funcionario}>{funcionario}</option>
+		<div>
+			<select name="registroId" bind:value={registroId}>
+				{#each data.registros as record}
+					<option value={record.id}>{record.despacho}</option>
 				{/each}
 			</select>
+		</div>
+
+		{#if funcionarios.length}
+			<div>
+				<select name="funcionario" bind:value={funcionario}>
+					{#each funcionarios as funcionario}
+						<option value={funcionario}>{funcionario}</option>
+					{/each}
+				</select>
+			</div>
 		{/if}
+
 		<button type="submit">Calificar</button>
 	</form>
+{/if}
+
+{#if funcionario}
+	<NovedadesList {novedades} />
+	<NovedadForm {registroId} />
 {/if}
 
 {#if form?.success && form.funcionario}
 	<h3>{form.despacho}</h3>
 	<h3>{form.funcionario}</h3>
+
+	<h3>Novedades</h3>
+	<div>Días descontados por novedades: {form.diasDescontados}</div>
 
 	<h3>Oral</h3>
 	<div>Total inventario inicial: {form.oral?.totalInventarioInicial}</div>

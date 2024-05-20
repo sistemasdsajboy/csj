@@ -219,6 +219,7 @@ export function getFuncionarios(accumulatedData: Array<GradeAccumulatedData>) {
 
 export function buildRendimientoGrades(
 	accumulatedData: Array<GradeAccumulatedData>,
+	diasDescontados: number,
 	funcionario: string
 ) {
 	const oralPage = accumulatedData.find((page) => page.name === 'Oral');
@@ -228,25 +229,26 @@ export function buildRendimientoGrades(
 
 	// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
 	const TIPO_DESPACHO = 'Promiscuo Municipal';
-	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO
-	const DIAS_HABILES_LABORADOS = 227; // 207; // TODO: REGISTRAR NOVEDADES CON DIAS DESCONTADOS
+	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO	
 	const AUDIENCIAS_PROGRAMADAS = 34; //60;
 	const AUDIENCIAS_ATENDIDAS = 26; // 60;
 	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 8; //0;
 	const AUDIENCIAS_APLAZADAS_JUSTIFICADAS = 0;
 	const AUDIENCIAS_APLAZADAS_NO_JUSTIFICADAS = 0;
 
+	const diasHabilesLaborados = DIAS_HABILES_DESPACHO - diasDescontados;
+
 	const oral = aggregatePageDataOral(
 		funcionario,
 		DIAS_HABILES_DESPACHO,
-		DIAS_HABILES_LABORADOS,
+		diasHabilesLaborados,
 		oralPage.data
 	);
 
 	const garantias = aggregatePageDataGarantias(
 		funcionario,
 		DIAS_HABILES_DESPACHO,
-		DIAS_HABILES_LABORADOS,
+		diasHabilesLaborados,
 		garantiasPage.data
 	);
 

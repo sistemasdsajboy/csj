@@ -5,15 +5,18 @@ import {
 	getFuncionarios
 } from '$lib/core/calificaciones';
 import {
-	createRegistroPorCalificar,
-	getRegistroPorCalificarByDespacho,
-	getRegistrosPorCalificar
+	addNovedadToRegistroCalificacion,
+	createRegistroCalificacion,
+	getRegistroCalificacionByDespacho,
+	getRegistroCalificacionById,
+	getRegistrosCalificacion
 } from '$lib/db';
+import { countLaborDaysBetweenDates } from '$lib/utils/dates';
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load = (async () => {
-	return { records: await getRegistrosPorCalificar()  };
+	return { registros: await getRegistrosCalificacion() };
 }) satisfies PageServerLoad;
 
 export const actions = {
@@ -27,13 +30,34 @@ export const actions = {
 				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
 
 			const despacho = await getDespachoFromFileData(file);
-			const registro = await getRegistroPorCalificarByDespacho(despacho);
+			const registro = await getRegistroCalificacionByDespacho(despacho);
 			if (registro) return fail(400, { error: 'Ya existe un registro para este despacho' });
 
 			const fileData = await getFileRawGradeData(file);
 			const funcionarios = getFuncionarios(fileData);
 
-			await createRegistroPorCalificar({ despacho, data: fileData, funcionarios });
+			await createRegistroCalificacion({ despacho, data: fileData, funcionarios });
+
+			return { success: true };
+		} catch (error) {
+			if (error instanceof Error) return { success: false, error: error.message };
+			return { success: false, error: 'Ha ocurrido un error inesperado' };
+		}
+	},
+
+	addNovedad: async ({ request }) => {
+		try {
+			const data = await request.formData();
+
+			let registroId = data.get('registroId') as string;
+			let type = data.get('type') as string;
+			let from = new Date(data.get('from') as string);
+			let to = new Date(data.get('to') as string);
+			let notes = data.get('notes') as string;
+
+			const days = countLaborDaysBetweenDates(from, to);
+
+			await addNovedadToRegistroCalificacion(registroId, { type, from, to, days, notes });
 
 			return { success: true };
 		} catch (error) {
@@ -46,8 +70,8 @@ export const actions = {
 		try {
 			const data = await request.formData();
 
-			let despacho = data.get('despacho') as string;
-			const record = await getRegistroPorCalificarByDespacho(despacho);
+			let registroId = data.get('registroId') as string;
+			const record = await getRegistroCalificacionById(registroId);
 			if (!record) return fail(400, { error: 'Registro no encontrado' });
 
 			let funcionario =
@@ -57,9 +81,15 @@ export const actions = {
 
 			if (!funcionario) return fail(400, { error: 'Funcionario no especificado' });
 
-			const grades = buildRendimientoGrades(record.data, funcionario);
+			const diasDescontados = record.novedades
+				? record.novedades.reduce((dias, novedad) => {
+						return dias + novedad.days;
+					}, 0)
+				: 0;
 
-			return { success: true, ...grades, despacho, funcionario };
+			const grades = buildRendimientoGrades(record.data, diasDescontados, funcionario);
+
+			return { success: true, ...grades, despacho: record.despacho, funcionario, diasDescontados };
 		} catch (error) {
 			if (error instanceof Error) return { success: false, error: error.message };
 			return { success: false, error: 'Ha ocurrido un error inesperado' };

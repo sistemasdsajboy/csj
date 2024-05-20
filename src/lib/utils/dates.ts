@@ -91,3 +91,5 @@ export const countLaborDaysBetweenDates = (from: Date, to: Date) => {
 	}
 	return count;
 };
+
+export const formatDate = (date: Date) => dayjs(date).format('DD/MM/YYYY');
