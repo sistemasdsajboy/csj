@@ -6,9 +6,11 @@ import {
 } from '$lib/core/calificaciones';
 import {
 	createRegistroPorCalificar,
+	getRegistroPorCalificar,
 	getRegistroPorCalificarByDespacho,
 	getRegistrosPorCalificar
 } from '$lib/db';
+import { fail } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load = (async () => {
@@ -21,11 +23,14 @@ export const actions = {
 			const data = await request.formData();
 			const file = data.get('file') as File;
 			if (!file.name)
-				throw new Error('Debe seleccionar un archivo de calificaciones para iniciar.');
+				return fail(400, { error: 'Debe seleccionar un archivo de calificaciones para iniciar.' });
 			if (!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx'))
-				throw new Error('El archivo seleccionado debe tener extensión .xls o .xlsx');
+				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
 
 			const despacho = await getDespachoFromFileData(file);
+			const registro = await getRegistroPorCalificar(despacho);
+			if (registro) return fail(400, { error: 'Ya existe un registro para este despacho' });
+
 			const fileData = await getFileRawGradeData(file);
 			const funcionarios = getFuncionarios(fileData);
 
@@ -44,14 +49,14 @@ export const actions = {
 
 			let despacho = data.get('despacho') as string;
 			const record = await getRegistroPorCalificarByDespacho(despacho);
-			if (!record) throw new Error('Registro no encontrado');
+			if (!record) return fail(400, { error: 'Registro no encontrado' });
 
 			let funcionario =
 				record.funcionarios.length > 1
 					? (data.get('funcionario') as string)
 					: record.funcionarios[0];
 
-			if (!funcionario) throw new Error('Funcionario no especificado');
+			if (!funcionario) return fail(400, { error: 'Funcionario no especificado' });
 
 			const grades = buildRendimientoGrades(record.data, funcionario);
 

@@ -13,6 +13,11 @@ export async function getRegistrosPorCalificar() {
 	records = JSON.parse(data);
 	return records;
 }
+
+export async function getRegistroPorCalificar(despacho: string) {
+	return records.find((r) => r.despacho === despacho);
+}
+
 export async function createRegistroPorCalificar(registro: RegistroPorCalificar) {
 	records.push(registro);
 	fs.writeFileSync('./static/records.json', JSON.stringify(records));
