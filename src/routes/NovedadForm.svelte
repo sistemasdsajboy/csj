@@ -19,9 +19,17 @@
     <input type="hidden" name="registroId" value={registroId}>
 	<div>
 		<select required name="type">
+			<option value="calamidad">Calamidad doméstica</option>
+			<option value="cierre-extraordinario">Cierre extraordinario de despacho</option>
+			<option value="comision">Comisión</option>
+			<option value="escrutinios">Escrutinios</option>
 			<option value="incapacidad">Incapacidad</option>
 			<option value="licencia">Licencia</option>
+			<option value="permiso-ejrlb">Permiso EJRLB</option>
+			<option value="permiso-sindical">Permiso sindical</option>
 			<option value="vacaciones">Vacaciones</option>
+			<option value="vacancia">Vacancia judicial</option>
+			<option value="vacancia">Otras novedades</option>
 		</select>
 	</div>
 	<div><input type="date" name="from" required bind:value={from} /></div>

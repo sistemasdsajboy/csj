@@ -59,13 +59,15 @@
 	<h3>{form.funcionario}</h3>
 
 	<h3>Novedades</h3>
+	<div>Días hábiles del despacho: {form.diasHabilesDespacho}</div>
 	<div>Días descontados por novedades: {form.diasDescontados}</div>
+	<div>Días laborados: {form.diasHabilesLaborados}</div>
 
 	<h3>Oral</h3>
 	<div>Total inventario inicial: {form.oral?.totalInventarioInicial}</div>
-	<div>Carga base de calificación del despacho: {form.oral?.cargaBaseCalificacionDespacho}</div>
+	<div>Carga base del despacho (modificada): {form.oral?.cargaBaseCalificacionDespacho}</div>
 	<div>
-		Carga base de calificación del funcionario: {form.oral?.cargaBaseCalificacionFuncionario}
+		Carga base del funcionario (modificada): {form.oral?.cargaBaseCalificacionFuncionario}
 	</div>
 	<div>Egreso del funcionario: {form.oral?.egresoFuncionario}</div>
 	<div>Carga proporcional: {form.oral?.cargaProporcional?.toFixed(2)}</div>
@@ -79,10 +81,10 @@
 	<h3>Garantías</h3>
 	<div>Total inventario inicial: {form.garantias?.totalInventarioInicial}</div>
 	<div>
-		Carga base de calificación del despacho: {form.garantias?.cargaBaseCalificacionDespacho}
+		Carga base del despacho (modificada): {form.garantias?.cargaBaseCalificacionDespacho}
 	</div>
 	<div>
-		Carga base de calificación del funcionario: {form.garantias?.cargaBaseCalificacionFuncionario}
+		Carga base del funcionario (modificada): {form.garantias?.cargaBaseCalificacionFuncionario}
 	</div>
 	<div>Egreso del funcionario: {form.garantias?.egresoFuncionario}</div>
 	<div>Carga proporcional: {form.garantias?.cargaProporcional?.toFixed(2)}</div>

@@ -1,6 +1,7 @@
 import {
 	registroCalificacionDataSchema,
 	registroCalificacionDataSchemaColumns,
+	type RegistroCalificacion,
 	type RegistroCalificacionPage
 } from '$lib/db/schema';
 import dayjs from 'dayjs';
@@ -189,24 +190,26 @@ export function getFuncionarios(accumulatedData: Array<RegistroCalificacionPage>
 	return _.uniq(_.map(oralPage.data, 'funcionario'));
 }
 
-export function buildRendimientoGrades(
-	accumulatedData: Array<RegistroCalificacionPage>,
-	diasDescontados: number,
-	funcionario: string
-) {
-	const oralPage = accumulatedData.find((page) => page.name === 'Oral');
-	const garantiasPage = accumulatedData.find((page) => page.name === 'Garantias');
+export function buildRendimientoGrades(registro: RegistroCalificacion, funcionario: string) {
+	const oralPage = registro.data.find((page) => page.name === 'Oral');
+	const garantiasPage = registro.data.find((page) => page.name === 'Garantias');
 	if (!oralPage || !garantiasPage)
 		throw new Error('Información de "Oral" y "Garantías" incompleta.');
 
 	// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
 	const TIPO_DESPACHO = 'Promiscuo Municipal';
 	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO
-	const AUDIENCIAS_PROGRAMADAS = 34; //60;
-	const AUDIENCIAS_ATENDIDAS = 26; // 60;
-	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 8; //0;
+	const AUDIENCIAS_PROGRAMADAS = 10 + 18 + 18; //60;
+	const AUDIENCIAS_ATENDIDAS = 8 + 14 + 12; // 60;
+	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 2 + 4 + 6; //0;
 	const AUDIENCIAS_APLAZADAS_JUSTIFICADAS = 0;
 	const AUDIENCIAS_APLAZADAS_NO_JUSTIFICADAS = 0;
+
+	const diasDescontados = registro.novedades
+		? registro.novedades.reduce((dias, novedad) => {
+				return dias + novedad.days;
+			}, 0)
+		: 0;
 
 	const diasHabilesLaborados = DIAS_HABILES_DESPACHO - diasDescontados;
 
@@ -241,6 +244,9 @@ export function buildRendimientoGrades(
 		garantias,
 		calificacionAudiencias,
 		factorEficienciaAudiencias,
-		calificacionTotalFactorEficiencia
+		calificacionTotalFactorEficiencia,
+		diasHabilesDespacho: DIAS_HABILES_DESPACHO,
+		diasDescontados,
+		diasHabilesLaborados
 	};
 }

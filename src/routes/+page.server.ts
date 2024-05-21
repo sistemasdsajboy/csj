@@ -65,25 +65,24 @@ export const actions = {
 			const data = await request.formData();
 
 			let registroId = data.get('registroId') as string;
-			const record = await registroCalificacion.getById(registroId);
-			if (!record) return fail(400, { error: 'Registro no encontrado' });
+			const registro = await registroCalificacion.getById(registroId);
+			if (!registro) return fail(400, { error: 'Registro no encontrado' });
 
 			let funcionario =
-				record.funcionarios.length > 1
+				registro.funcionarios.length > 1
 					? (data.get('funcionario') as string)
-					: record.funcionarios[0];
+					: registro.funcionarios[0];
 
 			if (!funcionario) return fail(400, { error: 'Funcionario no especificado' });
 
-			const diasDescontados = record.novedades
-				? record.novedades.reduce((dias, novedad) => {
-						return dias + novedad.days;
-					}, 0)
-				: 0;
+			const grades = buildRendimientoGrades(registro, funcionario);
 
-			const grades = buildRendimientoGrades(record.data, diasDescontados, funcionario);
-
-			return { success: true, ...grades, despacho: record.despacho, funcionario, diasDescontados };
+			return {
+				success: true,
+				...grades,
+				despacho: registro.despacho,
+				funcionario
+			};
 		} catch (error) {
 			if (error instanceof Error) return { success: false, error: error.message };
 			return { success: false, error: 'Ha ocurrido un error inesperado' };
