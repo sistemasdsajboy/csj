@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { NovedadRegistroCalificacion } from '$lib/db';
+	import { Button } from '$lib/components/ui/button';
+	import type { NovedadRegistroCalificacion } from '$lib/db/schema';
 	import FileLoader from './FileLoader.svelte';
 	import NovedadForm from './NovedadForm.svelte';
 	import NovedadesList from './NovedadesList.svelte';
@@ -44,7 +45,7 @@
 			</div>
 		{/if}
 
-		<button type="submit">Calificar</button>
+		<Button type="submit">Calificar</Button>
 	</form>
 {/if}
 

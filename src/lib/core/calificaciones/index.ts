@@ -1,3 +1,8 @@
+import {
+	registroCalificacionDataSchema,
+	registroCalificacionDataSchemaColumns,
+	type RegistroCalificacionPage
+} from '$lib/db/schema';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 import xlsx from 'node-xlsx';
@@ -7,17 +12,12 @@ type WorkbookPage = { name: string; data: unknown[][] };
 
 type Workbook = Array<WorkbookPage>;
 
-export type GradeAccumulatedData = {
-	name: string;
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>;
-};
-
 export const getDespachoFromFileData = async (file: File): Promise<string> => {
 	const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
 	return woorkbook[0].data[0][0] as string;
 };
 
-export const getFileRawGradeData = async (file: File): Promise<Array<GradeAccumulatedData>> => {
+export const getFileRawGradeData = async (file: File): Promise<Array<RegistroCalificacionPage>> => {
 	const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
 	return woorkbook.map(extractWorkbookPageData);
 };
@@ -38,56 +38,28 @@ const consolidadoRowSchema = z.tuple([
 	z.number()
 ]);
 
-const consolidadoExtractedDataSchemaColumns = [
-	'categoria',
-	'funcionario',
-	'desde',
-	'hasta',
-	'inventarioInicial',
-	'ingresoEfectivo',
-	'cargaEfectiva',
-	'egresoEfectivo',
-	'conciliaciones',
-	'inventarioFinal',
-	'restan'
-];
-
-const consolidadoExtractedDataSchema = z.object({
-	categoria: z.string(),
-	funcionario: z.string(),
-	desde: z.coerce.date(),
-	hasta: z.coerce.date(),
-	inventarioInicial: z.number(),
-	ingresoEfectivo: z.number(),
-	cargaEfectiva: z.number(),
-	egresoEfectivo: z.number(),
-	conciliaciones: z.number(),
-	inventarioFinal: z.number(),
-	restan: z.number()
-});
-
 const extractWorkbookPageData = (page: WorkbookPage) => {
 	const pageData = page.data
 		.map((data) => consolidadoRowSchema.safeParse(data))
 		.filter((parsed) => parsed.success)
 		.map((parsed) => parsed.data!.filter((value) => value !== undefined))
 		.map((data) =>
-			consolidadoExtractedDataSchema.parse(_.zipObject(consolidadoExtractedDataSchemaColumns, data))
+			registroCalificacionDataSchema.parse(_.zipObject(registroCalificacionDataSchemaColumns, data))
 		);
 	return { name: page.name, data: pageData };
 };
 
-const getInventarioInicial = (data: Array<z.infer<typeof consolidadoExtractedDataSchema>>) => {
+const getInventarioInicial = (data: Array<z.infer<typeof registroCalificacionDataSchema>>) => {
 	const minDate = _.minBy(data, 'desde')?.desde;
 	return _.sumBy(data, (d) => (dayjs(d.desde).isSame(minDate) ? d.inventarioInicial : 0));
 };
 
-const getIngresoEfectivo = (data: Array<z.infer<typeof consolidadoExtractedDataSchema>>) => {
+const getIngresoEfectivo = (data: Array<z.infer<typeof registroCalificacionDataSchema>>) => {
 	return _.sumBy(data, (d) => d.ingresoEfectivo);
 };
 
 const getIngresoEfectivoUltimoPeriodo = (
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
 	excludedCategorias: Array<string>
 ) => {
 	const dataProcesos = data.filter((d) => !excludedCategorias.includes(d.categoria));
@@ -95,7 +67,7 @@ const getIngresoEfectivoUltimoPeriodo = (
 };
 
 const getInventarioFinalByCategoria = (
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
 	funcionario: string,
 	categorias: Array<string>
 ) => {
@@ -111,7 +83,7 @@ const getInventarioFinalByCategoria = (
 };
 
 const getEgresoFuncionario = (
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
 	funcionario: string
 ) => {
 	return _.sumBy(data, (d) =>
@@ -120,7 +92,7 @@ const getEgresoFuncionario = (
 };
 
 const getEgresoOtrosFuncionarios = (
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
 	funcionario: string
 ) => {
 	return _.sumBy(data, (d) =>
@@ -129,7 +101,7 @@ const getEgresoOtrosFuncionarios = (
 };
 
 const getCargaBaseCalificacionDespacho = (
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
 	funcionario: string
 ) => {
 	const totalInventarioInicial = getInventarioInicial(data);
@@ -138,7 +110,7 @@ const getCargaBaseCalificacionDespacho = (
 };
 
 const getCargaBaseCalificacionDespachoOral = (
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>,
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
 	funcionario: string
 ) => {
 	const cargaBaseDespacho = getCargaBaseCalificacionDespacho(data, funcionario);
@@ -157,7 +129,7 @@ const aggregatePageDataOral = (
 	funcionario: string,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>
 ) => {
 	const totalInventarioInicial = getInventarioInicial(data);
 	const egresoFuncionario = getEgresoFuncionario(data, funcionario);
@@ -183,7 +155,7 @@ const aggregatePageDataGarantias = (
 	funcionario: string,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
-	data: Array<z.infer<typeof consolidadoExtractedDataSchema>>
+	data: Array<z.infer<typeof registroCalificacionDataSchema>>
 ) => {
 	const totalInventarioInicial = getInventarioInicial(data);
 	const egresoFuncionario = _.sumBy(data, (d) =>
@@ -211,14 +183,14 @@ const aggregatePageDataGarantias = (
 	};
 };
 
-export function getFuncionarios(accumulatedData: Array<GradeAccumulatedData>) {
+export function getFuncionarios(accumulatedData: Array<RegistroCalificacionPage>) {
 	const oralPage = accumulatedData.find((page) => page.name === 'Oral');
 	if (!oralPage) throw new Error('Página de "Oral" no encontrada');
 	return _.uniq(_.map(oralPage.data, 'funcionario'));
 }
 
 export function buildRendimientoGrades(
-	accumulatedData: Array<GradeAccumulatedData>,
+	accumulatedData: Array<RegistroCalificacionPage>,
 	diasDescontados: number,
 	funcionario: string
 ) {
@@ -229,7 +201,7 @@ export function buildRendimientoGrades(
 
 	// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
 	const TIPO_DESPACHO = 'Promiscuo Municipal';
-	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO	
+	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO
 	const AUDIENCIAS_PROGRAMADAS = 34; //60;
 	const AUDIENCIAS_ATENDIDAS = 26; // 60;
 	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 8; //0;

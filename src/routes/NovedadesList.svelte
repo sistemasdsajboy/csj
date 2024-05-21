@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { NovedadRegistroCalificacion } from '$lib/db';
+	import type { NovedadRegistroCalificacion } from '$lib/db/schema';
 	import { formatDate } from '$lib/utils/dates';
 
 	let { novedades }: { novedades: NovedadRegistroCalificacion[] } = $props();

@@ -4,19 +4,13 @@ import {
 	getFileRawGradeData,
 	getFuncionarios
 } from '$lib/core/calificaciones';
-import {
-	addNovedadToRegistroCalificacion,
-	createRegistroCalificacion,
-	getRegistroCalificacionByDespacho,
-	getRegistroCalificacionById,
-	getRegistrosCalificacion
-} from '$lib/db';
+import { registroCalificacion } from '$lib/db/registro-calificacion';
 import { countLaborDaysBetweenDates } from '$lib/utils/dates';
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load = (async () => {
-	return { registros: await getRegistrosCalificacion() };
+	return { registros: await registroCalificacion.getAll() };
 }) satisfies PageServerLoad;
 
 export const actions = {
@@ -30,13 +24,13 @@ export const actions = {
 				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
 
 			const despacho = await getDespachoFromFileData(file);
-			const registro = await getRegistroCalificacionByDespacho(despacho);
+			const registro = await registroCalificacion.getByDespacho(despacho);
 			if (registro) return fail(400, { error: 'Ya existe un registro para este despacho' });
 
 			const fileData = await getFileRawGradeData(file);
 			const funcionarios = getFuncionarios(fileData);
 
-			await createRegistroCalificacion({ despacho, data: fileData, funcionarios });
+			await registroCalificacion.create({ despacho, data: fileData, funcionarios });
 
 			return { success: true };
 		} catch (error) {
@@ -57,7 +51,7 @@ export const actions = {
 
 			const days = countLaborDaysBetweenDates(from, to);
 
-			await addNovedadToRegistroCalificacion(registroId, { type, from, to, days, notes });
+			await registroCalificacion.addNovedad(registroId, { type, from, to, days, notes });
 
 			return { success: true };
 		} catch (error) {
@@ -71,7 +65,7 @@ export const actions = {
 			const data = await request.formData();
 
 			let registroId = data.get('registroId') as string;
-			const record = await getRegistroCalificacionById(registroId);
+			const record = await registroCalificacion.getById(registroId);
 			if (!record) return fail(400, { error: 'Registro no encontrado' });
 
 			let funcionario =
