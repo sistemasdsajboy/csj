@@ -8,7 +8,7 @@
 	},
 	"aliases": {
 		"components": "$lib/components",
-		"utils": "$lib/utils/components.js"
+		"utils": "$lib/utils/shadcn"
 	},
 	"typescript": true
 }
