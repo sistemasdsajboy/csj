@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Despacho {
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  codigo                String
+  nombre                String
+  numero                Int?
+  especialidad          String?
+  categoria             String?
+  municipio             String?
+  distrito              String?
+  registrosCalificacion RegistroCalificacion[]
+}
+
+model Funcionario {
+  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  documento             String
+  nombre                String
+  novedades             NovedadFuncionario[]
+  registrosCalificacion RegistroCalificacion[]
+}
+
+type NovedadFuncionario {
+  days  Int
+  from  DateTime @db.Date
+  notes String
+  to    DateTime @db.Date
+  type  String
+}
+
+enum ClaseRegistroCalificacion {
+  oral
+  escrito
+  garantias
+  otros
+}
+
+model RegistroCalificacion {
+  id                String                    @id @default(auto()) @map("_id") @db.ObjectId
+  periodo           Int // Año del registro
+  despachoId        String                    @db.ObjectId
+  despacho          Despacho                  @relation(fields: [despachoId], references: [id])
+  funcionarioId     String                    @db.ObjectId
+  funcionario       Funcionario               @relation(fields: [funcionarioId], references: [id])
+  clase             ClaseRegistroCalificacion
+  categoria         String
+  desde             DateTime                  @db.Date
+  hasta             DateTime                  @db.Date
+  inventarioInicial Int
+  ingresoEfectivo   Int
+  cargaEfectiva     Int
+  egresoEfectivo    Int
+  conciliaciones    Int
+  inventarioFinal   Int
+  restan            Int
+}

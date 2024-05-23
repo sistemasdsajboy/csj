@@ -1,66 +1,18 @@
-import {
-	registroCalificacionDataSchema,
-	registroCalificacionDataSchemaColumns,
-	type RegistroCalificacion,
-	type RegistroCalificacionPage
-} from '$lib/db/schema';
+import type { Despacho, Funcionario, RegistroCalificacion } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
-import xlsx from 'node-xlsx';
-import z from 'zod';
 
-type WorkbookPage = { name: string; data: unknown[][] };
-
-type Workbook = Array<WorkbookPage>;
-
-export const getDespachoFromFileData = async (file: File): Promise<string> => {
-	const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
-	return woorkbook[0].data[0][0] as string;
-};
-
-export const getFileRawGradeData = async (file: File): Promise<Array<RegistroCalificacionPage>> => {
-	const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
-	return woorkbook.map(extractWorkbookPageData);
-};
-
-const consolidadoRowSchema = z.tuple([
-	z.string(),
-	z.string(),
-	z.coerce.date(),
-	z.coerce.date(),
-	z.number(),
-	z.number(),
-	z.number(),
-	z.number(),
-	z.number(),
-	z.number(),
-	z.undefined(),
-	z.undefined(),
-	z.number()
-]);
-
-const extractWorkbookPageData = (page: WorkbookPage) => {
-	const pageData = page.data
-		.map((data) => consolidadoRowSchema.safeParse(data))
-		.filter((parsed) => parsed.success)
-		.map((parsed) => parsed.data!.filter((value) => value !== undefined))
-		.map((data) =>
-			registroCalificacionDataSchema.parse(_.zipObject(registroCalificacionDataSchemaColumns, data))
-		);
-	return { name: page.name, data: pageData };
-};
-
-const getInventarioInicial = (data: Array<z.infer<typeof registroCalificacionDataSchema>>) => {
+const getInventarioInicial = (data: RegistroCalificacion[]) => {
 	const minDate = _.minBy(data, 'desde')?.desde;
 	return _.sumBy(data, (d) => (dayjs(d.desde).isSame(minDate) ? d.inventarioInicial : 0));
 };
 
-const getIngresoEfectivo = (data: Array<z.infer<typeof registroCalificacionDataSchema>>) => {
+const getIngresoEfectivo = (data: RegistroCalificacion[]) => {
 	return _.sumBy(data, (d) => d.ingresoEfectivo);
 };
 
 const getIngresoEfectivoUltimoPeriodo = (
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
+	data: RegistroCalificacion[],
 	excludedCategorias: Array<string>
 ) => {
 	const dataProcesos = data.filter((d) => !excludedCategorias.includes(d.categoria));
@@ -68,53 +20,44 @@ const getIngresoEfectivoUltimoPeriodo = (
 };
 
 const getInventarioFinalByCategoria = (
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
-	funcionario: string,
+	data: RegistroCalificacion[],
+	funcionarioId: string,
 	categorias: Array<string>
 ) => {
 	const maxDate = _.maxBy(data, 'desde')?.desde;
 	return _(data)
 		.filter(
 			(d) =>
-				d.funcionario === funcionario &&
+				d.funcionarioId === funcionarioId &&
 				categorias.includes(d.categoria) &&
 				dayjs(d.desde).isSame(maxDate)
 		)
 		.sumBy((d) => d.inventarioFinal);
 };
 
-const getEgresoFuncionario = (
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
-	funcionario: string
-) => {
+const getEgresoFuncionario = (data: RegistroCalificacion[], funcionarioId: string) => {
 	return _.sumBy(data, (d) =>
-		d.funcionario === funcionario ? d.egresoEfectivo + d.conciliaciones : 0
+		d.funcionarioId === funcionarioId ? d.egresoEfectivo + d.conciliaciones : 0
 	);
 };
 
-const getEgresoOtrosFuncionarios = (
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
-	funcionario: string
-) => {
+const getEgresoOtrosFuncionarios = (data: RegistroCalificacion[], funcionarioId: string) => {
 	return _.sumBy(data, (d) =>
-		dayjs(d.desde).month() < 9 && d.funcionario !== funcionario ? d.egresoEfectivo : 0
+		dayjs(d.desde).month() < 9 && d.funcionarioId !== funcionarioId ? d.egresoEfectivo : 0
 	);
 };
 
-const getCargaBaseCalificacionDespacho = (
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
-	funcionario: string
-) => {
+const getCargaBaseCalificacionDespacho = (data: RegistroCalificacion[]) => {
 	const totalInventarioInicial = getInventarioInicial(data);
 	const ingresoEfectivo = getIngresoEfectivo(data);
 	return totalInventarioInicial + ingresoEfectivo;
 };
 
 const getCargaBaseCalificacionDespachoOral = (
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>,
+	data: RegistroCalificacion[],
 	funcionario: string
 ) => {
-	const cargaBaseDespacho = getCargaBaseCalificacionDespacho(data, funcionario);
+	const cargaBaseDespacho = getCargaBaseCalificacionDespacho(data);
 	const ingresoEfectivoProcesosUltimoPeriodo = getIngresoEfectivoUltimoPeriodo(data, [
 		'Incidentes de Desacato',
 		'Movimiento de Tutelas'
@@ -127,15 +70,15 @@ const getCargaBaseCalificacionDespachoOral = (
 };
 
 const aggregatePageDataOral = (
-	funcionario: string,
+	funcionario: Funcionario,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>
+	data: RegistroCalificacion[]
 ) => {
 	const totalInventarioInicial = getInventarioInicial(data);
-	const egresoFuncionario = getEgresoFuncionario(data, funcionario);
-	const egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionario);
-	const cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespachoOral(data, funcionario);
+	const egresoFuncionario = getEgresoFuncionario(data, funcionario.id);
+	const egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionario.id);
+	const cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespachoOral(data, funcionario.id);
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
@@ -153,19 +96,19 @@ const aggregatePageDataOral = (
 };
 
 const aggregatePageDataGarantias = (
-	funcionario: string,
+	funcionario: Funcionario,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
-	data: Array<z.infer<typeof registroCalificacionDataSchema>>
+	data: RegistroCalificacion[]
 ) => {
 	const totalInventarioInicial = getInventarioInicial(data);
 	const egresoFuncionario = _.sumBy(data, (d) =>
-		d.funcionario === funcionario ? d.egresoEfectivo : 0
+		d.funcionarioId === funcionario.id ? d.egresoEfectivo : 0
 	);
 	const egresoOtrosFuncionarios = _.sumBy(data, (d) =>
-		dayjs(d.desde).month() < 9 && d.funcionario !== funcionario ? d.egresoEfectivo : 0
+		dayjs(d.desde).month() < 9 && d.funcionarioId !== funcionario.id ? d.egresoEfectivo : 0
 	);
-	const cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data, funcionario);
+	const cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data);
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
@@ -184,29 +127,31 @@ const aggregatePageDataGarantias = (
 	};
 };
 
-export function getFuncionarios(accumulatedData: Array<RegistroCalificacionPage>) {
-	const oralPage = accumulatedData.find((page) => page.name === 'Oral');
-	if (!oralPage) throw new Error('Página de "Oral" no encontrada');
-	return _.uniq(_.map(oralPage.data, 'funcionario'));
-}
+export async function generarCalificacionFuncionario(
+	registros: RegistroCalificacion[],
+	funcionario: Funcionario,
+	despachos: Despacho[]
+) {
+	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
+	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
 
-export function buildRendimientoGrades(registro: RegistroCalificacion, funcionario: string) {
-	const oralPage = registro.data.find((page) => page.name === 'Oral');
-	const garantiasPage = registro.data.find((page) => page.name === 'Garantias');
-	if (!oralPage || !garantiasPage)
+	if (!registrosOral.length || !registrosGarantias.length)
 		throw new Error('Información de "Oral" y "Garantías" incompleta.');
+
+	if (!despachos) throw new Error('Despacho no especificado');
 
 	// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
 	const TIPO_DESPACHO = 'Promiscuo Municipal';
 	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO
+
 	const AUDIENCIAS_PROGRAMADAS = 10 + 18 + 18; //60;
 	const AUDIENCIAS_ATENDIDAS = 8 + 14 + 12; // 60;
 	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 2 + 4 + 6; //0;
 	const AUDIENCIAS_APLAZADAS_JUSTIFICADAS = 0;
 	const AUDIENCIAS_APLAZADAS_NO_JUSTIFICADAS = 0;
 
-	const diasDescontados = registro.novedades
-		? registro.novedades.reduce((dias, novedad) => {
+	const diasDescontados = funcionario.novedades
+		? funcionario.novedades.reduce((dias, novedad) => {
 				return dias + novedad.days;
 			}, 0)
 		: 0;
@@ -217,14 +162,14 @@ export function buildRendimientoGrades(registro: RegistroCalificacion, funcionar
 		funcionario,
 		DIAS_HABILES_DESPACHO,
 		diasHabilesLaborados,
-		oralPage.data
+		registrosOral
 	);
 
 	const garantias = aggregatePageDataGarantias(
 		funcionario,
 		DIAS_HABILES_DESPACHO,
 		diasHabilesLaborados,
-		garantiasPage.data
+		registrosGarantias
 	);
 
 	const calificacionAudiencias =
