@@ -1,3 +1,5 @@
+import { db } from '$lib/db/client';
+import { countLaborDaysBetweenDates } from '$lib/utils/dates';
 import type { Despacho, Funcionario, RegistroCalificacion } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
@@ -69,7 +71,7 @@ const getCargaBaseCalificacionDespachoOral = (
 	return cargaBaseDespacho - ingresoEfectivoProcesosUltimoPeriodo - inventarioFinalTutelas;
 };
 
-const aggregatePageDataOral = (
+const generarResultadosOral = (
 	funcionario: Funcionario,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
@@ -95,7 +97,7 @@ const aggregatePageDataOral = (
 	};
 };
 
-const aggregatePageDataGarantias = (
+const generarResultadosGarantias = (
 	funcionario: Funcionario,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
@@ -126,6 +128,40 @@ const aggregatePageDataGarantias = (
 		subfactorGarantias
 	};
 };
+
+function generarConsolidado({
+	registros,
+	categorias = [],
+	incluir = true
+}: {
+	registros: RegistroCalificacion[];
+	categorias?: string[];
+	incluir?: boolean;
+}) {
+	const agrupadoPorCategoria = _(registros)
+		.filter((d) => (incluir ? categorias.includes(d.categoria) : !categorias.includes(d.categoria)))
+		.groupBy('desde')
+		.map((d) => ({
+			periodo: d[0].periodo,
+			despachoId: d[0].despachoId,
+			funcionarioId: d[0].funcionarioId,
+			clase: d[0].clase,
+			desde: d[0].desde,
+			hasta: d[0].hasta,
+			dias: countLaborDaysBetweenDates(d[0].desde, d[0].hasta),
+			inventarioInicial: _.sumBy(d, 'inventarioInicial'),
+			ingresoEfectivo: _.sumBy(d, 'ingresoEfectivo'),
+			cargaEfectiva: _.sumBy(d, 'cargaEfectiva'),
+			egresoEfectivo: _.sumBy(d, 'egresoEfectivo'),
+			conciliaciones: _.sumBy(d, 'conciliaciones'),
+			inventarioFinal: _.sumBy(d, 'inventarioFinal'),
+			restan: _.sumBy(d, 'restan')
+		}))
+		.sortBy('desde')
+		.value();
+
+	return agrupadoPorCategoria;
+}
 
 export async function generarCalificacionFuncionario(
 	registros: RegistroCalificacion[],
@@ -158,19 +194,30 @@ export async function generarCalificacionFuncionario(
 
 	const diasHabilesLaborados = DIAS_HABILES_DESPACHO - diasDescontados;
 
-	const oral = aggregatePageDataOral(
+	const oral = generarResultadosOral(
 		funcionario,
 		DIAS_HABILES_DESPACHO,
 		diasHabilesLaborados,
 		registrosOral
 	);
 
-	const garantias = aggregatePageDataGarantias(
+	const garantias = generarResultadosGarantias(
 		funcionario,
 		DIAS_HABILES_DESPACHO,
 		diasHabilesLaborados,
 		registrosGarantias
 	);
+
+	const consolidadoOrdinario = generarConsolidado({
+		registros: registrosOral,
+		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas'],
+		incluir: false
+	});
+
+	const consolidadoTutelas = generarConsolidado({
+		registros: registrosOral,
+		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas']
+	});
 
 	const calificacionAudiencias =
 		((AUDIENCIAS_ATENDIDAS +
@@ -184,7 +231,16 @@ export async function generarCalificacionFuncionario(
 	const calificacionTotalFactorEficiencia =
 		(factorEficienciaAudiencias + garantias.subfactorGarantias) / 2;
 
+	const funcionariosIds = _.uniqBy(registros, 'funcionarioId').map((r) => r.funcionarioId);
+	const funcionarios = await db.funcionario.findMany({
+		where: { id: { in: funcionariosIds } },
+		select: { id: true, nombre: true }
+	});
+
 	return {
+		funcionarios,
+		consolidadoOrdinario,
+		consolidadoTutelas,
 		oral,
 		garantias,
 		calificacionAudiencias,

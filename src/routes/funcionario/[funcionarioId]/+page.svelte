@@ -9,22 +9,11 @@
 </script>
 
 <PageLayout>
-	<span slot="header">Jueces</span>
+	<div slot="header" class="text-2xl font-bold">{data.funcionario.nombre} - {data.despacho}</div>
 
-	{#if data.funcionario}
-		<h1 class="bold text-lg">{data.funcionario.nombre}</h1>
-
-		<div class="flex flex-row w-full justify-between">
-			<div>
-				<NovedadesList novedades={data.funcionario.novedades} />
-				<NewNovedadForm />
-			</div>
-
-			<div>
-				<ResultadosCalificacionFuncionario {data} />
-			</div>
-		</div>
-	{:else}
-		<h1>Funcionario no encontrado</h1>
-	{/if}
+	<div class="container mx-auto px-4">
+		<NewNovedadForm />
+		<NovedadesList novedades={data.funcionario.novedades} />
+		<ResultadosCalificacionFuncionario {data} />
+	</div>
 </PageLayout>
