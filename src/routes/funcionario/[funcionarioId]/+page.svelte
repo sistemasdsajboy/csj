@@ -3,7 +3,6 @@
 	import type { PageData } from './$types';
 	import NewNovedadForm from './new-novedad-form.svelte';
 	import NewRegistroAudienciasForm from './new-registro-audiencias-form.svelte';
-	import NovedadesList from './novedades-list.svelte';
 	import ResultadosCalificacionFuncionario from './resultados-calificacion-funcionario.svelte';
 
 	export let data: PageData;
@@ -17,7 +16,6 @@
 	<div class="container mx-auto px-4">
 		<NewRegistroAudienciasForm despachoId={despacho.id} />
 		<NewNovedadForm />
-		<NovedadesList novedades={data.funcionario.novedades} />
 		<ResultadosCalificacionFuncionario {data} />
 	</div>
 </PageLayout>

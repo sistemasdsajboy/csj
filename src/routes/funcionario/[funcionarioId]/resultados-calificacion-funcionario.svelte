@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { formatDate } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
+	import NovedadesList from './novedades-list.svelte';
 
 	export let data: PageData;
 
@@ -28,6 +29,102 @@
 	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium">Días laborados</h3>
 		<p class="text-center text-xl font-bold">{c.diasHabilesLaborados}</p>
+	</div>
+</div>
+
+<div class="pt-4">
+	<NovedadesList novedades={data.funcionario.novedades} />
+</div>
+
+<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Oral</h3>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Total inventario inicial</h3>
+		<p class="text-center text-xl font-bold">{c.oral?.totalInventarioInicial}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Carga base del despacho modificada</h3>
+		<p class="text-center text-xl font-bold">{c.oral?.cargaBaseCalificacionDespacho}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Carga base del funcionario modificada</h3>
+		<p class="text-center text-xl font-bold">{c.oral?.cargaBaseCalificacionFuncionario}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Egreso del funcionario</h3>
+		<p class="text-center text-xl font-bold">{c.oral?.egresoFuncionario}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Carga proporcional</h3>
+		<p class="text-center text-xl font-bold">{c.oral?.cargaProporcional?.toFixed(2)}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Subfactor respuesta efectiva</h3>
+		<p class="text-center text-xl font-bold">{c.oral?.subfactorRespuestaEfectiva?.toFixed(2)}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Calificación final factor eficiencia</h3>
+		<p class="text-center text-xl font-bold text-sky-800">
+			{c.factorEficienciaAudiencias?.toFixed(2)}
+		</p>
+	</div>
+</div>
+
+<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Garantías</h3>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Total inventario inicial</h3>
+		<p class="text-center text-xl font-bold">{c.garantias?.totalInventarioInicial}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Carga base del despacho modificada</h3>
+		<p class="text-center text-xl font-bold">{c.garantias?.cargaBaseCalificacionDespacho}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Carga base del funcionario modificada</h3>
+		<p class="text-center text-xl font-bold">{c.garantias?.cargaBaseCalificacionFuncionario}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Egreso del funcionario</h3>
+		<p class="text-center text-xl font-bold">{c.garantias?.egresoFuncionario}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Carga proporcional</h3>
+		<p class="text-center text-xl font-bold">{c.garantias?.cargaProporcional?.toFixed(2)}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Subfactor garantías</h3>
+		<p class="text-center text-xl font-bold text-sky-800">
+			{c.garantias?.subfactorGarantias?.toFixed(2)}
+		</p>
+	</div>
+</div>
+
+<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Audiencias</h3>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Programadas</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.programadas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Realizadas</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.atendidas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Aplazadas por causas ajenas</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasAjenas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Aplazadas con justificación</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasJustificadas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Aplazadas sin justificación</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasNoJustificadas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Calificación audiencias</h3>
+		<p class="text-center text-xl font-bold text-sky-800">{c.calificacionAudiencias}</p>
 	</div>
 </div>
 
@@ -149,96 +246,4 @@
 			{/each}
 		</tbody>
 	</table>
-</div>
-
-<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Oral</h3>
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Total inventario inicial</h3>
-		<p class="text-center text-xl font-bold">{c.oral?.totalInventarioInicial}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Carga base del despacho modificada</h3>
-		<p class="text-center text-xl font-bold">{c.oral?.cargaBaseCalificacionDespacho}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Carga base del funcionario modificada</h3>
-		<p class="text-center text-xl font-bold">{c.oral?.cargaBaseCalificacionFuncionario}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Egreso del funcionario</h3>
-		<p class="text-center text-xl font-bold">{c.oral?.egresoFuncionario}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Carga proporcional</h3>
-		<p class="text-center text-xl font-bold">{c.oral?.cargaProporcional?.toFixed(2)}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Subfactor respuesta efectiva</h3>
-		<p class="text-center text-xl font-bold">{c.oral?.subfactorRespuestaEfectiva?.toFixed(2)}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Calificación final factor eficiencia</h3>
-		<p class="text-center text-xl font-bold text-sky-800">
-			{c.factorEficienciaAudiencias?.toFixed(2)}
-		</p>
-	</div>
-</div>
-
-<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Garantías</h3>
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Total inventario inicial</h3>
-		<p class="text-center text-xl font-bold">{c.garantias?.totalInventarioInicial}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Carga base del despacho modificada</h3>
-		<p class="text-center text-xl font-bold">{c.garantias?.cargaBaseCalificacionDespacho}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Carga base del funcionario modificada</h3>
-		<p class="text-center text-xl font-bold">{c.garantias?.cargaBaseCalificacionFuncionario}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Egreso del funcionario</h3>
-		<p class="text-center text-xl font-bold">{c.garantias?.egresoFuncionario}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Carga proporcional</h3>
-		<p class="text-center text-xl font-bold">{c.garantias?.cargaProporcional?.toFixed(2)}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Subfactor garantías</h3>
-		<p class="text-center text-xl font-bold text-sky-800">
-			{c.garantias?.subfactorGarantias?.toFixed(2)}
-		</p>
-	</div>
-</div>
-
-<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Audiencias</h3>
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Programadas</h3>
-		<p class="text-center text-xl font-bold">{c.audiencias?.programadas}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Realizadas</h3>
-		<p class="text-center text-xl font-bold">{c.audiencias?.atendidas}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Aplazadas por causas ajenas</h3>
-		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasAjenas}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Aplazadas con justificación</h3>
-		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasJustificadas}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Aplazadas sin justificación</h3>
-		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasNoJustificadas}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Calificación audiencias</h3>
-		<p class="text-center text-xl font-bold text-sky-800">{c.calificacionAudiencias}</p>
-	</div>
 </div>

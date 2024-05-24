@@ -6,7 +6,6 @@
 	let { novedades }: { novedades: NovedadFuncionario[] } = $props();
 </script>
 
-<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
 {#if novedades.length > 0}
 	<div class="overflow-x-auto">
 		<table class="table-auto border-collapse">
