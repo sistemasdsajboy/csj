@@ -1,0 +1,68 @@
+<script>
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+
+	const { despachoId } = $props();
+</script>
+
+<Dialog.Root>
+	<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>
+		Registro de audiencias
+	</Dialog.Trigger>
+	<Dialog.Content class="sm:max-w-[425px]">
+		<Dialog.Header>
+			<Dialog.Title>Nuevo registro de audiencias</Dialog.Title>
+			<Dialog.Description>
+				Información de totales de audiencias para el periodo.
+			</Dialog.Description>
+		</Dialog.Header>
+
+		<form method="post" action="?/addRegistroAudiencias">
+			<input type="hidden" name="despachoId" value={despachoId} />
+			<div class="grid grid-cols-3 gap-4 py-4">
+				<div class="flex w-full max-w-sm flex-col gap-1.5">
+					<Label for="programadas">Programadas</Label>
+					<Input type="number" name="programadas" value={0} required class="text-center" />
+				</div>
+				<div class="flex w-full max-w-sm flex-col gap-1.5">
+					<Label for="atendidas">Atendidas</Label>
+					<Input type="number" name="atendidas" value={0} required class="text-center" />
+				</div>
+			</div>
+
+			<Label for="aplazadasAjenas" class="text-bold text-lg">Aplazadas</Label>
+			<div class="grid grid-cols-3 gap-4 py-4">
+				<div class="flex w-full max-w-sm flex-col gap-1.5">
+					<Label for="aplazadasAjenas">Causas ajenas</Label>
+					<Input type="number" name="aplazadasAjenas" value={0} required class="text-center" />
+				</div>
+				<div class="flex w-full max-w-sm flex-col gap-1.5">
+					<Label for="aplazadasJustificadas">Justificadas</Label>
+					<Input
+						type="number"
+						name="aplazadasJustificadas"
+						value={0}
+						required
+						class="text-center"
+					/>
+				</div>
+				<div class="flex w-full max-w-sm flex-col gap-1.5">
+					<Label for="aplazadasNoJustificadas">No justificadas</Label>
+					<Input
+						type="number"
+						name="aplazadasNoJustificadas"
+						value={0}
+						required
+						class="text-center"
+					/>
+				</div>
+			</div>
+
+			<Dialog.Footer>
+				<Button type="submit">Guardar</Button>
+			</Dialog.Footer>
+		</form>
+	</Dialog.Content>
+</Dialog.Root>

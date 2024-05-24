@@ -17,6 +17,7 @@ model Despacho {
   municipio             String?
   distrito              String?
   registrosCalificacion RegistroCalificacion[]
+  registrosAudiencias   RegistroAudiencias[]
 }
 
 model Funcionario {
@@ -40,6 +41,18 @@ enum ClaseRegistroCalificacion {
   escrito
   garantias
   otros
+}
+
+model RegistroAudiencias {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  periodo                 Int // Año del registro
+  despachoId              String   @db.ObjectId
+  despacho                Despacho @relation(fields: [despachoId], references: [id])
+  programadas             Int
+  atendidas               Int
+  aplazadasAjenas         Int
+  aplazadasJustificadas   Int
+  aplazadasNoJustificadas Int
 }
 
 model RegistroCalificacion {

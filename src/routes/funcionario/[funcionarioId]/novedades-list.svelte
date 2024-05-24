@@ -34,7 +34,7 @@
 							<Badge variant="secondary">{formatDate(novedad.from)}-{formatDate(novedad.to)}</Badge>
 						</td>
 						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{novedad.days}</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">
+						<td class="px-2 text-gray-900 dark:text-gray-100">
 							{novedad.notes}
 						</td>
 					</tr>

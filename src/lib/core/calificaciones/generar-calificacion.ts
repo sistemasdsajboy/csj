@@ -163,6 +163,11 @@ function generarConsolidado({
 	return agrupadoPorCategoria;
 }
 
+// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
+const TIPO_DESPACHO = 'Promiscuo Municipal';
+const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO Y DEL AÑO
+const PERIODO = 2023; // TODO: Modificar para permitir el registro de periodos diferentes a 2023
+
 export async function generarCalificacionFuncionario(
 	registros: RegistroCalificacion[],
 	funcionario: Funcionario,
@@ -174,17 +179,12 @@ export async function generarCalificacionFuncionario(
 	if (!registrosOral.length || !registrosGarantias.length)
 		throw new Error('Información de "Oral" y "Garantías" incompleta.');
 
-	if (!despachos) throw new Error('Despacho no especificado');
+	if (!despachos.length) throw new Error('Despacho no especificado');
 
-	// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
-	const TIPO_DESPACHO = 'Promiscuo Municipal';
-	const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO
-
-	const AUDIENCIAS_PROGRAMADAS = 10 + 18 + 18; //60;
-	const AUDIENCIAS_ATENDIDAS = 8 + 14 + 12; // 60;
-	const AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS = 2 + 4 + 6; //0;
-	const AUDIENCIAS_APLAZADAS_JUSTIFICADAS = 0;
-	const AUDIENCIAS_APLAZADAS_NO_JUSTIFICADAS = 0;
+	const despacho = despachos[0]; // TODO: Gestión de múltiples despachos por funcionario
+	const audiencias = await db.registroAudiencias.findFirst({
+		where: { despachoId: despacho.id, periodo: PERIODO }
+	});
 
 	const diasDescontados = funcionario.novedades
 		? funcionario.novedades.reduce((dias, novedad) => {
@@ -219,12 +219,11 @@ export async function generarCalificacionFuncionario(
 		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas']
 	});
 
-	const calificacionAudiencias =
-		((AUDIENCIAS_ATENDIDAS +
-			AUDIENCIAS_APLAZADAS_CAUSAS_AJENAS +
-			AUDIENCIAS_APLAZADAS_JUSTIFICADAS) /
-			AUDIENCIAS_PROGRAMADAS) *
-		5;
+	const calificacionAudiencias = audiencias
+		? ((audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas) /
+				audiencias.programadas) *
+			5
+		: 0;
 
 	const factorEficienciaAudiencias = oral.subfactorRespuestaEfectiva + calificacionAudiencias;
 
@@ -248,6 +247,7 @@ export async function generarCalificacionFuncionario(
 		calificacionTotalFactorEficiencia,
 		diasHabilesDespacho: DIAS_HABILES_DESPACHO,
 		diasDescontados,
-		diasHabilesLaborados
+		diasHabilesLaborados,
+		audiencias
 	};
 }

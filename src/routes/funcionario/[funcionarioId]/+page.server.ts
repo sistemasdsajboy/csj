@@ -3,6 +3,7 @@ import { db } from '$lib/db/client';
 import { countLaborDaysBetweenDates } from '$lib/utils/dates';
 import { error } from '@sveltejs/kit';
 import _ from 'lodash';
+import { z } from 'zod';
 import type { PageServerLoad } from './$types';
 
 export const load = (async ({ params }) => {
@@ -29,7 +30,7 @@ export const load = (async ({ params }) => {
 		despachos
 	);
 
-	return { funcionario, calificacion, despacho: despachos[0].nombre };
+	return { funcionario, calificacion, despachos };
 }) satisfies PageServerLoad;
 
 export const actions = {
@@ -54,5 +55,35 @@ export const actions = {
 			if (error instanceof Error) return { success: false, error: error.message };
 			return { success: false, error: 'Ha ocurrido un error inesperado' };
 		}
+	},
+
+	addRegistroAudiencias: async ({ request, params }) => {
+		const formData = Object.fromEntries(await request.formData());
+
+		const registroAudienciaSchema = z.object({
+			despachoId: z.string(),
+			periodo: z.coerce.number().default(2023),
+			programadas: z.coerce.number(),
+			atendidas: z.coerce.number(),
+			aplazadasAjenas: z.coerce.number(),
+			aplazadasJustificadas: z.coerce.number(),
+			aplazadasNoJustificadas: z.coerce.number()
+		});
+
+		const { success, data } = registroAudienciaSchema.safeParse(formData);
+		if (!success) return { success: false, error: 'Datos de registro no válidos' };
+
+		const existente = await db.registroAudiencias.findFirst({
+			where: { despachoId: data.despachoId, periodo: data.periodo }
+		});
+		if (existente)
+			return {
+				success: false,
+				error: `Ya existe un registro de ${data.periodo} para este despacho.`
+			};
+
+		await db.registroAudiencias.create({ data });
+
+		return { success: true };
 	}
 };

@@ -26,7 +26,7 @@
 		{ value: 'permiso-sindical', label: 'Permiso sindical' },
 		{ value: 'vacaciones', label: 'Vacaciones' },
 		{ value: 'vacancia', label: 'Vacancia judicial' },
-		{ value: 'vacancia', label: 'Otras novedades' }
+		{ value: 'otras', label: 'Otras novedades' }
 	];
 </script>
 

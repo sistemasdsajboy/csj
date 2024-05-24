@@ -16,7 +16,7 @@
 </h3>
 
 <h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium">Días hábiles del despacho</h3>
 		<p class="text-center text-xl font-bold">{c.diasHabilesDespacho}</p>
@@ -152,7 +152,7 @@
 </div>
 
 <h3 class="bold pt-8 text-2xl font-bold text-slate-800">Oral</h3>
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
 	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium">Total inventario inicial</h3>
 		<p class="text-center text-xl font-bold">{c.oral?.totalInventarioInicial}</p>
@@ -178,17 +178,15 @@
 		<p class="text-center text-xl font-bold">{c.oral?.subfactorRespuestaEfectiva?.toFixed(2)}</p>
 	</div>
 	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
-		<h3 class="text-md mb-2 font-medium">Calificación audiencias</h3>
-		<p class="text-center text-xl font-bold">{c.calificacionAudiencias}</p>
-	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium">Calificación final factor eficiencia</h3>
-		<p class="text-center text-xl font-bold text-sky-800">{c.factorEficienciaAudiencias?.toFixed(2)}</p>
+		<p class="text-center text-xl font-bold text-sky-800">
+			{c.factorEficienciaAudiencias?.toFixed(2)}
+		</p>
 	</div>
 </div>
 
 <h3 class="bold pt-8 text-2xl font-bold text-slate-800">Garantías</h3>
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium">Total inventario inicial</h3>
 		<p class="text-center text-xl font-bold">{c.garantias?.totalInventarioInicial}</p>
@@ -211,6 +209,36 @@
 	</div>
 	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium">Subfactor garantías</h3>
-		<p class="text-center text-xl font-bold text-sky-800">{c.garantias?.subfactorGarantias?.toFixed(2)}</p>
+		<p class="text-center text-xl font-bold text-sky-800">
+			{c.garantias?.subfactorGarantias?.toFixed(2)}
+		</p>
+	</div>
+</div>
+
+<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Audiencias</h3>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Programadas</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.programadas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Realizadas</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.atendidas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Aplazadas por causas ajenas</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasAjenas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Aplazadas con justificación</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasJustificadas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Aplazadas sin justificación</h3>
+		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasNoJustificadas}</p>
+	</div>
+	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium">Calificación audiencias</h3>
+		<p class="text-center text-xl font-bold text-sky-800">{c.calificacionAudiencias}</p>
 	</div>
 </div>
