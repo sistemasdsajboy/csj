@@ -92,4 +92,6 @@ export const countLaborDaysBetweenDates = (from: Date, to: Date) => {
 	return count;
 };
 
-export const formatDate = (date: Date) => dayjs(date).format('DD/MM/YYYY');
+// TODO: Just using .format('DD/MM/YYYY') on the db date cause some dates to be shown as the previous day.
+export const formatDate = (date: Date) =>
+	dayjs(date.toISOString().slice(0, 10)).endOf('day').format('DD/MM/YYYY');
