@@ -6,6 +6,10 @@
 </script>
 
 <PageLayout>
+	<div slot="userInfo">
+		{data.user} <a href="/logout" class="text-sky-800 underline">Salir</a>
+	</div>
+
 	<div slot="sidebar" class="max-w-md">
 		<FileLoader />
 		{#if !form?.success && form?.error}

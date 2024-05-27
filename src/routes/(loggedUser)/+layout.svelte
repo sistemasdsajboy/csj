@@ -1,8 +1,8 @@
 <script lang="ts">
-	import '../app.css';
+	import '../../app.css';
 </script>
 
-<div class="h-full flex flex-col">
+<div class="flex h-full flex-col">
 	<slot />
 </div>
 

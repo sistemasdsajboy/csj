@@ -3,16 +3,19 @@ import { db } from '$lib/db/client';
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load = (async () => {
+export const load = (async ({ locals }) => {
 	const funcionarios = await db.funcionario.findMany({
 		orderBy: { nombre: 'asc' }
 	});
+
 	return { funcionarios };
 }) satisfies PageServerLoad;
 
 export const actions = {
-	loadFile: async ({ request }) => {
+	loadFile: async ({ request, locals }) => {
 		try {
+			if (!locals.user) return fail(401, { message: 'No autorizado' });
+
 			const data = await request.formData();
 			const file = data.get('file') as File;
 			if (!file.name)

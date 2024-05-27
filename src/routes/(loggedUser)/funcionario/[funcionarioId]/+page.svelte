@@ -11,6 +11,10 @@
 </script>
 
 <PageLayout>
+	<div slot="userInfo">
+		{data.user} <a href="/logout" class="text-sky-800 underline">Salir</a>
+	</div>
+
 	<div slot="header" class="text-2xl font-bold">{data.funcionario.nombre} - {despacho.nombre}</div>
 
 	<div class="container mx-auto px-4">

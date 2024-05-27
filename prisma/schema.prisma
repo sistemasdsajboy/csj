@@ -7,6 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  username          String
+  password          String
+  passwordExpiresAt DateTime
+  sessions          Session[]
+}
+
+model Session {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
+  expiresAt DateTime
+  username  String
+}
+
 model Despacho {
   id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
   codigo                String

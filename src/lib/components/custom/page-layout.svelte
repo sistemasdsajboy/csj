@@ -11,8 +11,8 @@
 			<slot name="header" />
 		</h1>
 	{/if}
-	<div class="flex space-x-2 sm:justify-end">
-		<!-- SEARCH TOOL AND USER OPTIONS -->
+	<div class="flex space-x-2 sm:justify-end grow">
+		<slot name="userInfo" />
 	</div>
 </div>
 
