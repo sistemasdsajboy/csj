@@ -1,5 +1,6 @@
 import { db } from '$lib/db/client';
 import { lucia } from '$lib/server/auth';
+import { sendEmail } from '$lib/server/email.js';
 import { hash, verify } from '@node-rs/argon2';
 import { fail, redirect } from '@sveltejs/kit';
 import dayjs from 'dayjs';
@@ -30,8 +31,17 @@ export const actions = {
 		const password = Math.floor(100000 + Math.random() * 900000).toString();
 		const passwordHash = await hash(password, passwordHashOptions);
 
-		// TODO: SEND EMAIL CODE
-		console.log({ username, password });
+		const to = `${username}@cendoj.ramajudicial.gov.co`;
+		const html = `
+<h1>Inicio de sesión</h1>
+<p>Aplicación de calificaciones</p>
+<p>Consejo Seccional de la Judicatura - Boyacá y Casanare</p>
+<hr/>
+<p>Usuario: ${username}@cendoj.ramajudicial.gov.co</p>
+<p>Código: ${password}</p>`;
+		const sentEmailId = sendEmail({ subject: 'Inicio de sesión', to, html });
+		if (!sentEmailId)
+			return fail(500, { message: 'Error al enviar correo electrónico con el código de acceso.' });
 
 		let user = await db.user.findFirst({ where: { username } });
 		const passwordExpiresAt = dayjs().add(10, 'minutes').toDate();
