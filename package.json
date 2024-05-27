@@ -12,7 +12,8 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test:integration": "playwright test",
-		"test:unit": "vitest"
+		"test:unit": "vitest",
+		"postinstall": "prisma generate"
 	},
 	"devDependencies": {
 		"@lucia-auth/adapter-prisma": "^4.0.1",
