@@ -23,13 +23,28 @@ model Session {
   username  String
 }
 
+enum EspecialidadDespacho {
+  Promiscuo
+  Penal
+  Civil
+  Familia
+  Laboral
+  Administrativo
+}
+
+enum CategoriaDespacho {
+  Municipal
+  Circuito
+  Tribunal
+}
+
 model Despacho {
   id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
   codigo                String
   nombre                String
   numero                Int?
-  especialidad          String?
-  categoria             String?
+  especialidad          EspecialidadDespacho?
+  categoria             CategoriaDespacho?
   municipio             String?
   distrito              String?
   registrosCalificacion RegistroCalificacion[]

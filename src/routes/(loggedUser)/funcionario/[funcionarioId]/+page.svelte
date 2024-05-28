@@ -1,11 +1,9 @@
 <script lang="ts">
 	import PageLayout from '$lib/components/custom/page-layout.svelte';
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import type { PageData } from './$types';
 	import NewNovedadForm from './new-novedad-form.svelte';
 	import NewRegistroAudienciasForm from './new-registro-audiencias-form.svelte';
 	import ResultadosCalificacionFuncionario from './resultados-calificacion-funcionario.svelte';
-	import { Button } from '$lib/components/ui/button';
 
 	export let data: PageData;
 
@@ -13,10 +11,9 @@
 </script>
 
 {#snippet header()}
-	<Button variant="link" href="/">
-		<ArrowLeft class="h-6 w-6" />
-	</Button>
-	<div class="text-2xl font-bold">{data.funcionario.nombre} - {despacho.nombre}</div>
+	<div class="text-2xl font-bold">
+		{data.funcionario.nombre} - <a href="/despacho/{despacho.id}">{despacho.nombre}</a>
+	</div>
 {/snippet}
 
 <PageLayout {header} username={data.user}>
