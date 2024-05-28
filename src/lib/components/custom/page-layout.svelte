@@ -24,7 +24,7 @@
 {/snippet}
 
 <div
-	class="container flex flex-col items-start justify-between space-y-2 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16"
+	class="container flex flex-col items-start justify-between space-y-2 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16 print:hidden border border-b-slate-300"
 >
 	<div class="flex grow items-center gap-2 text-lg font-bold uppercase">
 		{#if url.pathname !== '/'}
@@ -40,8 +40,6 @@
 		{@render userInfo()}
 	</div>
 </div>
-
-<Separator />
 
 <div class="container h-full py-6">
 	<div class="grid h-full items-stretch gap-6 md:grid-cols-[1fr_320px]">

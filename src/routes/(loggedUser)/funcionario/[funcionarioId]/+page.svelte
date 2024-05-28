@@ -18,8 +18,10 @@
 
 <PageLayout {header} username={data.user}>
 	<div class="container mx-auto px-4">
-		<NewRegistroAudienciasForm despachoId={despacho.id} />
-		<NewNovedadForm />
+		<div class="print:hidden">
+			<NewRegistroAudienciasForm despachoId={despacho.id} />
+			<NewNovedadForm />
+		</div>
 		<ResultadosCalificacionFuncionario {data} />
 	</div>
 </PageLayout>

@@ -254,6 +254,7 @@ export async function generarCalificacionFuncionario(
 
 	return {
 		funcionarios,
+		periodo: PERIODO,
 		consolidadoOrdinario,
 		consolidadoTutelas,
 		oral,
