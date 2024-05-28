@@ -163,10 +163,24 @@ function generarConsolidado({
 	return agrupadoPorCategoria;
 }
 
-// TODO: CALCULAR/SOLICITAR VALORES DE ESTAS CONSTANTES
-const TIPO_DESPACHO = 'Promiscuo Municipal';
-const DIAS_HABILES_DESPACHO = 227; // DEPENDE DEL TIPO DE DESPACHO Y DEL AÑO
 const PERIODO = 2023; // TODO: Modificar para permitir el registro de periodos diferentes a 2023
+
+function getDiasHabilesPorTipoDespacho(despacho: Despacho, periodo: number) {
+	const diasHabilesPeriodo = countLaborDaysBetweenDates(
+		new Date(periodo, 0, 1),
+		new Date(periodo, 11, 31)
+	);
+
+	if (despacho.categoria === 'Municipal') {
+		if (despacho.especialidad === 'Promiscuo') return diasHabilesPeriodo;
+	} else if (despacho.categoria === 'Circuito') {
+	} else if (despacho.categoria === 'Tribunal') {
+	}
+	// TODO: PENDIENTE IMPLEMENTACION DE CALCULO DE DIAS LABORALES AL AÑO 
+	// PARA OTROS TIPOS DE DESPACHO
+
+	return 0;
+}
 
 export async function generarCalificacionFuncionario(
 	registros: RegistroCalificacion[],
@@ -186,24 +200,26 @@ export async function generarCalificacionFuncionario(
 		where: { despachoId: despacho.id, periodo: PERIODO }
 	});
 
+	const diasHabilesDespacho = getDiasHabilesPorTipoDespacho(despacho, PERIODO);
+
 	const diasDescontados = funcionario.novedades
 		? funcionario.novedades.reduce((dias, novedad) => {
 				return dias + novedad.days;
 			}, 0)
 		: 0;
 
-	const diasHabilesLaborados = DIAS_HABILES_DESPACHO - diasDescontados;
+	const diasHabilesLaborados = diasHabilesDespacho - diasDescontados;
 
 	const oral = generarResultadosOral(
 		funcionario,
-		DIAS_HABILES_DESPACHO,
+		diasHabilesDespacho,
 		diasHabilesLaborados,
 		registrosOral
 	);
 
 	const garantias = generarResultadosGarantias(
 		funcionario,
-		DIAS_HABILES_DESPACHO,
+		diasHabilesDespacho,
 		diasHabilesLaborados,
 		registrosGarantias
 	);
@@ -245,7 +261,7 @@ export async function generarCalificacionFuncionario(
 		calificacionAudiencias,
 		factorEficienciaAudiencias,
 		calificacionTotalFactorEficiencia,
-		diasHabilesDespacho: DIAS_HABILES_DESPACHO,
+		diasHabilesDespacho,
 		diasDescontados,
 		diasHabilesLaborados,
 		audiencias
