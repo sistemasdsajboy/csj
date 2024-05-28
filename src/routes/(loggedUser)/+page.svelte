@@ -5,18 +5,20 @@
 	const { data, form } = $props();
 </script>
 
-<PageLayout>
-	<div slot="userInfo">
-		{data.user} <a href="/logout" class="text-sky-800 underline">Salir</a>
-	</div>
+{#snippet header()}
+	<h1 class="grow text-lg font-bold uppercase">Calificaciones</h1>
+{/snippet}
 
-	<div slot="sidebar" class="max-w-md">
+{#snippet sidebar()}
+	<div class="max-w-md">
 		<FileLoader />
 		{#if !form?.success && form?.error}
 			<div>{form.error}</div>
 		{/if}
 	</div>
+{/snippet}
 
+<PageLayout {header} {sidebar} username={data.user}>
 	<div>
 		{#each data.funcionarios as funcionario}
 			<div>
