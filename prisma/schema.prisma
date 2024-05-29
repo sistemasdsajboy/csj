@@ -26,8 +26,14 @@ model Session {
 enum EspecialidadDespacho {
   Promiscuo
   Penal
+  PenalAdolescentes
+  PenalConocimiento
+  PenalGarantias
+  PenalMixto
+  EjecucionPenas
   Civil
   Familia
+  FamiliaPromiscuo
   Laboral
   Administrativo
 }

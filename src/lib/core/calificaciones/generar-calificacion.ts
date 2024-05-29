@@ -1,5 +1,12 @@
 import { db } from '$lib/db/client';
-import { countLaborDaysBetweenDates } from '$lib/utils/dates';
+import {
+	countLaborDaysBetweenDates,
+	diaJusticia,
+	festivosPorMes,
+	mergeExcludedDates,
+	semanaSantaCompleta,
+	vacanciaJudicial
+} from '$lib/utils/dates';
 import type { Despacho, Funcionario, RegistroCalificacion } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
@@ -130,10 +137,12 @@ const generarResultadosGarantias = (
 };
 
 function generarConsolidado({
+	diasNoHabiles,
 	registros,
 	categorias = [],
 	incluir = true
 }: {
+	diasNoHabiles: Record<string, Array<number>>;
 	registros: RegistroCalificacion[];
 	categorias?: string[];
 	incluir?: boolean;
@@ -148,7 +157,7 @@ function generarConsolidado({
 			clase: d[0].clase,
 			desde: d[0].desde,
 			hasta: d[0].hasta,
-			dias: countLaborDaysBetweenDates(d[0].desde, d[0].hasta),
+			dias: countLaborDaysBetweenDates(diasNoHabiles, d[0].desde, d[0].hasta),
 			inventarioInicial: _.sumBy(d, 'inventarioInicial'),
 			ingresoEfectivo: _.sumBy(d, 'ingresoEfectivo'),
 			cargaEfectiva: _.sumBy(d, 'cargaEfectiva'),
@@ -165,21 +174,21 @@ function generarConsolidado({
 
 const PERIODO = 2023; // TODO: Modificar para permitir el registro de periodos diferentes a 2023
 
-function getDiasHabilesPorTipoDespacho(despacho: Despacho, periodo: number) {
-	const diasHabilesPeriodo = countLaborDaysBetweenDates(
-		new Date(periodo, 0, 1),
-		new Date(periodo, 11, 31)
-	);
+function getDiasFestivosPorDespacho(despacho: Despacho) {
+	const { especialidad, categoria } = despacho;
+	if (especialidad === 'EjecucionPenas' || especialidad === 'FamiliaPromiscuo')
+		return mergeExcludedDates(festivosPorMes, diaJusticia);
 
-	if (despacho.categoria === 'Municipal') {
-		if (despacho.especialidad === 'Promiscuo') return diasHabilesPeriodo;
-	} else if (despacho.categoria === 'Circuito') {
-	} else if (despacho.categoria === 'Tribunal') {
-	}
-	// TODO: PENDIENTE IMPLEMENTACION DE CALCULO DE DIAS LABORALES AL AÑO 
-	// PARA OTROS TIPOS DE DESPACHO
+	if (
+		categoria === 'Municipal' &&
+		(especialidad === 'PenalAdolescentes' ||
+			especialidad === 'PenalGarantias' ||
+			especialidad === 'PenalConocimiento' ||
+			especialidad === 'PenalMixto')
+	)
+		return mergeExcludedDates(festivosPorMes, diaJusticia, semanaSantaCompleta);
 
-	return 0;
+	return mergeExcludedDates(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
 export async function generarCalificacionFuncionario(
@@ -200,7 +209,12 @@ export async function generarCalificacionFuncionario(
 		where: { despachoId: despacho.id, periodo: PERIODO }
 	});
 
-	const diasHabilesDespacho = getDiasHabilesPorTipoDespacho(despacho, PERIODO);
+	const diasNoHabilesDespacho = getDiasFestivosPorDespacho(despacho);
+	const diasHabilesDespacho = countLaborDaysBetweenDates(
+		diasNoHabilesDespacho,
+		new Date(PERIODO, 0, 1),
+		new Date(PERIODO, 11, 31)
+	);
 
 	const diasDescontados = funcionario.novedades
 		? funcionario.novedades.reduce((dias, novedad) => {
@@ -225,12 +239,14 @@ export async function generarCalificacionFuncionario(
 	);
 
 	const consolidadoOrdinario = generarConsolidado({
+		diasNoHabiles: diasNoHabilesDespacho,
 		registros: registrosOral,
 		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas'],
 		incluir: false
 	});
 
 	const consolidadoTutelas = generarConsolidado({
+		diasNoHabiles: diasNoHabilesDespacho,
 		registros: registrosOral,
 		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas']
 	});

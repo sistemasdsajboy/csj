@@ -9,7 +9,21 @@
 	export let data: PageData;
 	const despacho = data.despacho;
 
-	const especialidades = ['Promiscuo', 'Penal', 'Civil', 'Familia', 'Laboral', 'Administrativo'];
+	const especialidades = [
+		'Administrativo',
+		'Civil',
+		'EjecucionPenas',
+		'Familia',
+		'FamiliaPromiscuo',
+		'Laboral',
+		'Penal',
+		'PenalAdolescentes',
+		'PenalConocimiento',
+		'PenalGarantias',
+		'PenalMixto',
+		'Promiscuo'
+	];
+
 	const categorias = ['Municipal', 'Circuito', 'Tribunal'];
 </script>
 
