@@ -8,15 +8,11 @@
 </script>
 
 <Dialog.Root>
-	<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>
-		Registro de audiencias
-	</Dialog.Trigger>
+	<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>Audiencias</Dialog.Trigger>
 	<Dialog.Content class="sm:max-w-[425px]">
 		<Dialog.Header>
-			<Dialog.Title>Nuevo registro de audiencias</Dialog.Title>
-			<Dialog.Description>
-				Información de totales de audiencias para el periodo.
-			</Dialog.Description>
+			<Dialog.Title>Información de audiencias</Dialog.Title>
+			<Dialog.Description>Información de totales de audiencias para el periodo.</Dialog.Description>
 		</Dialog.Header>
 
 		<form method="post" action="?/addRegistroAudiencias">

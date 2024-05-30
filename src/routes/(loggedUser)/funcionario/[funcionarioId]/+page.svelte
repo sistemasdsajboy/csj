@@ -18,7 +18,7 @@
 
 <PageLayout {header} username={data.user}>
 	<div class="container mx-auto px-4">
-		<div class="print:hidden">
+		<div class="text-right print:hidden">
 			<NewRegistroAudienciasForm despachoId={despacho.id} />
 			<NewNovedadForm />
 		</div>

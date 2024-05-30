@@ -140,15 +140,20 @@ function generarConsolidado({
 	diasNoHabiles,
 	registros,
 	categorias = [],
-	incluir = true
+	excluirCategorias = false
 }: {
 	diasNoHabiles: Record<string, Array<number>>;
 	registros: RegistroCalificacion[];
 	categorias?: string[];
-	incluir?: boolean;
+	excluirCategorias?: boolean;
 }) {
 	const agrupadoPorCategoria = _(registros)
-		.filter((d) => (incluir ? categorias.includes(d.categoria) : !categorias.includes(d.categoria)))
+		.filter((d) => {
+			if (categorias.length === 0) return true;
+			return excluirCategorias
+				? !categorias.includes(d.categoria)
+				: categorias.includes(d.categoria);
+		})
 		.groupBy('desde')
 		.map((d) => ({
 			periodo: d[0].periodo,
@@ -198,6 +203,8 @@ export async function generarCalificacionFuncionario(
 ) {
 	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
 	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
+	const registrosEscrito = registros.filter((registro) => registro.clase === 'escrito');
+	const registrosOtros = registros.filter((registro) => registro.clase === 'otros');
 
 	if (!registrosOral.length || !registrosGarantias.length)
 		throw new Error('Información de "Oral" y "Garantías" incompleta.');
@@ -209,9 +216,9 @@ export async function generarCalificacionFuncionario(
 		where: { despachoId: despacho.id, periodo: PERIODO }
 	});
 
-	const diasNoHabilesDespacho = getDiasFestivosPorDespacho(despacho);
+	const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
 	const diasHabilesDespacho = countLaborDaysBetweenDates(
-		diasNoHabilesDespacho,
+		diasNoHabiles,
 		new Date(PERIODO, 0, 1),
 		new Date(PERIODO, 11, 31)
 	);
@@ -239,17 +246,19 @@ export async function generarCalificacionFuncionario(
 	);
 
 	const consolidadoOrdinario = generarConsolidado({
-		diasNoHabiles: diasNoHabilesDespacho,
+		diasNoHabiles,
 		registros: registrosOral,
 		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas'],
-		incluir: false
+		excluirCategorias: true
 	});
-
 	const consolidadoTutelas = generarConsolidado({
-		diasNoHabiles: diasNoHabilesDespacho,
+		diasNoHabiles,
 		registros: registrosOral,
 		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas']
 	});
+	const consolidadoGarantias = generarConsolidado({ diasNoHabiles, registros: registrosGarantias });
+	const consolidadoEscrito = generarConsolidado({ diasNoHabiles, registros: registrosEscrito });
+	const consolidadoOtros = generarConsolidado({ diasNoHabiles, registros: registrosOtros });
 
 	const calificacionAudiencias = audiencias
 		? ((audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas) /
@@ -272,7 +281,10 @@ export async function generarCalificacionFuncionario(
 		funcionarios,
 		periodo: PERIODO,
 		consolidadoOrdinario,
+		consolidadoGarantias,
 		consolidadoTutelas,
+		consolidadoEscrito,
+		consolidadoOtros,
 		oral,
 		garantias,
 		calificacionAudiencias,
