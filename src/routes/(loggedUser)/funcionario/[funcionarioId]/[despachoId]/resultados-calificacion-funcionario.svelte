@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import { formatDate } from '$lib/utils/dates';
-	import type { PageData } from './$types';
+	import type { PageData } from '../$types';
 	import NovedadesList from './novedades-list.svelte';
 
-	export let data: PageData;
-
-	const c = data.calificacion;
+	const { data } = $props();
 </script>
 
 <h1 class="hidden text-3xl font-bold print:block">{data.funcionario?.nombre}</h1>
@@ -19,15 +17,15 @@
 
 <h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Días hábiles del despacho</h3>
 		<p class="text-center text-xl font-bold">{c.diasHabilesDespacho}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Días descontados</h3>
 		<p class="text-center text-xl font-bold">{c.diasDescontados}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Días laborados</h3>
 		<p class="text-center text-xl font-bold">{c.diasHabilesLaborados}</p>
 	</div>
@@ -159,38 +157,38 @@
 </div>
 
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 print:grid-cols-7">
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Total inventario inicial</h3>
 		<p class="text-center text-xl font-bold">{c.oral?.totalInventarioInicial}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Carga base del despacho modificada</h3>
 		<p class="text-center text-xl font-bold">{c.oral?.cargaBaseCalificacionDespacho}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">
 			Carga base del funcionario modificada
 		</h3>
 		<p class="text-center text-xl font-bold">{c.oral?.cargaBaseCalificacionFuncionario}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Egreso del funcionario</h3>
 		<p class="text-center text-xl font-bold">{c.oral?.egresoFuncionario}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Carga proporcional</h3>
 		<p class="text-center text-xl font-bold">{c.oral?.cargaProporcional?.toFixed(2)}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Subfactor respuesta efectiva</h3>
 		<p class="text-center text-xl font-bold">{c.oral?.subfactorRespuestaEfectiva?.toFixed(2)}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">
 			Calificación final factor eficiencia
 		</h3>
 		<p class="text-center text-3xl font-bold text-sky-800">
-			{c.factorEficienciaAudiencias?.toFixed(2)}
+			{c.factorOralMasAudiencias?.toFixed(2)}
 		</p>
 	</div>
 </div>
@@ -256,29 +254,29 @@
 </div>
 
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Total inventario inicial</h3>
 		<p class="text-center text-xl font-bold">{c.garantias?.totalInventarioInicial}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Carga base del despacho modificada</h3>
 		<p class="text-center text-xl font-bold">{c.garantias?.cargaBaseCalificacionDespacho}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">
 			Carga base del funcionario modificada
 		</h3>
 		<p class="text-center text-xl font-bold">{c.garantias?.cargaBaseCalificacionFuncionario}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Egreso del funcionario</h3>
 		<p class="text-center text-xl font-bold">{c.garantias?.egresoFuncionario}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Carga proporcional</h3>
 		<p class="text-center text-xl font-bold">{c.garantias?.cargaProporcional?.toFixed(2)}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Subfactor garantías</h3>
 		<p class="text-center text-3xl font-bold text-sky-800">
 			{c.garantias?.subfactorGarantias?.toFixed(2)}
@@ -408,27 +406,27 @@
 
 <h3 class="bold pt-8 text-2xl font-bold text-slate-800">Audiencias</h3>
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Programadas</h3>
 		<p class="text-center text-xl font-bold">{c.audiencias?.programadas}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Realizadas</h3>
 		<p class="text-center text-xl font-bold">{c.audiencias?.atendidas}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Aplazadas por causas ajenas</h3>
 		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasAjenas}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Aplazadas con justificación</h3>
 		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasJustificadas}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Aplazadas sin justificación</h3>
 		<p class="text-center text-xl font-bold">{c.audiencias?.aplazadasNoJustificadas}</p>
 	</div>
-	<div class="rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800 flex flex-col justify-between">
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">Calificación audiencias</h3>
 		<p class="text-center text-3xl font-bold text-sky-800">{c.calificacionAudiencias}</p>
 	</div>
