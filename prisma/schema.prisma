@@ -78,6 +78,7 @@ type NovedadFuncionario {
 
 enum ClaseRegistroCalificacion {
   oral
+  constitucional
   escrito
   garantias
   otros
@@ -93,7 +94,7 @@ model RegistroAudiencias {
   aplazadasAjenas         Int
   aplazadasJustificadas   Int
   aplazadasNoJustificadas Int
-  Calificacion            Calificacion[]
+  calificacion            Calificacion[]
 
   @@unique([despachoId, periodo])
 }
@@ -118,7 +119,7 @@ model RegistroCalificacion {
   inventarioFinal   Int
   restan            Int
   calificacionId    String?                   @db.ObjectId
-  calificacion      Calificacion?             @relation(fields: [calificacionId], references: [id])
+  calificacion      Calificacion?             @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
 }
 
 model CalificacionSubfactor {
@@ -131,7 +132,7 @@ model CalificacionSubfactor {
   cargaProporcional                Float
   totalSubfactor                   Float
   calificacionId                   String?                   @db.ObjectId
-  calificacion                     Calificacion?             @relation(fields: [calificacionId], references: [id])
+  calificacion                     Calificacion?             @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
 }
 
 enum EstadoCalificacion {
@@ -151,7 +152,7 @@ model Calificacion {
   diasHabilesDespacho               Int
   diasDescontados                   Int
   diasLaborados                     Int
-  registrosConsolidados             RegistroCalificacion[] // registros con categoria "Consolidado oral", "Consolidado garantias", ...
+  registrosConsolidados             RegistroCalificacion[] // registros con categoria "Consolidado"
   subfactores                       CalificacionSubfactor[]
   registroAudienciasId              String                  @db.ObjectId
   registroAudiencias                RegistroAudiencias      @relation(fields: [registroAudienciasId], references: [id])

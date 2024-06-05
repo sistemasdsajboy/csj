@@ -73,11 +73,11 @@
 
 				<Label for="notes">Descripción</Label>
 				<Input type="text" name="notes" />
-
-				<Dialog.Footer>
-					<Button type="submit">Crear novedad</Button>
-				</Dialog.Footer>
 			</div>
+
+			<Dialog.Footer>
+				<Button type="submit">Crear novedad</Button>
+			</Dialog.Footer>
 		</form>
 	</Dialog.Content>
 </Dialog.Root>

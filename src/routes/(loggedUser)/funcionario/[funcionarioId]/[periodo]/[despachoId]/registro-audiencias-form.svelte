@@ -1,10 +1,11 @@
-<script>
+<script lang="ts">
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import type { RegistroAudiencias } from '@prisma/client';
 
-	const { despachoId } = $props();
+	const { despachoId, registro }: { despachoId: String; registro: RegistroAudiencias } = $props();
 </script>
 
 <Dialog.Root>
@@ -16,15 +17,26 @@
 		</Dialog.Header>
 
 		<form method="post" action="?/addRegistroAudiencias">
-			<input type="hidden" name="despachoId" value={despachoId} />
 			<div class="grid grid-cols-3 gap-4 py-4">
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="programadas">Programadas</Label>
-					<Input type="number" name="programadas" value={0} required class="text-center" />
+					<Input
+						type="number"
+						name="programadas"
+						value={registro.programadas}
+						required
+						class="text-center"
+					/>
 				</div>
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="atendidas">Atendidas</Label>
-					<Input type="number" name="atendidas" value={0} required class="text-center" />
+					<Input
+						type="number"
+						name="atendidas"
+						value={registro.atendidas}
+						required
+						class="text-center"
+					/>
 				</div>
 			</div>
 
@@ -32,14 +44,20 @@
 			<div class="grid grid-cols-3 gap-4 py-4">
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="aplazadasAjenas">Causas ajenas</Label>
-					<Input type="number" name="aplazadasAjenas" value={0} required class="text-center" />
+					<Input
+						type="number"
+						name="aplazadasAjenas"
+						value={registro.aplazadasAjenas}
+						required
+						class="text-center"
+					/>
 				</div>
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="aplazadasJustificadas">Justificadas</Label>
 					<Input
 						type="number"
 						name="aplazadasJustificadas"
-						value={0}
+						value={registro.aplazadasJustificadas}
 						required
 						class="text-center"
 					/>
@@ -49,7 +67,7 @@
 					<Input
 						type="number"
 						name="aplazadasNoJustificadas"
-						value={0}
+						value={registro.aplazadasNoJustificadas}
 						required
 						class="text-center"
 					/>

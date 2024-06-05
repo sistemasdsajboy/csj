@@ -10,7 +10,6 @@ import {
 import type {
 	CategoriaDespacho,
 	ClaseRegistroCalificacion,
-	Despacho,
 	EspecialidadDespacho,
 	Funcionario,
 	RegistroCalificacion
@@ -145,12 +144,14 @@ function generarConsolidado({
 	diasNoHabiles,
 	registros,
 	categorias = [],
-	excluirCategorias = false
+	excluirCategorias = false,
+	clase
 }: {
 	diasNoHabiles: Record<string, Array<number>>;
 	registros: RegistroCalificacion[];
 	categorias?: string[];
 	excluirCategorias?: boolean;
+	clase?: ClaseRegistroCalificacion;
 }) {
 	const agrupadoPorCategoria = _(registros)
 		.filter((d) => {
@@ -164,7 +165,7 @@ function generarConsolidado({
 			periodo: d[0].periodo,
 			despachoId: d[0].despachoId,
 			funcionarioId: d[0].funcionarioId,
-			clase: d[0].clase,
+			clase: clase || d[0].clase,
 			categoria: 'Consolidado',
 			desde: d[0].desde,
 			hasta: d[0].hasta,
@@ -208,12 +209,27 @@ export function getDiasFestivosPorDespacho({
 }
 
 export async function generarCalificacionFuncionario(
-	registros: RegistroCalificacion[],
-	funcionario: Funcionario,
-	despacho: Despacho,
+	funcionarioId: string,
+	despachoId: string,
 	periodo: number,
 	userId: string
 ) {
+	const calificacion = await db.calificacion.findFirst({
+		where: { funcionarioId, despachoId, periodo: periodo }
+	});
+
+	if (calificacion) await db.calificacion.delete({ where: { id: calificacion.id } });
+
+	const registros = await db.registroCalificacion.findMany({
+		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
+	});
+
+	const funcionario = await db.funcionario.findFirst({ where: { id: funcionarioId } });
+	if (!funcionario) throw new Error('Funcionario no encontrado');
+
+	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
+	if (!despacho) throw new Error('Despacho no encontrado');
+
 	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
 	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
 	const registrosEscrito = registros.filter((registro) => registro.clase === 'escrito');
@@ -267,7 +283,8 @@ export async function generarCalificacionFuncionario(
 	const consolidadoTutelas = generarConsolidado({
 		diasNoHabiles,
 		registros: registrosOral,
-		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas']
+		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas'],
+		clase: 'constitucional'
 	});
 	const consolidadoGarantias = generarConsolidado({ diasNoHabiles, registros: registrosGarantias });
 	const consolidadoEscrito = generarConsolidado({ diasNoHabiles, registros: registrosEscrito });
@@ -312,7 +329,8 @@ export async function generarCalificacionFuncionario(
 			calificacionAudiencias,
 			factorOralMasAudiencias,
 			calificacionTotalFactorEficiencia,
-			createdById: userId
+			createdById: userId,
+			createdAt: new Date()
 		}
 	});
 }
