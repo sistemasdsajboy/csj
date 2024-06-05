@@ -11,8 +11,9 @@
 		header?: Snippet;
 		sidebar?: Snippet;
 		username: string;
+		backHref?: string;
 	};
-	const { header, sidebar, children, username }: PageLayoutProps = $props();
+	const { header, sidebar, children, username, backHref = '/' }: PageLayoutProps = $props();
 	const { url } = $page;
 </script>
 
@@ -24,11 +25,11 @@
 {/snippet}
 
 <div
-	class="container flex flex-col items-start justify-between space-y-2 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16 print:hidden border border-b-slate-300"
+	class="container flex flex-col items-start justify-between space-y-2 border border-b-slate-300 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16 print:hidden"
 >
 	<div class="flex grow items-center gap-2 text-lg font-bold uppercase">
 		{#if url.pathname !== '/'}
-			<Button variant="link" href="/">
+			<Button variant="link" href={backHref}>
 				<ArrowLeft class="h-6 w-6" />
 			</Button>
 		{/if}

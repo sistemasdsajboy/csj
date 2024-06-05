@@ -2,7 +2,7 @@
 	import PageLayout from '$lib/components/custom/page-layout.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { formatDate } from '$lib/utils/dates';
-	import NewNovedadForm from './new-novedad-form.svelte';
+	import NovedadForm from './novedad-form.svelte';
 	import NovedadesList from './novedades-list.svelte';
 	import RegistroAudienciasForm from './registro-audiencias-form.svelte';
 
@@ -27,24 +27,16 @@
 	</div>
 {/snippet}
 
-<PageLayout {header} username={data.user}>
+<PageLayout {header} username={data.user} backHref="/funcionario/{funcionario.id}">
 	<div class="container mx-auto px-4">
 		<div class="flex flex-row justify-between print:hidden">
-			<div>
-				<!-- {#each data.despachos as d}
-					<a href="/funcionario/{data.funcionario.id}/{d.id}" class="text-sm font-bold">
-						{d.nombre}
-					</a>
-				{/each} -->
-			</div>
-
 			{#if despacho}
-				<div class="text-right">
+				<div class="grow text-right">
 					<RegistroAudienciasForm
 						despachoId={despacho.id}
 						registro={calificacion.registroAudiencias}
 					/>
-					<NewNovedadForm {despacho} />
+					<NovedadForm {despacho} />
 				</div>
 			{/if}
 		</div>
