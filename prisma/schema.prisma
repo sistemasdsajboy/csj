@@ -68,12 +68,15 @@ model Funcionario {
   calificaciones        Calificacion[]
 }
 
-type NovedadFuncionario {
-  days  Int
-  from  DateTime @db.Date
-  notes String
-  to    DateTime @db.Date
-  type  String
+model NovedadFuncionario {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  type          String
+  from          DateTime     @db.Date
+  to            DateTime     @db.Date
+  days          Int
+  notes         String
+  funcionarioId String?      @db.ObjectId
+  funcionario   Funcionario? @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
 }
 
 enum ClaseRegistroCalificacion {

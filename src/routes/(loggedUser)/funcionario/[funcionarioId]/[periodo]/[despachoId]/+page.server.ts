@@ -22,7 +22,9 @@ export const load = (async ({ params, locals }) => {
 			registrosConsolidados: true,
 			subfactores: true,
 			despacho: true,
-			funcionario: true,
+			funcionario: {
+				include: { novedades: true }
+			},
 			registroAudiencias: true
 		}
 	});
@@ -66,32 +68,57 @@ export const load = (async ({ params, locals }) => {
 }) satisfies PageServerLoad;
 
 export const actions = {
-	addNovedad: async ({ request, params }) => {
+	addNovedad: async ({ request, params, locals }) => {
 		try {
+			if (!locals.user) error(400, 'No autorizado');
+
 			const data = await request.formData();
 
-			const despachoId = data.get('despacho') as string;
 			const type = data.get('type') as string;
 			const from = new Date(data.get('from') as string);
 			const to = new Date(data.get('to') as string);
 			const notes = data.get('notes') as string;
 
-			const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
+			const despacho = await db.despacho.findFirst({ where: { id: params.despachoId } });
 			if (!despacho) return fail(404, { error: 'Despacho no encontrado' });
 
 			const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
 			const days = countLaborDaysBetweenDates(diasNoHabiles, from, to);
 
-			await db.funcionario.update({
-				where: { id: params.funcionarioId },
-				data: { novedades: { push: { type, from, to, days, notes } } }
+			await db.novedadFuncionario.create({
+				data: { funcionarioId: params.funcionarioId, type, from, to, days, notes }
 			});
+
+			await generarCalificacionFuncionario(
+				params.funcionarioId,
+				params.despachoId,
+				parseInt(params.periodo),
+				locals.user.id
+			);
 
 			return { success: true };
 		} catch (error) {
 			if (error instanceof Error) return { success: false, error: error.message };
 			return { success: false, error: 'Ha ocurrido un error inesperado' };
 		}
+	},
+
+	deleteNovedad: async ({ request, params, locals }) => {
+		if (!locals.user) error(400, 'No autorizado');
+
+		const data = await request.formData();
+		const novedadId = data.get('novedadId') as string;
+
+		await db.novedadFuncionario.delete({ where: { id: novedadId } });
+
+		await generarCalificacionFuncionario(
+			params.funcionarioId,
+			params.despachoId,
+			parseInt(params.periodo),
+			locals.user.id
+		);
+
+		return { success: true };
 	},
 
 	addRegistroAudiencias: async ({ request, params, locals }) => {
@@ -148,8 +175,8 @@ export const actions = {
 
 		await generarCalificacionFuncionario(
 			params.funcionarioId,
-			data.despachoId,
-			data.periodo,
+			params.despachoId,
+			parseInt(params.periodo),
 			locals.user.id
 		);
 

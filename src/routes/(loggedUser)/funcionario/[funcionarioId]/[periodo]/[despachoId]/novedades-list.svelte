@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { formatDate } from '$lib/utils/dates';
 	import type { NovedadFuncionario } from '@prisma/client';
+	import Trash2Icon from 'lucide-svelte/icons/trash-2';
 
 	let { novedades }: { novedades: NovedadFuncionario[] } = $props();
 </script>
@@ -35,6 +38,14 @@
 						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{novedad.days}</td>
 						<td class="px-2 text-gray-900 dark:text-gray-100">
 							{novedad.notes}
+						</td>
+						<td class="px-2 text-gray-900 dark:text-gray-100">
+							<form action="?/deleteNovedad" method="post">
+								<Input type="hidden" name="novedadId" value={novedad.id} />
+								<Button type="submit" variant="destructive">
+									<Trash2Icon class="h-4 w-4" />
+								</Button>
+							</form>
 						</td>
 					</tr>
 				{/each}

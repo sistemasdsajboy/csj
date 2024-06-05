@@ -46,7 +46,7 @@
 		</Dialog.Header>
 
 		<form method="post" action="?/addNovedad">
-			<div class="grid items-center gap-2 sm:grid-cols-[1fr_2fr]">
+			<div class="grid items-center gap-2 pb-2 sm:grid-cols-[1fr_2fr]">
 				<Label for="type">Tipo de novedad</Label>
 				<Select.Root portal={null}>
 					<Select.Trigger class="w-full">

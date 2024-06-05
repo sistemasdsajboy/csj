@@ -224,7 +224,10 @@ export async function generarCalificacionFuncionario(
 		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
 	});
 
-	const funcionario = await db.funcionario.findFirst({ where: { id: funcionarioId } });
+	const funcionario = await db.funcionario.findFirst({
+		where: { id: funcionarioId },
+		include: { novedades: true }
+	});
 	if (!funcionario) throw new Error('Funcionario no encontrado');
 
 	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
