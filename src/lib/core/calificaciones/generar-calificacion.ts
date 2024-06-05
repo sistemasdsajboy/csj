@@ -7,7 +7,13 @@ import {
 	semanaSantaCompleta,
 	vacanciaJudicial
 } from '$lib/utils/dates';
-import type { Despacho, Funcionario, RegistroCalificacion } from '@prisma/client';
+import type {
+	CategoriaDespacho,
+	ClaseRegistroCalificacion,
+	EspecialidadDespacho,
+	Funcionario,
+	RegistroCalificacion
+} from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 
@@ -91,16 +97,17 @@ const generarResultadosOral = (
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
-	const subfactorRespuestaEfectiva =
+	const totalSubfactor =
 		(Math.min(egresoFuncionario, cargaBaseCalificacionFuncionario) / cargaProporcional) * 40;
 
 	return {
+		subfactor: 'oral' as ClaseRegistroCalificacion,
 		totalInventarioInicial,
 		cargaBaseCalificacionDespacho,
 		cargaBaseCalificacionFuncionario,
 		egresoFuncionario,
 		cargaProporcional,
-		subfactorRespuestaEfectiva
+		totalSubfactor
 	};
 };
 
@@ -111,28 +118,25 @@ const generarResultadosGarantias = (
 	data: RegistroCalificacion[]
 ) => {
 	const totalInventarioInicial = getInventarioInicial(data);
-	const egresoFuncionario = _.sumBy(data, (d) =>
-		d.funcionarioId === funcionario.id ? d.egresoEfectivo : 0
-	);
-	const egresoOtrosFuncionarios = _.sumBy(data, (d) =>
-		dayjs(d.desde).month() < 9 && d.funcionarioId !== funcionario.id ? d.egresoEfectivo : 0
-	);
+	const egresoFuncionario = getEgresoFuncionario(data, funcionario.id);
+	const egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionario.id);
 	const cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data);
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
-	const subfactorGarantias = Math.min(
+	const totalSubfactor = Math.min(
 		(Math.min(egresoFuncionario, cargaBaseCalificacionFuncionario) / cargaProporcional) * 45,
 		45
 	);
 
 	return {
+		subfactor: 'garantias' as ClaseRegistroCalificacion,
 		totalInventarioInicial,
 		cargaBaseCalificacionDespacho,
 		cargaBaseCalificacionFuncionario,
 		egresoFuncionario,
 		cargaProporcional,
-		subfactorGarantias
+		totalSubfactor
 	};
 };
 
@@ -140,12 +144,14 @@ function generarConsolidado({
 	diasNoHabiles,
 	registros,
 	categorias = [],
-	excluirCategorias = false
+	excluirCategorias = false,
+	clase
 }: {
 	diasNoHabiles: Record<string, Array<number>>;
 	registros: RegistroCalificacion[];
 	categorias?: string[];
 	excluirCategorias?: boolean;
+	clase?: ClaseRegistroCalificacion;
 }) {
 	const agrupadoPorCategoria = _(registros)
 		.filter((d) => {
@@ -159,7 +165,8 @@ function generarConsolidado({
 			periodo: d[0].periodo,
 			despachoId: d[0].despachoId,
 			funcionarioId: d[0].funcionarioId,
-			clase: d[0].clase,
+			clase: clase || d[0].clase,
+			categoria: 'Consolidado',
 			desde: d[0].desde,
 			hasta: d[0].hasta,
 			dias: countLaborDaysBetweenDates(diasNoHabiles, d[0].desde, d[0].hasta),
@@ -177,10 +184,15 @@ function generarConsolidado({
 	return agrupadoPorCategoria;
 }
 
-const PERIODO = 2023; // TODO: Modificar para permitir el registro de periodos diferentes a 2023
+export function getDiasFestivosPorDespacho({
+	especialidad,
+	categoria
+}: {
+	especialidad: EspecialidadDespacho | null;
+	categoria: CategoriaDespacho | null;
+}) {
+	if (especialidad === null || categoria === null) festivosPorMes;
 
-function getDiasFestivosPorDespacho(despacho: Despacho) {
-	const { especialidad, categoria } = despacho;
 	if (especialidad === 'EjecucionPenas' || especialidad === 'FamiliaPromiscuo')
 		return mergeExcludedDates(festivosPorMes, diaJusticia);
 
@@ -197,10 +209,30 @@ function getDiasFestivosPorDespacho(despacho: Despacho) {
 }
 
 export async function generarCalificacionFuncionario(
-	registros: RegistroCalificacion[],
-	funcionario: Funcionario,
-	despachos: Despacho[]
+	funcionarioId: string,
+	despachoId: string,
+	periodo: number,
+	userId: string
 ) {
+	const calificacion = await db.calificacion.findFirst({
+		where: { funcionarioId, despachoId, periodo: periodo }
+	});
+
+	if (calificacion) await db.calificacion.delete({ where: { id: calificacion.id } });
+
+	const registros = await db.registroCalificacion.findMany({
+		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
+	});
+
+	const funcionario = await db.funcionario.findFirst({
+		where: { id: funcionarioId },
+		include: { novedades: true }
+	});
+	if (!funcionario) throw new Error('Funcionario no encontrado');
+
+	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
+	if (!despacho) throw new Error('Despacho no encontrado');
+
 	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
 	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
 	const registrosEscrito = registros.filter((registro) => registro.clase === 'escrito');
@@ -209,18 +241,29 @@ export async function generarCalificacionFuncionario(
 	if (!registrosOral.length || !registrosGarantias.length)
 		throw new Error('Información de "Oral" y "Garantías" incompleta.');
 
-	if (!despachos.length) throw new Error('Despacho no especificado');
+	if (!despacho) throw new Error('Despacho no especificado');
 
-	const despacho = despachos[0]; // TODO: Gestión de múltiples despachos por funcionario
-	const audiencias = await db.registroAudiencias.findFirst({
-		where: { despachoId: despacho.id, periodo: PERIODO }
+	let audiencias = await db.registroAudiencias.findFirst({
+		where: { despachoId: despacho.id, periodo }
 	});
+	if (!audiencias)
+		audiencias = await db.registroAudiencias.create({
+			data: {
+				periodo,
+				despachoId: despacho.id,
+				programadas: 0,
+				atendidas: 0,
+				aplazadasAjenas: 0,
+				aplazadasJustificadas: 0,
+				aplazadasNoJustificadas: 0
+			}
+		});
 
 	const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
 	const diasHabilesDespacho = countLaborDaysBetweenDates(
 		diasNoHabiles,
-		new Date(PERIODO, 0, 1),
-		new Date(PERIODO, 11, 31)
+		new Date(periodo, 0, 1),
+		new Date(periodo, 11, 31)
 	);
 
 	const diasDescontados = funcionario.novedades
@@ -254,45 +297,56 @@ export async function generarCalificacionFuncionario(
 	const consolidadoTutelas = generarConsolidado({
 		diasNoHabiles,
 		registros: registrosOral,
-		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas']
+		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas'],
+		clase: 'constitucional'
 	});
 	const consolidadoGarantias = generarConsolidado({ diasNoHabiles, registros: registrosGarantias });
 	const consolidadoEscrito = generarConsolidado({ diasNoHabiles, registros: registrosEscrito });
 	const consolidadoOtros = generarConsolidado({ diasNoHabiles, registros: registrosOtros });
 
-	const calificacionAudiencias = audiencias
-		? ((audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas) /
-				audiencias.programadas) *
-			5
-		: 0;
+	const calificacionAudiencias =
+		audiencias.programadas === 0
+			? 0
+			: ((audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas) /
+					audiencias.programadas) *
+				5;
 
-	const factorEficienciaAudiencias = oral.subfactorRespuestaEfectiva + calificacionAudiencias;
+	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 
 	const calificacionTotalFactorEficiencia =
-		(factorEficienciaAudiencias + garantias.subfactorGarantias) / 2;
+		(factorOralMasAudiencias + garantias.totalSubfactor) / 2;
 
-	const funcionariosIds = _.uniqBy(registros, 'funcionarioId').map((r) => r.funcionarioId);
-	const funcionarios = await db.funcionario.findMany({
-		where: { id: { in: funcionariosIds } },
-		select: { id: true, nombre: true }
+	return db.calificacion.create({
+		data: {
+			estado: 'borrador',
+			periodo,
+			funcionarioId: funcionario.id,
+			despachoId: despacho.id,
+			diasHabilesDespacho,
+			diasDescontados,
+			diasLaborados: diasHabilesLaborados,
+			registrosConsolidados: {
+				createMany: {
+					data: [
+						...consolidadoOrdinario,
+						...consolidadoGarantias,
+						...consolidadoTutelas,
+						...consolidadoEscrito,
+						...consolidadoOtros
+					]
+				}
+			},
+			subfactores: {
+				createMany: {
+					data: [oral, garantias]
+				}
+			},
+			registroAudienciasId: audiencias.id,
+			calificacionAudiencias,
+			factorOralMasAudiencias,
+			calificacionTotalFactorEficiencia,
+			createdById: userId,
+			createdAt: new Date()
+		}
 	});
-
-	return {
-		funcionarios,
-		periodo: PERIODO,
-		consolidadoOrdinario,
-		consolidadoGarantias,
-		consolidadoTutelas,
-		consolidadoEscrito,
-		consolidadoOtros,
-		oral,
-		garantias,
-		calificacionAudiencias,
-		factorEficienciaAudiencias,
-		calificacionTotalFactorEficiencia,
-		diasHabilesDespacho,
-		diasDescontados,
-		diasHabilesLaborados,
-		audiencias
-	};
 }

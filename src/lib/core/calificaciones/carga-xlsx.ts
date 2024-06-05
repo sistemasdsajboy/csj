@@ -159,7 +159,9 @@ function extractWorkbookPageData(
 	despacho: Despacho,
 	funcionarios: Array<{ funcionarioStr: string; funcionario: Funcionario }>
 ) {
-	return (workbookPage: WorkbookPage): Omit<RegistroCalificacion, 'id'>[] => {
+	return (
+		workbookPage: WorkbookPage
+	): Omit<RegistroCalificacion, 'id' | 'dias' | 'calificacionId'>[] => {
 		const rows = extractWorkbookPageRows(workbookPage);
 		return rows.flatMap(({ funcionario: funcionarioStr, ...data }) => {
 			const funcionario = funcionarios.find(

@@ -1,27 +1,56 @@
 <script lang="ts">
 	import PageLayout from '$lib/components/custom/page-layout.svelte';
-	import type { PageData } from './$types';
-	import NewNovedadForm from './new-novedad-form.svelte';
-	import NewRegistroAudienciasForm from './new-registro-audiencias-form.svelte';
-	import ResultadosCalificacionFuncionario from './resultados-calificacion-funcionario.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 
-	export let data: PageData;
-
-	const despacho = data.despachos[0]; // TODO: Gestión de múltiples despachos por funcionario
+	let { data } = $props();
 </script>
 
 {#snippet header()}
 	<div class="text-2xl font-bold">
-		{data.funcionario.nombre} - <a href="/despacho/{despacho.id}">{despacho.nombre}</a>
+		{data.funcionario.nombre}
 	</div>
 {/snippet}
 
 <PageLayout {header} username={data.user}>
 	<div class="container mx-auto px-4">
-		<div class="text-right print:hidden">
-			<NewRegistroAudienciasForm despachoId={despacho.id} />
-			<NewNovedadForm />
+		<div class="flex flex-row justify-between print:hidden">
+			<form class="w-96 space-y-2" method="post" action="?/generarCalificacion">
+				<div class="grid items-center gap-2 pb-2 sm:grid-cols-[1fr_2fr]">
+					<Label for="periodo">Periodo</Label>
+					<Select.Root portal={null}>
+						<Select.Trigger class="w-64">
+							<Select.Value />
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								<Select.Item value={2023}>2023</Select.Item>
+							</Select.Group>
+						</Select.Content>
+						<Select.Input name="periodo" />
+					</Select.Root>
+
+					<Label for="despachoId">Despacho</Label>
+					<Select.Root portal={null}>
+						<Select.Trigger class="w-64">
+							<Select.Value />
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								{#each data.despachos as d}
+									<Select.Item value={d.id}>{d.nombre}</Select.Item>
+								{/each}
+							</Select.Group>
+						</Select.Content>
+						<Select.Input name="despachoId" />
+					</Select.Root>
+
+					<div class="col-span-2 text-right">
+						<Button type="submit">Ver calificacion</Button>
+					</div>
+				</div>
+			</form>
 		</div>
-		<ResultadosCalificacionFuncionario {data} />
 	</div>
 </PageLayout>
