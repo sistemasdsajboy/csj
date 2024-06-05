@@ -243,10 +243,21 @@ export async function generarCalificacionFuncionario(
 
 	if (!despacho) throw new Error('Despacho no especificado');
 
-	const audiencias = await db.registroAudiencias.findFirst({
+	let audiencias = await db.registroAudiencias.findFirst({
 		where: { despachoId: despacho.id, periodo }
 	});
-	if (!audiencias) throw new Error('Se requiere el registro de la información de audiencias');
+	if (!audiencias)
+		audiencias = await db.registroAudiencias.create({
+			data: {
+				periodo,
+				despachoId: despacho.id,
+				programadas: 0,
+				atendidas: 0,
+				aplazadasAjenas: 0,
+				aplazadasJustificadas: 0,
+				aplazadasNoJustificadas: 0
+			}
+		});
 
 	const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
 	const diasHabilesDespacho = countLaborDaysBetweenDates(
@@ -294,9 +305,11 @@ export async function generarCalificacionFuncionario(
 	const consolidadoOtros = generarConsolidado({ diasNoHabiles, registros: registrosOtros });
 
 	const calificacionAudiencias =
-		((audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas) /
-			audiencias.programadas) *
-		5;
+		audiencias.programadas === 0
+			? 0
+			: ((audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas) /
+					audiencias.programadas) *
+				5;
 
 	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 
