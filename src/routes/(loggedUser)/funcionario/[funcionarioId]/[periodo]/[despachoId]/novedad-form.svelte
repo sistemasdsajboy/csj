@@ -3,6 +3,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Select from '$lib/components/ui/select';
 	import { getDiasFestivosPorDespacho } from '$lib/core/calificaciones/generar-calificacion';
 	import { countLaborDaysBetweenDates } from '$lib/utils/dates';
@@ -72,7 +73,7 @@
 				<Input id="days" name="days" value={days} />
 
 				<Label for="notes">Descripción</Label>
-				<Input type="text" name="notes" />
+				<Textarea name="notes" />
 			</div>
 
 			<Dialog.Footer>
