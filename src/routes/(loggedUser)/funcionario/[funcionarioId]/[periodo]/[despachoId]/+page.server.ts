@@ -12,18 +12,30 @@ import type { PageServerLoad } from './$types';
 export const load = (async ({ params, locals }) => {
 	if (!locals.user) error(400, 'No autorizado');
 
+	const periodo = parseInt(params.periodo);
+
 	const calificacion = await db.calificacion.findFirst({
 		where: {
 			funcionarioId: params.funcionarioId,
 			despachoId: params.despachoId,
-			periodo: parseInt(params.periodo)
+			periodo
 		},
 		include: {
 			registrosConsolidados: true,
 			subfactores: true,
 			despacho: true,
 			funcionario: {
-				include: { novedades: true }
+				include: {
+					novedades: {
+						where: {
+							despachoId: params.despachoId,
+							OR: [
+								{ from: { lte: new Date(periodo, 11, 31) } },
+								{ to: { gte: new Date(periodo, 0, 1) } }
+							]
+						}
+					}
+				}
 			},
 			registroAudiencias: true
 		}
@@ -66,7 +78,8 @@ export const load = (async ({ params, locals }) => {
 		consolidadoGarantias,
 		consolidadoEscrito,
 		oral,
-		garantias
+		garantias,
+		registroAudiencias: calificacion.registroAudiencias
 	};
 }) satisfies PageServerLoad;
 
@@ -74,6 +87,23 @@ export const actions = {
 	addNovedad: async ({ request, params, locals }) => {
 		try {
 			if (!locals.user) error(400, 'No autorizado');
+
+			const calificacion = await db.calificacion.findFirst({
+				where: {
+					funcionarioId: params.funcionarioId,
+					despachoId: params.despachoId,
+					periodo: parseInt(params.periodo)
+				}
+			});
+			if (calificacion?.estado === 'aprobado')
+				return {
+					success: false,
+					error: 'No es posible agregar una novedad a una calificación que ya ha sido aprobada.'
+				};
+
+			// TODO: Validar que la novedad está totalmente dentro de los rangos de tiempo
+			// en los que el funcionario trabajó en el despacho de la calificación.
+			// Si una novedad abarca más de un periodo laborado, se debe dividir y registrar con la calificación correspondiente.
 
 			const data = await request.formData();
 
@@ -89,7 +119,15 @@ export const actions = {
 			const days = countLaborDaysBetweenDates(diasNoHabiles, from, to);
 
 			await db.novedadFuncionario.create({
-				data: { funcionarioId: params.funcionarioId, type, from, to, days, notes }
+				data: {
+					funcionarioId: params.funcionarioId,
+					despachoId: params.despachoId,
+					type,
+					from,
+					to,
+					days,
+					notes
+				}
 			});
 
 			await generarCalificacionFuncionario(
@@ -109,6 +147,20 @@ export const actions = {
 	deleteNovedad: async ({ request, params, locals }) => {
 		if (!locals.user) error(400, 'No autorizado');
 
+		const calificacion = await db.calificacion.findFirst({
+			where: {
+				funcionarioId: params.funcionarioId,
+				despachoId: params.despachoId,
+				periodo: parseInt(params.periodo)
+			}
+		});
+		if (calificacion?.estado === 'aprobado')
+			return {
+				success: false,
+				error:
+					'No es posible eliminar la novedad. La calificación a la que corresponde ya ha sido aprobada.'
+			};
+
 		const data = await request.formData();
 		const novedadId = data.get('novedadId') as string;
 
@@ -127,11 +179,26 @@ export const actions = {
 	addRegistroAudiencias: async ({ request, params, locals }) => {
 		if (!locals.user) error(400, 'No autorizado');
 
+		const calificacion = await db.calificacion.findFirst({
+			where: {
+				funcionarioId: params.funcionarioId,
+				despachoId: params.despachoId,
+				periodo: parseInt(params.periodo)
+			}
+		});
+		if (calificacion?.estado === 'aprobado')
+			return {
+				success: false,
+				error:
+					'No es posible modificar la información de audiencias de una calificación que ya ha sido aprobada.'
+			};
+
 		const formData = Object.fromEntries(await request.formData());
 
 		const registroAudienciaSchema = z.object({
 			despachoId: z.string(),
-			periodo: z.coerce.number().default(2023),
+			funcionarioId: z.string(),
+			periodo: z.coerce.number(),
 			programadas: z.coerce.number(),
 			atendidas: z.coerce.number(),
 			aplazadasAjenas: z.coerce.number(),
@@ -141,20 +208,12 @@ export const actions = {
 
 		const { success, data } = registroAudienciaSchema.safeParse({
 			despachoId: params.despachoId,
+			funcionarioId: params.funcionarioId,
+			periodo: parseInt(params.periodo),
 			...formData
 		});
 
 		if (!success) return { success: false, error: 'Datos de registro no válidos' };
-
-		const calificacion = await db.calificacion.findFirst({
-			where: {
-				funcionarioId: params.funcionarioId,
-				despachoId: data.despachoId,
-				periodo: data.periodo
-			}
-		});
-		if (calificacion && calificacion?.estado !== 'borrador')
-			throw new Error('La calificación ya no es un borrador y no puede modificarse.');
 
 		if (
 			data.programadas !==
@@ -170,7 +229,11 @@ export const actions = {
 			};
 
 		const existente = await db.registroAudiencias.findFirst({
-			where: { despachoId: data.despachoId, periodo: data.periodo }
+			where: {
+				despachoId: params.despachoId,
+				funcionarioId: params.funcionarioId,
+				periodo: data.periodo
+			}
 		});
 
 		if (existente) await db.registroAudiencias.update({ where: { id: existente.id }, data });

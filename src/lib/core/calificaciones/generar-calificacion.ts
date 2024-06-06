@@ -226,8 +226,20 @@ export async function generarCalificacionFuncionario(
 
 	const funcionario = await db.funcionario.findFirst({
 		where: { id: funcionarioId },
-		include: { novedades: true }
+		include: {
+			// Consultar solo las novedades para el despacho y periodo para el que se genera la calificación
+			novedades: {
+				where: {
+					despachoId,
+					OR: [
+						{ from: { lte: new Date(periodo, 11, 31) } },
+						{ to: { gte: new Date(periodo, 0, 1) } }
+					]
+				}
+			}
+		}
 	});
+
 	if (!funcionario) throw new Error('Funcionario no encontrado');
 
 	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
@@ -244,12 +256,13 @@ export async function generarCalificacionFuncionario(
 	if (!despacho) throw new Error('Despacho no especificado');
 
 	let audiencias = await db.registroAudiencias.findFirst({
-		where: { despachoId: despacho.id, periodo }
+		where: { periodo, funcionarioId, despachoId }
 	});
 	if (!audiencias)
 		audiencias = await db.registroAudiencias.create({
 			data: {
 				periodo,
+				funcionarioId: funcionario.id,
 				despachoId: despacho.id,
 				programadas: 0,
 				atendidas: 0,

@@ -18,7 +18,8 @@
 		consolidadoGarantias,
 		consolidadoEscrito,
 		oral,
-		garantias
+		garantias,
+		registroAudiencias
 	} = data;
 </script>
 
@@ -32,11 +33,8 @@
 	<div class="container mx-auto px-4">
 		<div class="flex flex-row justify-between print:hidden">
 			{#if despacho}
-				<div class="grow text-right">
-					<RegistroAudienciasForm
-						despachoId={despacho.id}
-						registro={calificacion.registroAudiencias}
-					/>
+				<div class="grow text-right">					
+					<RegistroAudienciasForm {registroAudiencias} />
 					<NovedadForm {diasNoHabiles} />
 				</div>
 			{/if}
@@ -486,20 +484,20 @@
 					class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
 				>
 					<h3 class="text-md mb-2 font-medium print:leading-none">Programadas</h3>
-					<p class="text-center text-xl font-bold">{calificacion.registroAudiencias.programadas}</p>
+					<p class="text-center text-xl font-bold">{registroAudiencias.programadas}</p>
 				</div>
 				<div
 					class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
 				>
 					<h3 class="text-md mb-2 font-medium print:leading-none">Realizadas</h3>
-					<p class="text-center text-xl font-bold">{calificacion.registroAudiencias.atendidas}</p>
+					<p class="text-center text-xl font-bold">{registroAudiencias.atendidas}</p>
 				</div>
 				<div
 					class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
 				>
 					<h3 class="text-md mb-2 font-medium print:leading-none">Aplazadas por causas ajenas</h3>
 					<p class="text-center text-xl font-bold">
-						{calificacion.registroAudiencias.aplazadasAjenas}
+						{registroAudiencias.aplazadasAjenas}
 					</p>
 				</div>
 				<div
@@ -507,7 +505,7 @@
 				>
 					<h3 class="text-md mb-2 font-medium print:leading-none">Aplazadas con justificación</h3>
 					<p class="text-center text-xl font-bold">
-						{calificacion.registroAudiencias.aplazadasJustificadas}
+						{registroAudiencias.aplazadasJustificadas}
 					</p>
 				</div>
 				<div
@@ -515,7 +513,7 @@
 				>
 					<h3 class="text-md mb-2 font-medium print:leading-none">Aplazadas sin justificación</h3>
 					<p class="text-center text-xl font-bold">
-						{calificacion.registroAudiencias.aplazadasNoJustificadas}
+						{registroAudiencias.aplazadasNoJustificadas}
 					</p>
 				</div>
 				<div

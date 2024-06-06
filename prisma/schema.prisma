@@ -57,6 +57,7 @@ model Despacho {
   registrosCalificacion RegistroCalificacion[]
   registrosAudiencias   RegistroAudiencias[]
   calificaciones        Calificacion[]
+  novedadesFuncionarios NovedadFuncionario[]
 }
 
 model Funcionario {
@@ -66,6 +67,7 @@ model Funcionario {
   novedades             NovedadFuncionario[]
   registrosCalificacion RegistroCalificacion[]
   calificaciones        Calificacion[]
+  registrosAudiencias   RegistroAudiencias[]
 }
 
 model NovedadFuncionario {
@@ -75,6 +77,8 @@ model NovedadFuncionario {
   to            DateTime     @db.Date
   days          Int
   notes         String
+  despachoId    String       @db.ObjectId
+  despacho      Despacho     @relation(fields: [despachoId], references: [id])
   funcionarioId String?      @db.ObjectId
   funcionario   Funcionario? @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
 }
@@ -92,14 +96,16 @@ model RegistroAudiencias {
   periodo                 Int // Año del registro
   despachoId              String         @db.ObjectId
   despacho                Despacho       @relation(fields: [despachoId], references: [id])
+  funcionarioId           String         @db.ObjectId
+  funcionario             Funcionario    @relation(fields: [funcionarioId], references: [id])
   programadas             Int
   atendidas               Int
   aplazadasAjenas         Int
   aplazadasJustificadas   Int
   aplazadasNoJustificadas Int
   calificacion            Calificacion[]
-
-  @@unique([despachoId, periodo])
+  
+  @@unique([despachoId, funcionarioId, periodo])
 }
 
 model RegistroCalificacion {

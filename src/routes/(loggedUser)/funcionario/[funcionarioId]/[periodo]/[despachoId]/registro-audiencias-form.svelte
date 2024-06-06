@@ -5,7 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import type { RegistroAudiencias } from '@prisma/client';
 
-	const { despachoId, registro }: { despachoId: String; registro: RegistroAudiencias } = $props();
+	const { registroAudiencias }: { registroAudiencias: RegistroAudiencias } = $props();
 </script>
 
 <Dialog.Root>
@@ -23,7 +23,7 @@
 					<Input
 						type="number"
 						name="programadas"
-						value={registro.programadas}
+						value={registroAudiencias.programadas}
 						required
 						class="text-center"
 					/>
@@ -33,7 +33,7 @@
 					<Input
 						type="number"
 						name="atendidas"
-						value={registro.atendidas}
+						value={registroAudiencias.atendidas}
 						required
 						class="text-center"
 					/>
@@ -47,7 +47,7 @@
 					<Input
 						type="number"
 						name="aplazadasAjenas"
-						value={registro.aplazadasAjenas}
+						value={registroAudiencias.aplazadasAjenas}
 						required
 						class="text-center"
 					/>
@@ -57,7 +57,7 @@
 					<Input
 						type="number"
 						name="aplazadasJustificadas"
-						value={registro.aplazadasJustificadas}
+						value={registroAudiencias.aplazadasJustificadas}
 						required
 						class="text-center"
 					/>
@@ -67,7 +67,7 @@
 					<Input
 						type="number"
 						name="aplazadasNoJustificadas"
-						value={registro.aplazadasNoJustificadas}
+						value={registroAudiencias.aplazadasNoJustificadas}
 						required
 						class="text-center"
 					/>
