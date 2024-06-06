@@ -53,9 +53,12 @@ export const load = (async ({ params, locals }) => {
 	const oral = calificacion.subfactores.find((s) => s.subfactor === 'oral');
 	const garantias = calificacion.subfactores.find((s) => s.subfactor === 'garantias');
 
+	const diasNoHabiles = getDiasFestivosPorDespacho(calificacion.despacho);
+
 	return {
 		calificacion,
 		despacho: calificacion.despacho,
+		diasNoHabiles,
 		funcionario: calificacion.funcionario,
 		otrosFuncionarios,
 		consolidadoOrdinario,

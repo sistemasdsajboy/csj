@@ -5,16 +5,13 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Select from '$lib/components/ui/select';
-	import { getDiasFestivosPorDespacho } from '$lib/core/calificaciones/generar-calificacion';
 	import { countLaborDaysBetweenDates } from '$lib/utils/dates';
-	import type { Despacho } from '@prisma/client';
 
 	let from = $state('');
 	let to = $state('');
 	let days = $state(0);
 
-	const { despacho }: { despacho: Despacho } = $props();
-	const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
+	const { diasNoHabiles }: { diasNoHabiles: Record<string, number[]> } = $props();
 
 	$effect(() => {
 		if (from && to) {

@@ -10,6 +10,7 @@
 	const {
 		calificacion,
 		despacho,
+		diasNoHabiles,
 		funcionario,
 		otrosFuncionarios,
 		consolidadoOrdinario,
@@ -36,7 +37,7 @@
 						despachoId={despacho.id}
 						registro={calificacion.registroAudiencias}
 					/>
-					<NovedadForm {despacho} />
+					<NovedadForm {diasNoHabiles} />
 				</div>
 			{/if}
 		</div>
