@@ -22,6 +22,7 @@
 		consolidadoEscrito,
 		oral,
 		garantias,
+		escrito,
 		registroAudiencias
 	} = data;
 </script>
@@ -54,7 +55,7 @@
 
 		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
 		<div
-			class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
+			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
 		>
 			<div
 				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
@@ -216,7 +217,7 @@
 		</div>
 
 		<div
-			class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 print:grid-cols-7"
+			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 print:grid-cols-7"
 		>
 			<div
 				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
@@ -346,7 +347,7 @@
 		</div>
 
 		<div
-			class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
+			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
 		>
 			<div
 				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
@@ -467,9 +468,64 @@
 			</table>
 		</div>
 
+		<div
+			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
+		>
+			<div
+				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
+			>
+				<h3 class="text-md mb-2 font-medium print:leading-none">Total inventario inicial</h3>
+				<p class="text-center text-xl font-bold">
+					{escrito?.totalInventarioInicial}
+				</p>
+			</div>
+			<div
+				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
+			>
+				<h3 class="text-md mb-2 font-medium print:leading-none">
+					Carga base del despacho modificada
+				</h3>
+				<p class="text-center text-xl font-bold">
+					{escrito?.cargaBaseCalificacionDespacho}
+				</p>
+			</div>
+			<div
+				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
+			>
+				<h3 class="text-md mb-2 font-medium print:leading-none">
+					Carga base del funcionario modificada
+				</h3>
+				<p class="text-center text-xl font-bold">
+					{escrito?.cargaBaseCalificacionFuncionario}
+				</p>
+			</div>
+			<div
+				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
+			>
+				<h3 class="text-md mb-2 font-medium print:leading-none">Egreso del funcionario</h3>
+				<p class="text-center text-xl font-bold">{escrito?.egresoFuncionario}</p>
+			</div>
+			<div
+				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
+			>
+				<h3 class="text-md mb-2 font-medium print:leading-none">Carga proporcional</h3>
+				<p class="text-center text-xl font-bold">
+					{escrito?.cargaProporcional.toFixed(2)}
+				</p>
+			</div>
+			<div
+				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"
+			>
+				<h3 class="text-md mb-2 font-medium print:leading-none">Subfactor escritural</h3>
+				<p class="text-center text-3xl font-bold text-sky-800">
+					{escrito?.totalSubfactor.toFixed(2)}
+				</p>
+			</div>
+		</div>
+
 		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Audiencias</h3>
 		<div
-			class="grid grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
+			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
 		>
 			<div
 				class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800"

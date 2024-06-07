@@ -55,8 +55,10 @@ export const load = (async ({ params, locals }) => {
 	const consolidadoEscrito = calificacion.registrosConsolidados.filter(
 		(r) => r.clase === 'escrito'
 	);
+
 	const oral = calificacion.subfactores.find((s) => s.subfactor === 'oral');
 	const garantias = calificacion.subfactores.find((s) => s.subfactor === 'garantias');
+	const escrito = calificacion.subfactores.find((s) => s.subfactor === 'escrito');
 
 	const diasNoHabiles = getDiasFestivosPorDespacho(calificacion.despacho);
 
@@ -73,6 +75,7 @@ export const load = (async ({ params, locals }) => {
 		consolidadoEscrito,
 		oral,
 		garantias,
+		escrito,
 		registroAudiencias: calificacion.registroAudiencias
 	};
 }) satisfies PageServerLoad;
@@ -142,8 +145,7 @@ export const actions = {
 			await generarCalificacionFuncionario(
 				calificacion.funcionarioId,
 				calificacion.despachoId,
-				calificacion.periodo,
-				locals.user.id
+				calificacion.periodo
 			);
 
 			return { success: true };
@@ -177,8 +179,7 @@ export const actions = {
 		await generarCalificacionFuncionario(
 			calificacion.funcionarioId,
 			calificacion.despachoId,
-			calificacion.periodo,
-			locals.user.id
+			calificacion.periodo
 		);
 
 		return { success: true };
@@ -249,8 +250,7 @@ export const actions = {
 		await generarCalificacionFuncionario(
 			calificacion.funcionarioId,
 			calificacion.despachoId,
-			calificacion.periodo,
-			locals.user.id
+			calificacion.periodo
 		);
 
 		return { success: true };

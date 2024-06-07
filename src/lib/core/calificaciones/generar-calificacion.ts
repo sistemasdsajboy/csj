@@ -86,7 +86,7 @@ const getCargaBaseCalificacionDespachoOral = (
 	return cargaBaseDespacho - ingresoEfectivoProcesosUltimoPeriodo - inventarioFinalTutelas;
 };
 
-const generarResultadosOral = (
+const generarResultadosSubfactorOral = (
 	funcionario: Funcionario,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
@@ -99,8 +99,9 @@ const generarResultadosOral = (
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
-	const totalSubfactor =
-		(Math.min(egresoFuncionario, cargaBaseCalificacionFuncionario) / cargaProporcional) * 40;
+	const totalSubfactor = cargaProporcional
+		? (Math.min(egresoFuncionario, cargaBaseCalificacionFuncionario) / cargaProporcional) * 40
+		: 0;
 
 	return {
 		subfactor: 'oral' as ClaseRegistroCalificacion,
@@ -113,7 +114,7 @@ const generarResultadosOral = (
 	};
 };
 
-const generarResultadosGarantias = (
+const generarResultadosSubfactor = (
 	funcionario: Funcionario,
 	diasHabilesDespacho: number,
 	diasHabilesFuncionario: number,
@@ -126,13 +127,15 @@ const generarResultadosGarantias = (
 	const cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 	const cargaProporcional =
 		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
-	const totalSubfactor = Math.min(
-		(Math.min(egresoFuncionario, cargaBaseCalificacionFuncionario) / cargaProporcional) * 45,
-		45
-	);
+	const totalSubfactor = cargaProporcional
+		? Math.min(
+				(Math.min(egresoFuncionario, cargaBaseCalificacionFuncionario) / cargaProporcional) * 45,
+				45
+			)
+		: 0;
 
 	return {
-		subfactor: 'garantias' as ClaseRegistroCalificacion,
+		subfactor: data[0].clase,
 		totalInventarioInicial,
 		cargaBaseCalificacionDespacho,
 		cargaBaseCalificacionFuncionario,
@@ -213,8 +216,7 @@ export function getDiasFestivosPorDespacho({
 export async function generarCalificacionFuncionario(
 	funcionarioId: string,
 	despachoId: string,
-	periodo: number,
-	userId: string
+	periodo: number
 ): Promise<Calificacion> {
 	const calificacion = await db.calificacion.findFirst({
 		where: { funcionarioId, despachoId, periodo: periodo }
@@ -289,18 +291,25 @@ export async function generarCalificacionFuncionario(
 
 	const diasHabilesLaborados = diasHabilesDespacho - diasDescontados;
 
-	const oral = generarResultadosOral(
+	const oral = generarResultadosSubfactorOral(
 		funcionario,
 		diasHabilesDespacho,
 		diasHabilesLaborados,
 		registrosOral
 	);
 
-	const garantias = generarResultadosGarantias(
+	const garantias = generarResultadosSubfactor(
 		funcionario,
 		diasHabilesDespacho,
 		diasHabilesLaborados,
 		registrosGarantias
+	);
+
+	const escrito = generarResultadosSubfactor(
+		funcionario,
+		diasHabilesDespacho,
+		diasHabilesLaborados,
+		registrosEscrito
 	);
 
 	const consolidadoOrdinario = generarConsolidado({
@@ -317,7 +326,6 @@ export async function generarCalificacionFuncionario(
 	});
 	const consolidadoGarantias = generarConsolidado({ diasNoHabiles, registros: registrosGarantias });
 	const consolidadoEscrito = generarConsolidado({ diasNoHabiles, registros: registrosEscrito });
-	const consolidadoOtros = generarConsolidado({ diasNoHabiles, registros: registrosOtros });
 
 	const calificacionAudiencias =
 		audiencias.programadas === 0
@@ -333,10 +341,9 @@ export async function generarCalificacionFuncionario(
 
 	const consolidados = [
 		...consolidadoOrdinario,
-		...consolidadoGarantias,
 		...consolidadoTutelas,
-		...consolidadoEscrito,
-		...consolidadoOtros
+		...consolidadoGarantias,
+		...consolidadoEscrito
 	];
 
 	const data = {
@@ -348,7 +355,7 @@ export async function generarCalificacionFuncionario(
 		diasDescontados,
 		diasLaborados: diasHabilesLaborados,
 		registrosConsolidados: { createMany: { data: consolidados } },
-		subfactores: { createMany: { data: [oral, garantias] } },
+		subfactores: { createMany: { data: [oral, garantias, escrito] } },
 		registroAudienciasId: audiencias.id,
 		calificacionAudiencias,
 		factorOralMasAudiencias,
