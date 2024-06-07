@@ -12,7 +12,10 @@ type SendEmailProps = {
 
 export async function sendEmail({ subject, to, html }: SendEmailProps) {
 	// Test adress for development only
-	if (dev) to = 'delivered@resend.dev';
+	if (dev) {
+		to = 'delivered@resend.dev';
+		console.log({ subject, to, html });
+	}
 
 	const from = 'Consejo Seccional de la Judicatura - Boyacá y Casanare <app@csbc.app>';
 	const { data } = await resend.emails.send({ from, to: [to], subject, html });
