@@ -356,6 +356,10 @@ export async function generarCalificacionFuncionario(
 	};
 
 	if (calificacion) {
+		await db.registroCalificacion.deleteMany({
+			where: { calificacionId: calificacion.id, categoria: 'Consolidado' }
+		});
+
 		return db.calificacion.update({
 			where: { id: calificacion.id },
 			// Al regenerar la calificación, preservar el estado actual.

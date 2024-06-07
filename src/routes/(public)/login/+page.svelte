@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
@@ -23,7 +22,7 @@
 				{/if}
 			</Card.Description>
 		</Card.Header>
-		<form method="post" action={form?.success ? '?/loginCode' : '?/login'} use:enhance>
+		<form method="post" action={form?.success ? '?/loginCode' : '?/login'}>
 			<Card.Content>
 				<div class="grid w-full items-center gap-4">
 					<div class="flex flex-col space-y-1.5">

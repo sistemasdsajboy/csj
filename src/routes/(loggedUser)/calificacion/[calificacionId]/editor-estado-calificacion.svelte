@@ -2,7 +2,6 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import type { EstadoCalificacion } from '@prisma/client';
-	import _ from 'lodash';
 
 	const { estado }: { estado: EstadoCalificacion } = $props();
 </script>
@@ -10,7 +9,7 @@
 {#if estado !== 'aprobada'}
 	<AlertDialog.Root>
 		<AlertDialog.Trigger asChild let:builder>
-			<Button builders={[builder]} variant="outline">
+			<Button builders={[builder]}>
 				{#if estado === 'borrador'}
 					Enviar a revisión
 				{:else if estado === 'revision'}

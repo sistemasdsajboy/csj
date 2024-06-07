@@ -14,6 +14,7 @@
 		despacho,
 		diasNoHabiles,
 		funcionario,
+		novedades,
 		otrosFuncionarios,
 		consolidadoOrdinario,
 		consolidadoTutelas,
@@ -76,7 +77,7 @@
 		</div>
 
 		<div class="pt-4">
-			<NovedadesList novedades={funcionario.novedades} />
+			<NovedadesList {novedades} />
 		</div>
 
 		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Oral</h3>

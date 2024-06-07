@@ -12,41 +12,34 @@ import type { PageServerLoad } from './$types';
 export const load = (async ({ params, locals }) => {
 	if (!locals.user) error(400, 'No autorizado');
 
-	const periodo = parseInt(params.periodo);
-
 	const calificacion = await db.calificacion.findFirst({
-		where: {
-			funcionarioId: params.funcionarioId,
-			despachoId: params.despachoId,
-			periodo
-		},
+		where: { id: params.calificacionId },
 		include: {
 			registrosConsolidados: true,
 			subfactores: true,
 			despacho: true,
-			funcionario: {
-				include: {
-					novedades: {
-						where: {
-							despachoId: params.despachoId,
-							OR: [
-								{ from: { lte: new Date(periodo, 11, 31) } },
-								{ to: { gte: new Date(periodo, 0, 1) } }
-							]
-						}
-					}
-				}
-			},
+			funcionario: true,
 			registroAudiencias: true
 		}
 	});
 
 	if (!calificacion) error(404, 'Calificación no encontrada');
 
+	const novedades = await db.novedadFuncionario.findMany({
+		where: {
+			despachoId: calificacion.despachoId,
+			OR: [
+				{ from: { lte: new Date(calificacion.periodo, 11, 31) } },
+				{ to: { gte: new Date(calificacion.periodo, 0, 1) } }
+			]
+		}
+	});
+
 	const funcionariosIds = _(calificacion.registrosConsolidados)
 		.uniqBy('funcionarioId')
 		.map((r) => r.funcionarioId)
 		.value();
+
 	const otrosFuncionarios = await db.funcionario.findMany({
 		where: { id: { in: funcionariosIds } },
 		select: { id: true, nombre: true }
@@ -72,6 +65,7 @@ export const load = (async ({ params, locals }) => {
 		despacho: calificacion.despacho,
 		diasNoHabiles,
 		funcionario: calificacion.funcionario,
+		novedades,
 		otrosFuncionarios,
 		consolidadoOrdinario,
 		consolidadoTutelas,
@@ -89,13 +83,12 @@ export const actions = {
 			if (!locals.user) error(400, 'No autorizado');
 
 			const calificacion = await db.calificacion.findFirst({
-				where: {
-					funcionarioId: params.funcionarioId,
-					despachoId: params.despachoId,
-					periodo: parseInt(params.periodo)
-				}
+				where: { id: params.calificacionId }
 			});
-			if (calificacion?.estado === 'aprobada')
+
+			if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+
+			if (calificacion.estado === 'aprobada')
 				return {
 					success: false,
 					error: 'No es posible agregar una novedad a una calificación que ya ha sido aprobada.'
@@ -126,15 +119,15 @@ export const actions = {
 			const to = new Date(data.get('to') as string);
 			const notes = data.get('notes') as string;
 
-			const despacho = await db.despacho.findFirst({ where: { id: params.despachoId } });
+			const despacho = await db.despacho.findFirst({ where: { id: calificacion.despachoId } });
 			if (!despacho) return fail(404, { error: 'Despacho no encontrado' });
 
 			const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
 			const days = countLaborDaysBetweenDates(diasNoHabiles, from, to);
 
 			const { success, data: newNovedad } = novedadSchema.safeParse({
-				funcionarioId: params.funcionarioId,
-				despachoId: params.despachoId,
+				funcionarioId: calificacion.funcionarioId,
+				despachoId: calificacion.despachoId,
 				type,
 				from,
 				to,
@@ -147,9 +140,9 @@ export const actions = {
 			await db.novedadFuncionario.create({ data: newNovedad });
 
 			await generarCalificacionFuncionario(
-				params.funcionarioId,
-				params.despachoId,
-				parseInt(params.periodo),
+				calificacion.funcionarioId,
+				calificacion.despachoId,
+				calificacion.periodo,
 				locals.user.id
 			);
 
@@ -164,12 +157,11 @@ export const actions = {
 		if (!locals.user) error(400, 'No autorizado');
 
 		const calificacion = await db.calificacion.findFirst({
-			where: {
-				funcionarioId: params.funcionarioId,
-				despachoId: params.despachoId,
-				periodo: parseInt(params.periodo)
-			}
+			where: { id: params.calificacionId }
 		});
+
+		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+
 		if (calificacion?.estado === 'aprobada')
 			return {
 				success: false,
@@ -183,9 +175,9 @@ export const actions = {
 		await db.novedadFuncionario.delete({ where: { id: novedadId } });
 
 		await generarCalificacionFuncionario(
-			params.funcionarioId,
-			params.despachoId,
-			parseInt(params.periodo),
+			calificacion.funcionarioId,
+			calificacion.despachoId,
+			calificacion.periodo,
 			locals.user.id
 		);
 
@@ -196,12 +188,11 @@ export const actions = {
 		if (!locals.user) error(400, 'No autorizado');
 
 		const calificacion = await db.calificacion.findFirst({
-			where: {
-				funcionarioId: params.funcionarioId,
-				despachoId: params.despachoId,
-				periodo: parseInt(params.periodo)
-			}
+			where: { id: params.calificacionId }
 		});
+
+		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+
 		if (calificacion?.estado === 'aprobada')
 			return {
 				success: false,
@@ -223,9 +214,9 @@ export const actions = {
 		});
 
 		const { success, data } = registroAudienciaSchema.safeParse({
-			despachoId: params.despachoId,
-			funcionarioId: params.funcionarioId,
-			periodo: parseInt(params.periodo),
+			despachoId: calificacion.despachoId,
+			funcionarioId: calificacion.funcionarioId,
+			periodo: calificacion.periodo,
 			...formData
 		});
 
@@ -246,8 +237,8 @@ export const actions = {
 
 		const existente = await db.registroAudiencias.findFirst({
 			where: {
-				despachoId: params.despachoId,
-				funcionarioId: params.funcionarioId,
+				despachoId: calificacion.despachoId,
+				funcionarioId: calificacion.funcionarioId,
 				periodo: data.periodo
 			}
 		});
@@ -256,9 +247,9 @@ export const actions = {
 		else await db.registroAudiencias.create({ data });
 
 		await generarCalificacionFuncionario(
-			params.funcionarioId,
-			params.despachoId,
-			parseInt(params.periodo),
+			calificacion.funcionarioId,
+			calificacion.despachoId,
+			calificacion.periodo,
 			locals.user.id
 		);
 
@@ -269,11 +260,7 @@ export const actions = {
 		if (!locals.user) error(400, 'No autorizado');
 
 		const calificacion = await db.calificacion.findFirst({
-			where: {
-				funcionarioId: params.funcionarioId,
-				despachoId: params.despachoId,
-				periodo: parseInt(params.periodo)
-			}
+			where: { id: params.calificacionId }
 		});
 
 		if (calificacion?.estado === 'borrador')
