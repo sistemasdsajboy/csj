@@ -8,12 +8,11 @@ datasource db {
 }
 
 model User {
-  id                String         @id @default(auto()) @map("_id") @db.ObjectId
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
   username          String
   password          String
   passwordExpiresAt DateTime
   sessions          Session[]
-  calificaciones    Calificacion[]
 }
 
 model Session {
@@ -104,7 +103,7 @@ model RegistroAudiencias {
   aplazadasJustificadas   Int
   aplazadasNoJustificadas Int
   calificacion            Calificacion[]
-  
+
   @@unique([despachoId, funcionarioId, periodo])
 }
 
@@ -147,7 +146,7 @@ model CalificacionSubfactor {
 enum EstadoCalificacion {
   borrador
   revision
-  aprobado
+  aprobada
 }
 
 model Calificacion {
@@ -168,9 +167,6 @@ model Calificacion {
   calificacionAudiencias            Float
   factorOralMasAudiencias           Float
   calificacionTotalFactorEficiencia Float
-  createdAt                         DateTime                @default(now()) @db.Date
-  createdById                       String                  @db.ObjectId
-  createdBy                         User                    @relation(fields: [createdById], references: [id])
 
   @@unique([despachoId, funcionarioId, periodo])
 }

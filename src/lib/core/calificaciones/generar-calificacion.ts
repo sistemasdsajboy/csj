@@ -8,12 +8,14 @@ import {
 	vacanciaJudicial
 } from '$lib/utils/dates';
 import type {
+	Calificacion,
 	CategoriaDespacho,
 	ClaseRegistroCalificacion,
 	EspecialidadDespacho,
 	Funcionario,
 	RegistroCalificacion
 } from '@prisma/client';
+import { EstadoCalificacion } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 
@@ -213,12 +215,12 @@ export async function generarCalificacionFuncionario(
 	despachoId: string,
 	periodo: number,
 	userId: string
-) {
+): Promise<Calificacion> {
 	const calificacion = await db.calificacion.findFirst({
 		where: { funcionarioId, despachoId, periodo: periodo }
 	});
 
-	if (calificacion) await db.calificacion.delete({ where: { id: calificacion.id } });
+	if (calificacion?.estado === 'aprobada') return calificacion;
 
 	const registros = await db.registroCalificacion.findMany({
 		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
@@ -329,37 +331,37 @@ export async function generarCalificacionFuncionario(
 	const calificacionTotalFactorEficiencia =
 		(factorOralMasAudiencias + garantias.totalSubfactor) / 2;
 
-	return db.calificacion.create({
-		data: {
-			estado: 'borrador',
-			periodo,
-			funcionarioId: funcionario.id,
-			despachoId: despacho.id,
-			diasHabilesDespacho,
-			diasDescontados,
-			diasLaborados: diasHabilesLaborados,
-			registrosConsolidados: {
-				createMany: {
-					data: [
-						...consolidadoOrdinario,
-						...consolidadoGarantias,
-						...consolidadoTutelas,
-						...consolidadoEscrito,
-						...consolidadoOtros
-					]
-				}
-			},
-			subfactores: {
-				createMany: {
-					data: [oral, garantias]
-				}
-			},
-			registroAudienciasId: audiencias.id,
-			calificacionAudiencias,
-			factorOralMasAudiencias,
-			calificacionTotalFactorEficiencia,
-			createdById: userId,
-			createdAt: new Date()
-		}
-	});
+	const consolidados = [
+		...consolidadoOrdinario,
+		...consolidadoGarantias,
+		...consolidadoTutelas,
+		...consolidadoEscrito,
+		...consolidadoOtros
+	];
+
+	const data = {
+		estado: EstadoCalificacion.borrador,
+		periodo,
+		funcionarioId: funcionario.id,
+		despachoId: despacho.id,
+		diasHabilesDespacho,
+		diasDescontados,
+		diasLaborados: diasHabilesLaborados,
+		registrosConsolidados: { createMany: { data: consolidados } },
+		subfactores: { createMany: { data: [oral, garantias] } },
+		registroAudienciasId: audiencias.id,
+		calificacionAudiencias,
+		factorOralMasAudiencias,
+		calificacionTotalFactorEficiencia
+	};
+
+	if (calificacion) {
+		return db.calificacion.update({
+			where: { id: calificacion.id },
+			// Al regenerar la calificación, preservar el estado actual.
+			data: { ...data, estado: calificacion.estado }
+		});
+	} else {
+		return db.calificacion.create({ data });
+	}
 }

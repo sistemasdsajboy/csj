@@ -95,7 +95,7 @@ export const actions = {
 					periodo: parseInt(params.periodo)
 				}
 			});
-			if (calificacion?.estado === 'aprobado')
+			if (calificacion?.estado === 'aprobada')
 				return {
 					success: false,
 					error: 'No es posible agregar una novedad a una calificación que ya ha sido aprobada.'
@@ -154,7 +154,7 @@ export const actions = {
 				periodo: parseInt(params.periodo)
 			}
 		});
-		if (calificacion?.estado === 'aprobado')
+		if (calificacion?.estado === 'aprobada')
 			return {
 				success: false,
 				error:
@@ -186,7 +186,7 @@ export const actions = {
 				periodo: parseInt(params.periodo)
 			}
 		});
-		if (calificacion?.estado === 'aprobado')
+		if (calificacion?.estado === 'aprobada')
 			return {
 				success: false,
 				error:
@@ -247,5 +247,28 @@ export const actions = {
 		);
 
 		return { success: true };
+	},
+
+	actualizarEstado: async ({ request, params, locals }) => {
+		if (!locals.user) error(400, 'No autorizado');
+
+		const calificacion = await db.calificacion.findFirst({
+			where: {
+				funcionarioId: params.funcionarioId,
+				despachoId: params.despachoId,
+				periodo: parseInt(params.periodo)
+			}
+		});
+
+		if (calificacion?.estado === 'borrador')
+			await db.calificacion.update({
+				where: { id: calificacion.id },
+				data: { estado: 'revision' }
+			});
+		else if (calificacion?.estado === 'revision')
+			await db.calificacion.update({
+				where: { id: calificacion.id },
+				data: { estado: 'aprobada' }
+			});
 	}
 };
