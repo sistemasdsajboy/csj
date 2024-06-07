@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
-	import { Separator } from '$lib/components/ui/separator';
 	import { cn } from '$lib/utils/shadcn';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import type { Snippet } from 'svelte';
@@ -37,7 +36,17 @@
 			{@render header()}
 		{/if}
 	</div>
+
 	<div class="flex grow space-x-2 sm:justify-end">
+		<a href="/" class={cn({ 'text-sky-800 underline': url.pathname !== '/' })}> Funcionarios </a>
+		<a
+			href="/calificaciones"
+			class={cn({ 'text-sky-800 underline': url.pathname !== '/calificaciones' })}>Calificaciones</a
+		>
+		<a
+			href="/configuracion"
+			class={cn({ 'text-sky-800 underline': url.pathname !== '/configuracion' })}>Configuracion</a
+		>
 		{@render userInfo()}
 	</div>
 </div>
