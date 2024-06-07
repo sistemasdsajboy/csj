@@ -105,9 +105,23 @@ export const actions = {
 			// en los que el funcionario trabajó en el despacho de la calificación.
 			// Si una novedad abarca más de un periodo laborado, se debe dividir y registrar con la calificación correspondiente.
 
+			const novedadSchema = z.object({
+				funcionarioId: z.string(),
+				despachoId: z.string(),
+				type: z
+					.string()
+					.min(1)
+					// TODO: Validation requerida porque con select de shadui-svelte, si no se selecciona un valor, formData.get('type') returns the string'undefined'.
+					.refine((v) => v !== 'undefined'),
+				from: z.date(),
+				to: z.date(),
+				days: z.number(),
+				notes: z.string()
+			});
+
 			const data = await request.formData();
 
-			const type = data.get('type') as string;
+			const type = data.get('type');
 			const from = new Date(data.get('from') as string);
 			const to = new Date(data.get('to') as string);
 			const notes = data.get('notes') as string;
@@ -118,17 +132,19 @@ export const actions = {
 			const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
 			const days = countLaborDaysBetweenDates(diasNoHabiles, from, to);
 
-			await db.novedadFuncionario.create({
-				data: {
-					funcionarioId: params.funcionarioId,
-					despachoId: params.despachoId,
-					type,
-					from,
-					to,
-					days,
-					notes
-				}
+			const { success, data: newNovedad } = novedadSchema.safeParse({
+				funcionarioId: params.funcionarioId,
+				despachoId: params.despachoId,
+				type,
+				from,
+				to,
+				days,
+				notes
 			});
+
+			if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
+
+			await db.novedadFuncionario.create({ data: newNovedad });
 
 			await generarCalificacionFuncionario(
 				params.funcionarioId,
