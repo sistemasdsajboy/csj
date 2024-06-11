@@ -41,11 +41,13 @@
 		<a href="/" class={cn({ 'text-sky-800 underline': url.pathname !== '/' })}> Funcionarios </a>
 		<a
 			href="/calificaciones"
-			class={cn({ 'text-sky-800 underline': url.pathname !== '/calificaciones' })}>Calificaciones</a
+			class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/calificaciones') })}
+			>Calificaciones</a
 		>
 		<a
 			href="/configuracion"
-			class={cn({ 'text-sky-800 underline': url.pathname !== '/configuracion' })}>Configuracion</a
+			class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/configuracion') })}
+			>Configuracion</a
 		>
 		{@render userInfo()}
 	</div>

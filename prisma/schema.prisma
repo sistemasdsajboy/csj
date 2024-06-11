@@ -7,12 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRoles {
+  admin
+  editor
+  reviewer
+}
+
+model DespachoSeccional {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  seccional   String
+  nombre      String
+  numero      Int
+  usuariosIds String[] @db.ObjectId
+  usuarios    User[]   @relation(fields: [usuariosIds], references: [id])
+}
+
 model User {
-  id                String    @id @default(auto()) @map("_id") @db.ObjectId
-  username          String
-  password          String
-  passwordExpiresAt DateTime
-  sessions          Session[]
+  id                  String              @id @default(auto()) @map("_id") @db.ObjectId
+  username            String
+  password            String
+  passwordExpiresAt   DateTime
+  sessions            Session[]
+  roles               UserRoles[]
+  despachoSeccionalId String[]            @db.ObjectId
+  despachosSeccional  DespachoSeccional[] @relation(fields: [despachoSeccionalId], references: [id])
 }
 
 model Session {
