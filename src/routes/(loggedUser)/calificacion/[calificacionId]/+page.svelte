@@ -33,7 +33,7 @@
 	</div>
 {/snippet}
 
-<PageLayout {header} username={data.user} backHref="/funcionario/{funcionario.id}">
+<PageLayout {header} username={data.user}>
 	<div class="container mx-auto px-4">
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
 			<EstadoCalificacion estado={calificacion.estado} />

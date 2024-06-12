@@ -1,9 +1,16 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils/shadcn';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import type { Snippet } from 'svelte';
+
+	let previousPage = $state<string>(base);
+	afterNavigate(({ from }) => {
+		previousPage = from?.url.pathname || previousPage;
+	});
 
 	type PageLayoutProps = {
 		children: Snippet;
@@ -12,7 +19,7 @@
 		username: string;
 		backHref?: string;
 	};
-	const { header, sidebar, children, username, backHref = '/' }: PageLayoutProps = $props();
+	const { header, sidebar, children, username, backHref }: PageLayoutProps = $props();
 	const { url } = $page;
 </script>
 
@@ -28,7 +35,7 @@
 >
 	<div class="flex grow items-center gap-2 text-lg font-bold uppercase">
 		{#if url.pathname !== '/'}
-			<Button variant="link" href={backHref}>
+			<Button variant="link" href={backHref || previousPage}>
 				<ArrowLeft class="h-6 w-6" />
 			</Button>
 		{/if}
