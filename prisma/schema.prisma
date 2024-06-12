@@ -14,12 +14,13 @@ enum UserRoles {
 }
 
 model DespachoSeccional {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  seccional   String
-  nombre      String
-  numero      Int
-  usuariosIds String[] @db.ObjectId
-  usuarios    User[]   @relation(fields: [usuariosIds], references: [id])
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  seccional      String
+  nombre         String
+  numero         Int
+  usuariosIds    String[]       @db.ObjectId
+  usuarios       User[]         @relation(fields: [usuariosIds], references: [id])
+  calificaciones Calificacion[]
 }
 
 model User {
@@ -175,6 +176,8 @@ model Calificacion {
   funcionario                       Funcionario             @relation(fields: [funcionarioId], references: [id])
   despachoId                        String                  @db.ObjectId
   despacho                          Despacho                @relation(fields: [despachoId], references: [id])
+  despachoSeccionalId               String?                 @db.ObjectId
+  despachoSeccional                 DespachoSeccional?      @relation(fields: [despachoSeccionalId], references: [id])
   diasHabilesDespacho               Int
   diasDescontados                   Int
   diasLaborados                     Int
