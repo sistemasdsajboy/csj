@@ -6,7 +6,7 @@
 </script>
 
 {#snippet header()}
-	<h1 class="grow text-lg font-bold uppercase">Calificaciones</h1>
+	<h1 class="grow text-lg font-bold uppercase">Funcionarios</h1>
 {/snippet}
 
 {#snippet sidebar()}
