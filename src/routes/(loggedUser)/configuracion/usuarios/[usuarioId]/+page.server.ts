@@ -1,5 +1,4 @@
 import { db } from '$lib/db/client';
-import type { UserRoles } from '@prisma/client';
 import { error, fail } from '@sveltejs/kit';
 import { superValidate } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
@@ -21,7 +20,7 @@ export const load = (async ({ params }) => {
 
 	const updateUserForm = await superValidate(user, zod(updateUserFormSchema));
 
-	const roles: { value: UserRoles; label: string }[] = [
+	const roles: { value: 'admin' | 'editor' | 'reviewer'; label: string }[] = [
 		{ value: 'admin', label: 'Administrador' },
 		{ value: 'editor', label: 'Edición' },
 		{ value: 'reviewer', label: 'Aprobación' }
