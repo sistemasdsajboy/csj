@@ -41,7 +41,7 @@ export const actions = {
 		if (!user) throw fail(404, { message: 'Usuario no encontrado' });
 		if (!user.roles.includes('admin')) error(403, 'No autorizado');
 
-		// TODO: Crear página de gestión de despachos en /configuración y eliminar esta creación
+		// TODO: Crear página de gestión de despachos en /configuracion y eliminar esta creación
 		const despachosSeccional = await db.despachoSeccional.findMany({});
 		if (!despachosSeccional.length) {
 			await db.despachoSeccional.createMany({

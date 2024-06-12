@@ -54,7 +54,7 @@
 		<a
 			href="/configuracion"
 			class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/configuracion') })}
-			>Configuracion</a
+			>Configuración</a
 		>
 		{@render userInfo()}
 	</div>
