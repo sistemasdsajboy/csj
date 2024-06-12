@@ -47,7 +47,7 @@
 				<div class="grow"></div>
 
 				<Badge variant={calificacion.despachoSeccional?.nombre ? 'default' : 'secondary'}>
-					{calificacion.despachoSeccional?.nombre || 'Sin despacho asignado'}
+					{calificacion.despachoSeccional?.nombre.slice(0, 10) || 'Sin despacho asignado'}
 				</Badge>
 				<AsignarDespachoForm calificacionId={calificacion.id} {despachos}>
 					<Edit2Icon class="h-4 w-4" />
