@@ -256,22 +256,36 @@ export const actions = {
 		return { success: true };
 	},
 
-	actualizarEstado: async ({ request, params, locals }) => {
+	actualizarEstado: async ({ params, locals }) => {
 		if (!locals.user) error(400, 'No autorizado');
+
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user) error(400, 'No autorizado');
+
+		const isEditor = user.roles.includes('editor');
+		const isReviewer = user.roles.includes('reviewer');
 
 		const calificacion = await db.calificacion.findFirst({
 			where: { id: params.calificacionId }
 		});
 
-		if (calificacion?.estado === 'borrador')
+		if (calificacion?.estado === 'borrador') {
+			if (!isEditor)
+				return {
+					success: false,
+					error: 'No tiene permiso para enviar una calificación a revision.'
+				};
 			await db.calificacion.update({
 				where: { id: calificacion.id },
 				data: { estado: 'revision' }
 			});
-		else if (calificacion?.estado === 'revision')
+		} else if (calificacion?.estado === 'revision') {
+			if (!isReviewer)
+				return { success: false, error: 'No tiene permiso para aprobar una calificación.' };
 			await db.calificacion.update({
 				where: { id: calificacion.id },
 				data: { estado: 'aprobada' }
 			});
+		}
 	}
 };
