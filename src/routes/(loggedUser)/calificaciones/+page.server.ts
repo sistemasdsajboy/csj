@@ -7,14 +7,19 @@ export const load = (async ({ locals }) => {
 	const user = await db.user.findFirst({ where: { id: locals.user?.id } });
 
 	if (!user) error(400, 'Usuario no encontrado');
-	const { despachosSeccionalIds } = user;
+	const { roles, despachosSeccionalIds } = user;
 
 	const calificaciones = await db.calificacion.findMany({
 		where: {
 			OR: [
 				{ despachoSeccionalId: { in: despachosSeccionalIds } },
 				{ despachoSeccionalId: { isSet: false } }
-			]
+			],
+			estado: {
+				in: roles.includes('editor')
+					? ['aprobada', 'revision', 'borrador']
+					: ['aprobada', 'revision']
+			}
 		},
 		select: {
 			id: true,
