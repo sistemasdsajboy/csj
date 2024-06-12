@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Form from '$lib/components/ui/form';
 	import { superForm } from 'sveltekit-superforms';
 	import { zodClient } from 'sveltekit-superforms/adapters';
@@ -45,14 +44,19 @@
 			<Form.FieldErrors />
 		</Form.Field>
 
-		<Form.Field {form} name="despachoSeccionalId">
+		<Form.Field {form} name="despachosSeccionalIds">
 			<Form.Control let:attrs>
-				<Form.Label for="roles">Despachos</Form.Label>
+				<Form.Label for="despachosSeccionalIds">Despachos</Form.Label>
 				{#each despachos as despacho}
-					{@const checked = $formData.despachoSeccionalId.includes(despacho.value)}
+					{@const checked = $formData.despachosSeccionalIds.includes(despacho.value)}
 					<div class="flex flex-row items-center gap-2">
-						<Checkbox {...attrs} {checked} />
-						<Form.Label for="roles">{despacho.label}</Form.Label>
+						<input
+							type="checkbox"
+							bind:group={$formData.despachosSeccionalIds}
+							name="despachosSeccionalIds"
+							value={despacho.value}
+						/>
+						<Form.Label for="despachosSeccionalIds">{despacho.label}</Form.Label>
 					</div>
 				{/each}
 			</Form.Control>

@@ -1,6 +1,6 @@
 import { db } from '$lib/db/client';
 import type { UserRoles } from '@prisma/client';
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { superValidate } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import type { PageServerLoad } from './$types';
@@ -13,7 +13,7 @@ export const load = (async ({ params }) => {
 			id: true,
 			username: true,
 			roles: true,
-			despachoSeccionalId: true
+			despachosSeccionalIds: true
 		}
 	});
 
@@ -37,6 +37,30 @@ export const load = (async ({ params }) => {
 
 export const actions = {
 	default: async ({ request, locals }) => {
+		const user = await db.user.findFirst({ where: { id: locals.user?.id } });
+		if (!user) throw fail(404, { message: 'Usuario no encontrado' });
+		if (!user.roles.includes('admin')) error(403, 'No autorizado');
+
+		// TODO: Crear página de gestión de despachos en /configuración y eliminar esta creación
+		const despachosSeccional = await db.despachoSeccional.findMany({});
+		if (!despachosSeccional.length) {
+			await db.despachoSeccional.createMany({
+				data: [
+					{
+						seccional: 'Tunja',
+						nombre: 'Despacho 1 - Consejo Seccional de la Judicatura - Tunja',
+						numero: 1
+					},
+					{
+						seccional: 'Tunja',
+						nombre: 'Despacho 2 - Consejo Seccional de la Judicatura - Tunja',
+						numero: 2
+					}
+				]
+			});
+		}
+		// END TODO
+
 		const formData = await request.formData();
 		const form = await superValidate(formData, zod(updateUserFormSchema));
 
@@ -44,11 +68,15 @@ export const actions = {
 			return fail(400, { form });
 		}
 
+		const adminsLeft = await db.user.count({ where: { roles: { has: 'admin' } } });
+		if (adminsLeft === 1 && !form.data.roles.includes('admin'))
+			error(400, 'No se puede quitar el rol de administrador al último usuario con este rol.');
+
 		await db.user.update({
 			where: { id: form.data.id },
 			data: {
 				roles: form.data.roles,
-				despachoSeccionalId: form.data.despachoSeccionalId
+				despachosSeccionalIds: form.data.despachosSeccionalIds
 			}
 		});
 

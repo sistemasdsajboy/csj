@@ -23,14 +23,14 @@ model DespachoSeccional {
 }
 
 model User {
-  id                  String              @id @default(auto()) @map("_id") @db.ObjectId
-  username            String
-  password            String
-  passwordExpiresAt   DateTime
-  sessions            Session[]
-  roles               UserRoles[]
-  despachoSeccionalId String[]            @db.ObjectId
-  despachosSeccional  DespachoSeccional[] @relation(fields: [despachoSeccionalId], references: [id])
+  id                    String              @id @default(auto()) @map("_id") @db.ObjectId
+  username              String
+  password              String
+  passwordExpiresAt     DateTime
+  sessions              Session[]
+  roles                 UserRoles[]
+  despachosSeccionalIds String[]            @db.ObjectId
+  despachosSeccional    DespachoSeccional[] @relation(fields: [despachosSeccionalIds], references: [id])
 }
 
 model Session {
