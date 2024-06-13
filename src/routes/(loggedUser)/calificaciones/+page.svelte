@@ -42,7 +42,9 @@
 				>
 					{labels[calificacion.estado]}
 				</div>
-				<a href="/calificacion/{calificacion.id}">{calificacion.despacho.nombre}</a>
+				<a href="/calificacion/{calificacion.id}"
+					>{calificacion.funcionario.nombre} - {calificacion.despacho.nombre}</a
+				>
 
 				<div class="grow"></div>
 

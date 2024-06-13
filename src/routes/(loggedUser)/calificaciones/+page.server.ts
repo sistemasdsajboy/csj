@@ -24,10 +24,11 @@ export const load = (async ({ locals }) => {
 		select: {
 			id: true,
 			estado: true,
+			funcionario: { select: { nombre: true } },
 			despacho: { select: { nombre: true } },
 			despachoSeccional: { select: { nombre: true } }
 		},
-		orderBy: { despacho: { nombre: 'asc' } }
+		orderBy: { funcionario: { nombre: 'asc' } }
 	});
 
 	const despachos = await db.despachoSeccional.findMany({
