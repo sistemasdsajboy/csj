@@ -25,6 +25,15 @@ export const load = (async ({ params, locals }) => {
 
 	if (!calificacion) error(404, 'Calificación no encontrada');
 
+	const calificacionesAdicionales = await db.calificacion.findMany({
+		where: {
+			id: { not: params.calificacionId },
+			periodo: calificacion.periodo,
+			funcionarioId: calificacion.funcionarioId
+		},
+		select: { id: true, despacho: { select: { nombre: true } } }
+	});
+
 	const novedades = await db.novedadFuncionario.findMany({
 		where: {
 			despachoId: calificacion.despachoId,
@@ -40,7 +49,7 @@ export const load = (async ({ params, locals }) => {
 		.map((r) => r.funcionarioId)
 		.value();
 
-	const otrosFuncionarios = await db.funcionario.findMany({
+	const funcionariosPeriodo = await db.funcionario.findMany({
 		where: { id: { in: funcionariosIds } },
 		select: { id: true, nombre: true }
 	});
@@ -64,11 +73,12 @@ export const load = (async ({ params, locals }) => {
 
 	return {
 		calificacion,
+		calificacionesAdicionales,
 		despacho: calificacion.despacho,
 		diasNoHabiles,
 		funcionario: calificacion.funcionario,
 		novedades,
-		otrosFuncionarios,
+		funcionariosPeriodo,
 		consolidadoOrdinario,
 		consolidadoTutelas,
 		consolidadoGarantias,
