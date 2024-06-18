@@ -216,6 +216,21 @@ export function getDiasFestivosPorDespacho({
 	return mergeExcludedDates(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
+async function calcularPonderada(
+	calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[]
+) {
+	if (calificaciones.length === 0) return 0;
+	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
+
+	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborados');
+	return _(calificaciones)
+		.map(
+			({ diasLaborados, calificacionTotalFactorEficiencia }) =>
+				(calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborados
+		)
+		.sum();
+}
+
 export async function generarCalificacionFuncionario(
 	funcionarioId: string,
 	despachoId: string,
@@ -351,6 +366,18 @@ export async function generarCalificacionFuncionario(
 		...consolidadoEscrito
 	];
 
+	const calificaciones = await db.calificacion.findMany({
+		where: { funcionarioId, periodo, id: { not: calificacion?.id } }
+	});
+	const calificacionPonderada = await calcularPonderada([
+		...calificaciones,
+		{ diasLaborados: diasHabilesLaborados, calificacionTotalFactorEficiencia }
+	]);
+	await db.calificacion.updateMany({
+		where: { funcionarioId, periodo, id: { not: calificacion?.id } },
+		data: { calificacionPonderada }
+	});
+
 	const data = {
 		estado: EstadoCalificacion.borrador,
 		periodo,
@@ -364,7 +391,8 @@ export async function generarCalificacionFuncionario(
 		registroAudienciasId: audiencias.id,
 		calificacionAudiencias,
 		factorOralMasAudiencias,
-		calificacionTotalFactorEficiencia
+		calificacionTotalFactorEficiencia,
+		calificacionPonderada
 	};
 
 	if (calificacion) {

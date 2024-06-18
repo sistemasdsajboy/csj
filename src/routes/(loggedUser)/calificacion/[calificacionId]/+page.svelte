@@ -28,6 +28,9 @@
 		escrito,
 		registroAudiencias
 	} = $derived(data);
+
+	const calificacionTotal = $derived(calificacion.calificacionTotalFactorEficiencia.toFixed(2));
+	const calificacionPonderada = $derived(calificacion.calificacionPonderada?.toFixed(2) || 0);
 </script>
 
 {#snippet header()}
@@ -142,12 +145,12 @@
 		</div>
 
 		<h1 class="hidden text-3xl font-bold print:block">{funcionario.nombre}</h1>
-		<h2 class="bold font-boldtext-slate-800 pt-8 text-center text-2xl">
-			Calificación factor eficiencia o rendimiento
-		</h2>
-		<h3 class="bold pt-8 text-center text-3xl font-bold text-sky-800">
-			{calificacion.calificacionTotalFactorEficiencia.toFixed(2)}
-		</h3>
+		<div class="flex flex-row gap-2">
+			{@render tarjetaValor('Calificación factor eficiencia', calificacionTotal, true)}
+			{#if calificacionTotal !== calificacionPonderada && calificacionPonderada !== 0}
+				{@render tarjetaValor('Calificación ponderada', calificacionPonderada, true)}
+			{/if}
+		</div>
 
 		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
 		<div
@@ -186,7 +189,7 @@
 			{@render tarjetaValor('Carga proporcional', oral?.cargaProporcional.toFixed(2))}
 			{@render tarjetaValor('Subfactor respuesta efectiva', oral?.totalSubfactor.toFixed(2))}
 			{@render tarjetaValor(
-				'Calificación final factor eficiencia',
+				'Calificación eficiencia + audiencias',
 				calificacion.factorOralMasAudiencias.toFixed(2),
 				true
 			)}

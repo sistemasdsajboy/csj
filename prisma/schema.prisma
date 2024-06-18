@@ -188,6 +188,7 @@ model Calificacion {
   calificacionAudiencias            Float
   factorOralMasAudiencias           Float
   calificacionTotalFactorEficiencia Float
+  calificacionPonderada             Float                   @default(0)
 
   @@unique([despachoId, funcionarioId, periodo])
 }
