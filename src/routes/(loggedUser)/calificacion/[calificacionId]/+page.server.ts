@@ -54,16 +54,22 @@ export const load = (async ({ params, locals }) => {
 		select: { id: true, nombre: true }
 	});
 
-	const consolidadoOrdinario = calificacion.registrosConsolidados.filter((r) => r.clase === 'oral');
-	const consolidadoTutelas = calificacion.registrosConsolidados.filter(
-		(r) => r.clase === 'constitucional'
-	);
-	const consolidadoGarantias = calificacion.registrosConsolidados.filter(
-		(r) => r.clase === 'garantias'
-	);
-	const consolidadoEscrito = calificacion.registrosConsolidados.filter(
-		(r) => r.clase === 'escrito'
-	);
+	const consolidadoOrdinario = _(calificacion.registrosConsolidados)
+		.filter((r) => r.clase === 'oral')
+		.sortBy('desde')
+		.value();
+	const consolidadoTutelas = _(calificacion.registrosConsolidados)
+		.filter((r) => r.clase === 'constitucional')
+		.sortBy('desde')
+		.value();
+	const consolidadoGarantias = _(calificacion.registrosConsolidados)
+		.filter((r) => r.clase === 'garantias')
+		.sortBy('desde')
+		.value();
+	const consolidadoEscrito = _(calificacion.registrosConsolidados)
+		.filter((r) => r.clase === 'escrito')
+		.sortBy('desde')
+		.value();
 
 	const oral = calificacion.subfactores.find((s) => s.subfactor === 'oral');
 	const garantias = calificacion.subfactores.find((s) => s.subfactor === 'garantias');
