@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PageLayout from '$lib/components/custom/page-layout.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import { formatDate } from '$lib/utils/dates';
 	import { Edit2Icon } from 'lucide-svelte';
 	import EditorEstadoCalificacion from './editor-estado-calificacion.svelte';
@@ -124,6 +125,9 @@
 				<div class="grow"></div>
 				<RegistroAudienciasForm {registroAudiencias} />
 				<NovedadForm {diasNoHabiles} />
+				<Button variant="outline" href="/calificacion/{calificacion.id}/descargar-consolidado">
+					Descargar consolidado
+				</Button>
 			{/if}
 		</div>
 
