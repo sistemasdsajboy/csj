@@ -176,8 +176,11 @@ model Calificacion {
   funcionario                       Funcionario             @relation(fields: [funcionarioId], references: [id])
   despachoId                        String                  @db.ObjectId
   despacho                          Despacho                @relation(fields: [despachoId], references: [id])
+  // despacho que aprueba la calificación
   despachoSeccionalId               String?                 @db.ObjectId
   despachoSeccional                 DespachoSeccional?      @relation(fields: [despachoSeccionalId], references: [id])
+  cargaEfectivaTotal                Int                     @default(0)
+  egresoEfectivoTotal               Int                     @default(0)
   diasHabilesDespacho               Int
   diasDescontados                   Int
   diasLaborados                     Int

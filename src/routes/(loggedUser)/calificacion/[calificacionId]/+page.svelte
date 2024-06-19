@@ -152,6 +152,13 @@
 			{/if}
 		</div>
 
+		<div
+			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
+		>
+			{@render tarjetaValor('Carga efectiva total', calificacion.cargaEfectivaTotal)}
+			{@render tarjetaValor('Egreso efectivo total', calificacion.egresoEfectivoTotal)}
+		</div>
+
 		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
 		<div
 			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"

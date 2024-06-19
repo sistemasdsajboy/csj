@@ -52,6 +52,8 @@ const getInventarioFinalByCategoria = (
 		.sumBy((d) => d.inventarioFinal);
 };
 
+const getEgresoTotal = (data: RegistroCalificacion[]) => _.sumBy(data, 'egresoEfectivo');
+
 const getEgresoFuncionario = (data: RegistroCalificacion[], funcionarioId: string) => {
 	return _.sumBy(data, (d) =>
 		d.funcionarioId === funcionarioId ? d.egresoEfectivo + d.conciliaciones : 0
@@ -339,6 +341,11 @@ export async function generarCalificacionFuncionario(
 		'garantias'
 	);
 
+	const baseOral = getCargaBaseCalificacionDespacho(registrosOral);
+	const baseGarantias = getCargaBaseCalificacionDespacho(registrosGarantias);
+	const egresoOral = getEgresoTotal(registrosOral);
+	const egresoGarantias = getEgresoTotal(registrosGarantias);
+
 	const escrito = generarResultadosSubfactor(
 		funcionario,
 		diasHabilesDespacho,
@@ -383,6 +390,8 @@ export async function generarCalificacionFuncionario(
 		periodo,
 		funcionarioId: funcionario.id,
 		despachoId: despacho.id,
+		cargaEfectivaTotal: baseOral + baseGarantias,
+		egresoEfectivoTotal: egresoOral + egresoGarantias,
 		diasHabilesDespacho,
 		diasDescontados,
 		diasLaborados: diasHabilesLaborados,
