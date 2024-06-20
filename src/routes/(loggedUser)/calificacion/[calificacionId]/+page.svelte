@@ -10,6 +10,8 @@
 	import NovedadesList from './novedades-list.svelte';
 	import RegistroAudienciasForm from './registro-audiencias-form.svelte';
 	import { cn } from '$lib/utils/shadcn';
+	import FileSaver from 'file-saver';
+	import * as XLSX from 'xlsx';
 
 	let { data } = $props();
 	const {
@@ -27,11 +29,30 @@
 		oral,
 		garantias,
 		escrito,
-		registroAudiencias
+		registroAudiencias,
+		consolidadoXlsxData
 	} = $derived(data);
 
 	const calificacionTotal = $derived(calificacion.calificacionTotalFactorEficiencia.toFixed(2));
 	const calificacionPonderada = $derived(calificacion.calificacionPonderada?.toFixed(2) || 0);
+
+	const exportToSpreadsheet = (xlsxData, fileName) => {
+		const FILE_TYPE =
+			'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8';
+		const FILE_EXTENSION = '.xlsx';
+
+		const workSheets = xlsxData.reduce(
+			(ws, d) => ({
+				...ws,
+				[d.name]: XLSX.utils.aoa_to_sheet(d.data)
+			}),
+			{}
+		);
+		const workBook = { Sheets: workSheets, SheetNames: xlsxData.map((d) => d.name) };
+		const excelBuffer = XLSX.write(workBook, { bookType: 'xlsx', type: 'array' });
+		const fileData = new Blob([excelBuffer], { type: FILE_TYPE });
+		FileSaver.saveAs(fileData, fileName + FILE_EXTENSION);
+	};
 </script>
 
 {#snippet header()}
@@ -121,14 +142,17 @@
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
 			<EstadoCalificacion estado={calificacion.estado} />
 			<EditorEstadoCalificacion estado={calificacion.estado} />
+			<div class="grow"></div>
 			{#if calificacion.estado !== 'aprobada'}
-				<div class="grow"></div>
 				<RegistroAudienciasForm {registroAudiencias} />
 				<NovedadForm {diasNoHabiles} />
-				<Button variant="outline" href="/calificacion/{calificacion.id}/descargar-consolidado">
-					Descargar consolidado
-				</Button>
 			{/if}
+			<Button
+				variant="outline"
+				onclick={() => exportToSpreadsheet(consolidadoXlsxData, 'Consolidado')}
+			>
+				Descargar consolidado
+			</Button>
 		</div>
 
 		<div class="my-8 space-y-4">

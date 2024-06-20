@@ -9,6 +9,89 @@ import _ from 'lodash';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
 
+const getXlsxData = async (calificacionId: string) => {
+	const calificacion = await db.calificacion.findUnique({
+		where: { id: calificacionId },
+		include: {
+			funcionario: { select: { nombre: true } },
+			despacho: { select: { nombre: true, codigo: true } }
+		}
+	});
+	if (!calificacion) error(400, 'Calificación no encontrada');
+
+	const datosEstadistica = await db.registroCalificacion.findMany({
+		where: {
+			categoria: { not: 'Consolidado' },
+			periodo: calificacion.periodo,
+			despachoId: calificacion.despachoId
+		},
+		select: {
+			funcionario: { select: { nombre: true, documento: true } },
+			clase: true,
+			categoria: true,
+			desde: true,
+			hasta: true,
+			inventarioInicial: true,
+			ingresoEfectivo: true,
+			cargaEfectiva: true,
+			egresoEfectivo: true,
+			conciliaciones: true,
+			inventarioFinal: true,
+			restan: true
+		}
+	});
+
+	const encabezadoPagina = [
+		['Despacho', `${calificacion.despacho.nombre} - ${calificacion.despacho.codigo}`],
+		[],
+		[
+			'Categoría',
+			'Funcionario',
+			'Desde',
+			'Hasta',
+			'Inventario inicial',
+			'Ingreso efectivo',
+			'Carga efectiva',
+			'Egreso efectivo',
+			'Conciliaciones',
+			'Inventario final',
+			null,
+			'Restan'
+		]
+	];
+
+	const crearFila = (consolidado: (typeof datosEstadistica)[number]) => {
+		return [
+			consolidado.categoria,
+			`${consolidado.funcionario.nombre} - ${consolidado.funcionario.documento}`,
+			consolidado.desde.toISOString().substring(0, 10),
+			consolidado.hasta.toISOString().substring(0, 10),
+			consolidado.inventarioInicial,
+			consolidado.ingresoEfectivo,
+			consolidado.cargaEfectiva,
+			consolidado.egresoEfectivo,
+			consolidado.conciliaciones,
+			consolidado.inventarioFinal,
+			null,
+			consolidado.restan
+		];
+	};
+
+	const paginas = _(datosEstadistica)
+		.sortBy('desde')
+		.groupBy('clase')
+		.flatMap((datosPagina, clase) => {
+			const data = _(datosPagina)
+				.groupBy('categoria')
+				.flatMap((datosCategoria) => [...datosCategoria.map(crearFila), []])
+				.value();
+			return [{ name: clase, data: [...encabezadoPagina, ...data], options: {} }];
+		})
+		.value();
+
+	return paginas;
+};
+
 export const load = (async ({ params, locals }) => {
 	if (!locals.user) error(400, 'No autorizado');
 
@@ -77,6 +160,8 @@ export const load = (async ({ params, locals }) => {
 
 	const diasNoHabiles = getDiasFestivosPorDespacho(calificacion.despacho);
 
+	const consolidadoXlsxData = await getXlsxData(calificacion.id);
+
 	return {
 		calificacion,
 		calificacionesAdicionales,
@@ -92,7 +177,8 @@ export const load = (async ({ params, locals }) => {
 		oral,
 		garantias,
 		escrito,
-		registroAudiencias: calificacion.registroAudiencias
+		registroAudiencias: calificacion.registroAudiencias,
+		consolidadoXlsxData
 	};
 }) satisfies PageServerLoad;
 
