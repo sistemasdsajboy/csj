@@ -89,16 +89,17 @@ model Funcionario {
 }
 
 model NovedadFuncionario {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  type          String
-  from          DateTime     @db.Date
-  to            DateTime     @db.Date
-  days          Int
-  notes         String
-  despachoId    String       @db.ObjectId
-  despacho      Despacho     @relation(fields: [despachoId], references: [id])
-  funcionarioId String?      @db.ObjectId
-  funcionario   Funcionario? @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  type             String
+  from             DateTime     @db.Date
+  to               DateTime     @db.Date
+  days             Int
+  diasDescontables Int          @default(0)
+  notes            String
+  despachoId       String       @db.ObjectId
+  despacho         Despacho     @relation(fields: [despachoId], references: [id])
+  funcionarioId    String?      @db.ObjectId
+  funcionario      Funcionario? @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
 }
 
 enum ClaseRegistroCalificacion {

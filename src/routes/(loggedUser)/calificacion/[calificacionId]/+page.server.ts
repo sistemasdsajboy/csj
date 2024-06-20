@@ -242,7 +242,9 @@ export const actions = {
 
 			if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
 
-			await db.novedadFuncionario.create({ data: newNovedad });
+			// TODO: Calcular el número de días descontables de la novedad.
+
+			await db.novedadFuncionario.create({ data: { ...newNovedad, diasDescontables: days } });
 
 			await generarCalificacionFuncionario(
 				calificacion.funcionarioId,

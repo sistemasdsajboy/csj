@@ -297,12 +297,6 @@ export async function generarCalificacionFuncionario(
 		new Date(periodo, 11, 31)
 	);
 
-	const diasDescontados = funcionario.novedades
-		? funcionario.novedades.reduce((dias, novedad) => {
-				return dias + novedad.days;
-			}, 0)
-		: 0;
-
 	const consolidadoOrdinario = generarConsolidado({
 		diasNoHabiles,
 		registros: registrosOral,
@@ -324,7 +318,20 @@ export async function generarCalificacionFuncionario(
 		.map((registro) => registro.dias)
 		.reduce((a, b) => a + b, 0);
 
-	const diasHabilesLaborados = diasHabilesVinculacion - diasDescontados;
+	const diasDescontados = funcionario.novedades
+		? funcionario.novedades.reduce((dias, novedad) => {
+				return dias + novedad.days;
+			}, 0)
+		: 0;
+
+	// Dias de las novedades que se encuentran dentro de los rangos de tiempo efectivamente laborado.
+	const diasDescontables = funcionario.novedades
+		? funcionario.novedades.reduce((dias, novedad) => {
+				return dias + novedad.diasDescontables;
+			}, 0)
+		: 0;
+
+	const diasHabilesLaborados = diasHabilesVinculacion - diasDescontables;
 
 	const oral = generarResultadosSubfactorOral(
 		funcionario,
