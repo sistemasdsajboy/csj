@@ -66,11 +66,6 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 	if (!despacho)
 		throw new Error('Información de despacho no válida en el archivo de calificación.');
 
-	const registro = await db.registroCalificacion.findFirst({
-		where: { despachoId: despacho.id, periodo: 2023 }
-	});
-	if (registro) throw new Error('Ya existe un registro de calificaciones para este despacho.');
-
 	const rows = woorkbook.flatMap((workbookPage) => extractWorkbookPageRows(workbookPage));
 
 	const funcionariosByWorkbookString: Array<{ funcionarioStr: string; funcionario: Funcionario }> =
@@ -89,6 +84,15 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 	const fileData = woorkbook.flatMap(
 		extractWorkbookPageData(despacho, funcionariosByWorkbookString)
 	);
+
+	const registro = await db.registroCalificacion.findFirst({
+		where: {
+			despachoId: despacho.id,
+			periodo: fileData[0].periodo,
+			categoria: { not: 'Consolidado' }
+		}
+	});
+	if (registro) throw new Error('Ya existe un registro de calificaciones para este despacho.');
 
 	await db.registroCalificacion.createMany({
 		data: fileData.map((d) => ({

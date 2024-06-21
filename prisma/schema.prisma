@@ -148,6 +148,8 @@ model RegistroCalificacion {
   restan            Int
   calificacionId    String?                   @db.ObjectId
   calificacion      Calificacion?             @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
+
+  @@unique([despachoId, funcionarioId, clase, categoria, desde])
 }
 
 model CalificacionSubfactor {
@@ -161,6 +163,8 @@ model CalificacionSubfactor {
   totalSubfactor                   Float
   calificacionId                   String?                   @db.ObjectId
   calificacion                     Calificacion?             @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
+
+  @@unique([calificacionId, subfactor])
 }
 
 enum EstadoCalificacion {
