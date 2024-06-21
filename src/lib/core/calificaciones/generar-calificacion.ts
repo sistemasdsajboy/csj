@@ -415,6 +415,9 @@ export async function generarCalificacionFuncionario(
 		await db.registroCalificacion.deleteMany({
 			where: { calificacionId: calificacion.id, categoria: 'Consolidado' }
 		});
+		await db.calificacionSubfactor.deleteMany({
+			where: { calificacionId: calificacion.id }
+		});
 
 		return db.calificacion.update({
 			where: { id: calificacion.id },
