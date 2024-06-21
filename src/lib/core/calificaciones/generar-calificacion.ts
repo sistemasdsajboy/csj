@@ -61,9 +61,7 @@ const getEgresoFuncionario = (data: RegistroCalificacion[], funcionarioId: strin
 };
 
 const getEgresoOtrosFuncionarios = (data: RegistroCalificacion[], funcionarioId: string) => {
-	return _.sumBy(data, (d) =>
-		dayjs(d.desde).month() < 9 && d.funcionarioId !== funcionarioId ? d.egresoEfectivo : 0
-	);
+	return _.sumBy(data, (d) => (d.funcionarioId !== funcionarioId ? d.egresoEfectivo : 0));
 };
 
 const getCargaBaseCalificacionDespacho = (data: RegistroCalificacion[]) => {
