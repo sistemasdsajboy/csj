@@ -9,7 +9,7 @@ import _ from 'lodash';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
 
-const getXlsxData = async (calificacionId: string) => {
+const getDataForXlsxExport = async (calificacionId: string) => {
 	const calificacion = await db.calificacion.findUnique({
 		where: { id: calificacionId },
 		include: {
@@ -102,7 +102,10 @@ export const load = (async ({ params, locals }) => {
 			subfactores: true,
 			despacho: true,
 			funcionario: true,
-			registroAudiencias: true
+			registroAudiencias: true,
+			observacionesDevolucion: {
+				select: { observaciones: true, fecha: true, autor: true }
+			}
 		}
 	});
 
@@ -160,7 +163,7 @@ export const load = (async ({ params, locals }) => {
 
 	const diasNoHabiles = getDiasFestivosPorDespacho(calificacion.despacho);
 
-	const consolidadoXlsxData = await getXlsxData(calificacion.id);
+	const consolidadoXlsxData = await getDataForXlsxExport(calificacion.id);
 
 	return {
 		calificacion,
@@ -360,36 +363,92 @@ export const actions = {
 		return { success: true };
 	},
 
-	actualizarEstado: async ({ params, locals }) => {
+	solicitarAprobacion: async ({ params, locals }) => {
+		if (!locals.user) error(400, 'No autorizado');
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user) error(400, 'No autorizado');
+
+		const calificacion = await db.calificacion.findFirst({
+			where: { id: params.calificacionId }
+		});
+		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+		if (calificacion.estado !== 'borrador' && calificacion.estado !== 'devuelta')
+			return {
+				success: false,
+				error: `El estado actual de la calificación es ${calificacion.estado} y ya no es un borrador que deba enviarse a revisión`
+			};
+
+		const isEditor = user.roles.includes('editor');
+		if (!isEditor)
+			return { success: false, error: 'No tiene permiso para enviar una calificación a revision.' };
+
+		await db.calificacion.update({ where: { id: calificacion.id }, data: { estado: 'revision' } });
+
+		return { success: true };
+	},
+
+	aprobar: async ({ params, locals }) => {
 		if (!locals.user) error(400, 'No autorizado');
 
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
 		if (!user) error(400, 'No autorizado');
 
-		const isEditor = user.roles.includes('editor');
+		const calificacion = await db.calificacion.findFirst({
+			where: { id: params.calificacionId }
+		});
+		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+		if (calificacion.estado !== 'revision')
+			return {
+				success: false,
+				error: `La calificación ya no se encuentra en revisión. El estado actual es ${calificacion.estado}.`
+			};
+
 		const isReviewer = user.roles.includes('reviewer');
+		if (!isReviewer)
+			return { success: false, error: 'No tiene permiso para aprobar una calificación.' };
+
+		await db.calificacion.update({ where: { id: calificacion.id }, data: { estado: 'aprobada' } });
+
+		return { success: true };
+	},
+
+	devolver: async ({ params, locals, request }) => {
+		if (!locals.user) error(400, 'No autorizado');
+
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user) error(400, 'No autorizado');
 
 		const calificacion = await db.calificacion.findFirst({
 			where: { id: params.calificacionId }
 		});
+		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+		if (calificacion.estado !== 'revision')
+			return {
+				success: false,
+				error: `La calificación ya no se encuentra en revisión. El estado actual es ${calificacion.estado}.`
+			};
 
-		if (calificacion?.estado === 'borrador') {
-			if (!isEditor)
-				return {
-					success: false,
-					error: 'No tiene permiso para enviar una calificación a revision.'
-				};
-			await db.calificacion.update({
-				where: { id: calificacion.id },
-				data: { estado: 'revision' }
-			});
-		} else if (calificacion?.estado === 'revision') {
-			if (!isReviewer)
-				return { success: false, error: 'No tiene permiso para aprobar una calificación.' };
-			await db.calificacion.update({
-				where: { id: calificacion.id },
-				data: { estado: 'aprobada' }
-			});
-		}
+		const formData = await request.formData();
+		const observaciones = formData.get('observaciones');
+
+		if (!observaciones || typeof observaciones !== 'string')
+			return {
+				success: false,
+				error: 'Debe especificar las observaciones motivo de la devolución.'
+			};
+
+		const isReviewer = user.roles.includes('reviewer');
+		if (!isReviewer)
+			return { success: false, error: 'No tiene permiso para aprobar una calificación.' };
+
+		await db.calificacion.update({
+			where: { id: calificacion.id },
+			data: {
+				estado: 'devuelta',
+				observacionesDevolucion: { create: { observaciones, autorId: user.id } }
+			}
+		});
+
+		return { success: true };
 	}
 };

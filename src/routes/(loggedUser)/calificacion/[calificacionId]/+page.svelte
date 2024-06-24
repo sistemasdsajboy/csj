@@ -140,7 +140,10 @@
 <PageLayout {header} username={data.user}>
 	<div class="container mx-auto px-4">
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
-			<EstadoCalificacion estado={calificacion.estado} />
+			<EstadoCalificacion
+				estado={calificacion.estado}
+				observaciones={calificacion.observacionesDevolucion}
+			/>
 			<EditorEstadoCalificacion estado={calificacion.estado} />
 			<div class="grow"></div>
 			{#if calificacion.estado !== 'aprobada'}

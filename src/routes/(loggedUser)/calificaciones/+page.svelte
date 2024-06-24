@@ -11,12 +11,14 @@
 	const colors = {
 		borrador: 'bg-slate-700',
 		revision: 'bg-amber-700',
-		aprobada: 'bg-teal-700'
+		aprobada: 'bg-teal-700',
+		devuelta: 'bg-rose-700'
 	};
 	const labels = {
 		borrador: 'Borrador',
 		revision: 'Para revisar',
-		aprobada: 'Aprobada'
+		aprobada: 'Aprobada',
+		devuelta: 'Devuelta'
 	};
 </script>
 

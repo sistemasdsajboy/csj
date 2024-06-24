@@ -17,7 +17,7 @@ export const load = (async ({ locals }) => {
 			],
 			estado: {
 				in: roles.includes('editor')
-					? ['aprobada', 'revision', 'borrador']
+					? ['aprobada', 'revision', 'borrador', 'devuelta']
 					: ['aprobada', 'revision']
 			}
 		},
