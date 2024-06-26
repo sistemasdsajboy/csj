@@ -9,13 +9,15 @@
 
 	let from = $state('');
 	let to = $state('');
-	let days = $state(0);
+	let dias = $state(0);
+	let diasDescontables = $state(0);
 
 	const { diasNoHabiles }: { diasNoHabiles: Record<string, number[]> } = $props();
 
 	$effect(() => {
 		if (from && to) {
-			days = countLaborDaysBetweenDates(diasNoHabiles, new Date(from), new Date(to));
+			dias = countLaborDaysBetweenDates(diasNoHabiles, new Date(from), new Date(to));
+			diasDescontables = dias;
 		}
 	});
 
@@ -66,8 +68,11 @@
 				<Label for="to">Hasta</Label>
 				<Input type="date" name="to" required bind:value={to} />
 
-				<Label for="days">Días</Label>
-				<Input id="days" name="days" value={days} />
+				<Label for="dias">Días hábiles</Label>
+				<Input id="dias" name="dias" value={dias} />
+
+				<Label for="diasDescontables">Días descontables</Label>
+				<Input id="diasDescontables" name="diasDescontables" value={diasDescontables} />
 
 				<Label for="notes">Descripción</Label>
 				<Textarea name="notes" />

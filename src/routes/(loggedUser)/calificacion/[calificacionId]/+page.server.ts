@@ -3,7 +3,6 @@ import {
 	getDiasFestivosPorDespacho
 } from '$lib/core/calificaciones/generar-calificacion';
 import { db } from '$lib/db/client';
-import { countLaborDaysBetweenDates } from '$lib/utils/dates';
 import { error, fail } from '@sveltejs/kit';
 import _ from 'lodash';
 import { z } from 'zod';
@@ -188,7 +187,7 @@ export const load = (async ({ params, locals }) => {
 export const actions = {
 	addNovedad: async ({ request, params, locals }) => {
 		try {
-			if (!locals.user) error(400, 'No autorizado');
+			if (!locals.user) return { success: false, error: 'No autorizado' };
 
 			const calificacion = await db.calificacion.findFirst({
 				where: { id: params.calificacionId }
@@ -206,7 +205,7 @@ export const actions = {
 			// en los que el funcionario trabajó en el despacho de la calificación.
 			// Si una novedad abarca más de un periodo laborado, se debe dividir y registrar con la calificación correspondiente.
 
-			const novedadSchema = z.object({
+			const nuevaNovedadSchema = z.object({
 				funcionarioId: z.string(),
 				despachoId: z.string(),
 				type: z
@@ -216,38 +215,36 @@ export const actions = {
 					.refine((v) => v !== 'undefined'),
 				from: z.date(),
 				to: z.date(),
-				days: z.number(),
+				days: z.coerce.number(),
+				diasDescontables: z.coerce.number(),
 				notes: z.string()
 			});
-
-			const data = await request.formData();
-
-			const type = data.get('type');
-			const from = new Date(data.get('from') as string);
-			const to = new Date(data.get('to') as string);
-			const notes = data.get('notes') as string;
 
 			const despacho = await db.despacho.findFirst({ where: { id: calificacion.despachoId } });
 			if (!despacho) return fail(404, { error: 'Despacho no encontrado' });
 
-			const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
-			const days = countLaborDaysBetweenDates(diasNoHabiles, from, to);
+			const data = await request.formData();
 
-			const { success, data: newNovedad } = novedadSchema.safeParse({
+			const {
+				success,
+				data: newNovedad,
+				error
+			} = nuevaNovedadSchema.safeParse({
 				funcionarioId: calificacion.funcionarioId,
 				despachoId: calificacion.despachoId,
-				type,
-				from,
-				to,
-				days,
-				notes
+				type: data.get('type'),
+				from: new Date(data.get('from') as string),
+				to: new Date(data.get('to') as string),
+				days: data.get('dias') as string,
+				diasDescontables: data.get('diasDescontables') as string,
+				notes: data.get('notes') as string
 			});
 
 			if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
 
-			// TODO: Calcular el número de días descontables de la novedad.
+			// TODO: Calcular el número de días descontables de la novedad en lugar de solicitar el dato al usuario.
 
-			await db.novedadFuncionario.create({ data: { ...newNovedad, diasDescontables: days } });
+			await db.novedadFuncionario.create({ data: newNovedad });
 
 			await generarCalificacionFuncionario(
 				calificacion.funcionarioId,
