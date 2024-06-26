@@ -274,7 +274,7 @@
 				)}
 				{@render tarjetaValor('Egreso del funcionario', escrito?.egresoFuncionario)}
 				{@render tarjetaValor('Carga proporcional', escrito?.cargaProporcional.toFixed(2))}
-				{@render tarjetaValor('Subfactor escritura', escrito?.totalSubfactor.toFixed(2), true)}
+				{@render tarjetaValor('Subfactor escritural', escrito?.totalSubfactor.toFixed(2), true)}
 			</div>
 		{/if}
 
