@@ -3,15 +3,14 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { formatDate } from '$lib/utils/dates';
-	import { Edit2Icon } from 'lucide-svelte';
+	import { cn } from '$lib/utils/shadcn';
+	import FileSaver from 'file-saver';
+	import * as XLSX from 'xlsx';
 	import EditorEstadoCalificacion from './editor-estado-calificacion.svelte';
 	import EstadoCalificacion from './estado-calificacion.svelte';
 	import NovedadForm from './novedad-form.svelte';
 	import NovedadesList from './novedades-list.svelte';
 	import RegistroAudienciasForm from './registro-audiencias-form.svelte';
-	import { cn } from '$lib/utils/shadcn';
-	import FileSaver from 'file-saver';
-	import * as XLSX from 'xlsx';
 
 	let { data } = $props();
 	const {
@@ -63,10 +62,17 @@
 	</div>
 {/snippet}
 
-{#snippet tarjetaValor(title, value, isBig = false)}
+{#snippet tarjetaValor(title, value)}
 	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
 		<h3 class="text-md mb-2 font-medium print:leading-none">{title}</h3>
-		<p class={cn('text-center text-xl font-bold', { 'text-3xl text-sky-800': isBig })}>{value}</p>
+		<p class="text-center text-xl font-bold">{value}</p>
+	</div>
+{/snippet}
+
+{#snippet tarjetaValorResaltado(title, value)}
+	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-4 shadow-md dark:bg-gray-800">
+		<h3 class="text-md mb-2 font-medium print:leading-none">{title}</h3>
+		<p class="text-center text-3xl font-bold text-sky-800">{value}</p>
 	</div>
 {/snippet}
 
@@ -177,9 +183,9 @@
 
 		<h1 class="hidden text-3xl font-bold print:block">{funcionario.nombre}</h1>
 		<div class="flex flex-row gap-2">
-			{@render tarjetaValor('Calificación factor eficiencia', calificacionTotal, true)}
+			{@render tarjetaValorResaltado('Calificación factor eficiencia', calificacionTotal)}
 			{#if calificacionTotal !== calificacionPonderada && calificacionPonderada !== 0}
-				{@render tarjetaValor('Calificación ponderada', calificacionPonderada, true)}
+				{@render tarjetaValorResaltado('Calificación ponderada', calificacionPonderada)}
 			{/if}
 		</div>
 
@@ -226,10 +232,9 @@
 			{@render tarjetaValor('Egreso del funcionario', oral?.egresoFuncionario)}
 			{@render tarjetaValor('Carga proporcional', oral?.cargaProporcional.toFixed(2))}
 			{@render tarjetaValor('Subfactor respuesta efectiva', oral?.totalSubfactor.toFixed(2))}
-			{@render tarjetaValor(
+			{@render tarjetaValorResaltado(
 				'Calificación eficiencia + audiencias',
-				calificacion.factorOralMasAudiencias.toFixed(2),
-				true
+				calificacion.factorOralMasAudiencias.toFixed(2)
 			)}
 		</div>
 
@@ -251,7 +256,7 @@
 				)}
 				{@render tarjetaValor('Egreso del funcionario', garantias?.egresoFuncionario)}
 				{@render tarjetaValor('Carga proporcional', garantias?.cargaProporcional.toFixed(2))}
-				{@render tarjetaValor('Subfactor garantias', garantias?.totalSubfactor.toFixed(2), true)}
+				{@render tarjetaValorResaltado('Subfactor garantias', garantias?.totalSubfactor.toFixed(2))}
 			</div>
 		{/if}
 
@@ -274,7 +279,7 @@
 				)}
 				{@render tarjetaValor('Egreso del funcionario', escrito?.egresoFuncionario)}
 				{@render tarjetaValor('Carga proporcional', escrito?.cargaProporcional.toFixed(2))}
-				{@render tarjetaValor('Subfactor escritural', escrito?.totalSubfactor.toFixed(2), true)}
+				{@render tarjetaValorResaltado('Subfactor escritural', escrito?.totalSubfactor.toFixed(2))}
 			</div>
 		{/if}
 
@@ -293,10 +298,9 @@
 				'Aplazadas sin justificación',
 				registroAudiencias.aplazadasNoJustificadas
 			)}
-			{@render tarjetaValor(
+			{@render tarjetaValorResaltado(
 				'Calificación de audiencias',
-				calificacion.calificacionAudiencias.toFixed(2),
-				true
+				calificacion.calificacionAudiencias.toFixed(2)
 			)}
 		</div>
 	</div>

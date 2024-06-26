@@ -103,7 +103,7 @@ export const load = (async ({ params, locals }) => {
 			funcionario: true,
 			registroAudiencias: true,
 			observacionesDevolucion: {
-				select: { observaciones: true, fecha: true, autor: true }
+				select: { observaciones: true, fecha: true, autor: { select: { username: true } } }
 			}
 		}
 	});
@@ -225,11 +225,7 @@ export const actions = {
 
 			const data = await request.formData();
 
-			const {
-				success,
-				data: newNovedad,
-				error
-			} = nuevaNovedadSchema.safeParse({
+			const { success, data: newNovedad } = nuevaNovedadSchema.safeParse({
 				funcionarioId: calificacion.funcionarioId,
 				despachoId: calificacion.despachoId,
 				type: data.get('type'),

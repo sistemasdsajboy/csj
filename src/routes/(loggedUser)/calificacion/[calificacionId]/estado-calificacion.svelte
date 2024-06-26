@@ -9,7 +9,7 @@
 	type Observacion = {
 		fecha: Date;
 		observaciones: string;
-		autor: { username: string };
+		autor: { username: string } | null;
 	};
 
 	const {
@@ -41,7 +41,7 @@
 							</Badge>
 						</div>
 						<div class="grow">
-							<span class="text-sm text-slate-500">{observacion.autor.username}</span>
+							<span class="text-sm text-slate-500">{observacion.autor?.username}</span>
 							<div class="leading-tight">{observacion.observaciones}</div>
 						</div>
 					</div>
