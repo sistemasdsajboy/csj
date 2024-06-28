@@ -14,13 +14,13 @@ enum UserRoles {
 }
 
 model DespachoSeccional {
-  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  id             String                @id @default(auto()) @map("_id") @db.ObjectId
   seccional      String
   nombre         String
   numero         Int
-  usuariosIds    String[]       @db.ObjectId
-  usuarios       User[]         @relation(fields: [usuariosIds], references: [id])
-  calificaciones Calificacion[]
+  usuariosIds    String[]              @db.ObjectId
+  usuarios       User[]                @relation(fields: [usuariosIds], references: [id])
+  calificaciones CalificacionPeriodo[]
 }
 
 model User {
@@ -75,7 +75,7 @@ model Despacho {
   distrito              String?
   registrosCalificacion RegistroCalificacion[]
   registrosAudiencias   RegistroAudiencias[]
-  calificaciones        Calificacion[]
+  calificaciones        CalificacionDespacho[]
   novedadesFuncionarios NovedadFuncionario[]
 }
 
@@ -85,7 +85,7 @@ model Funcionario {
   nombre                String
   novedades             NovedadFuncionario[]
   registrosCalificacion RegistroCalificacion[]
-  calificaciones        Calificacion[]
+  calificaciones        CalificacionPeriodo[]
   registrosAudiencias   RegistroAudiencias[]
 }
 
@@ -112,18 +112,18 @@ enum ClaseRegistroCalificacion {
 }
 
 model RegistroAudiencias {
-  id                      String         @id @default(auto()) @map("_id") @db.ObjectId
+  id                      String                 @id @default(auto()) @map("_id") @db.ObjectId
   periodo                 Int // Año del registro
-  despachoId              String         @db.ObjectId
-  despacho                Despacho       @relation(fields: [despachoId], references: [id])
-  funcionarioId           String         @db.ObjectId
-  funcionario             Funcionario    @relation(fields: [funcionarioId], references: [id])
+  despachoId              String                 @db.ObjectId
+  despacho                Despacho               @relation(fields: [despachoId], references: [id])
+  funcionarioId           String                 @db.ObjectId
+  funcionario             Funcionario            @relation(fields: [funcionarioId], references: [id])
   programadas             Int
   atendidas               Int
   aplazadasAjenas         Int
   aplazadasJustificadas   Int
   aplazadasNoJustificadas Int
-  calificacion            Calificacion[]
+  calificacion            CalificacionDespacho[]
 
   @@unique([despachoId, funcionarioId, periodo])
 }
@@ -149,7 +149,7 @@ model RegistroCalificacion {
   restan            Int
   // Solo para registros con categoria "Consolidado"
   calificacionId    String?                   @db.ObjectId
-  calificacion      Calificacion?             @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
+  calificacion      CalificacionDespacho?     @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
 
   @@unique([despachoId, funcionarioId, clase, categoria, desde])
 }
@@ -164,7 +164,7 @@ model CalificacionSubfactor {
   cargaProporcional                Float
   totalSubfactor                   Float
   calificacionId                   String?                   @db.ObjectId
-  calificacion                     Calificacion?             @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
+  calificacion                     CalificacionDespacho?     @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
 
   @@unique([calificacionId, subfactor])
 }
@@ -177,28 +177,38 @@ enum EstadoCalificacion {
 }
 
 model ObservacionDevolucion {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  fecha          DateTime      @default(now()) @db.Date
-  autorId        String?       @db.ObjectId
-  autor          User?         @relation(fields: [autorId], references: [id])
+  id             String               @id @default(auto()) @map("_id") @db.ObjectId
+  fecha          DateTime             @default(now()) @db.Date
+  autorId        String?              @db.ObjectId
+  autor          User?                @relation(fields: [autorId], references: [id])
   observaciones  String
-  calificacionId String?       @db.ObjectId
-  calificacion   Calificacion? @relation(fields: [calificacionId], references: [id])
+  calificacionId String?              @db.ObjectId
+  calificacion   CalificacionPeriodo? @relation(fields: [calificacionId], references: [id])
 }
 
-model Calificacion {
+model CalificacionPeriodo {
+  id                      String                  @id @default(auto()) @map("_id") @db.ObjectId
+  estado                  EstadoCalificacion
+  observacionesDevolucion ObservacionDevolucion[]
+  // Año de la calificacion
+  periodo                 Int
+  funcionarioId           String                  @db.ObjectId
+  funcionario             Funcionario             @relation(fields: [funcionarioId], references: [id])
+  // Despacho que aprueba la calificación
+  despachoSeccionalId     String?                 @db.ObjectId
+  despachoSeccional       DespachoSeccional?      @relation(fields: [despachoSeccionalId], references: [id])
+  calificaciones          CalificacionDespacho[]
+  calificacionPonderada   Float                   @default(0)
+
+  @@unique([funcionarioId, periodo])
+}
+
+model CalificacionDespacho {
   id                                String                  @id @default(auto()) @map("_id") @db.ObjectId
-  estado                            EstadoCalificacion
-  observacionesDevolucion           ObservacionDevolucion[]
-  // Año del registro
-  periodo                           Int
-  funcionarioId                     String                  @db.ObjectId
-  funcionario                       Funcionario             @relation(fields: [funcionarioId], references: [id])
+  calificacionId                    String                  @db.ObjectId
+  calificacion                      CalificacionPeriodo     @relation(fields: [calificacionId], references: [id])
   despachoId                        String                  @db.ObjectId
   despacho                          Despacho                @relation(fields: [despachoId], references: [id])
-  // Despacho que aprueba la calificación
-  despachoSeccionalId               String?                 @db.ObjectId
-  despachoSeccional                 DespachoSeccional?      @relation(fields: [despachoSeccionalId], references: [id])
   cargaEfectivaTotal                Int                     @default(0)
   egresoEfectivoTotal               Int                     @default(0)
   diasHabilesDespacho               Int
@@ -211,7 +221,6 @@ model Calificacion {
   calificacionAudiencias            Float
   factorOralMasAudiencias           Float
   calificacionTotalFactorEficiencia Float
-  calificacionPonderada             Float                   @default(0)
 
-  @@unique([despachoId, funcionarioId, periodo])
+  @@unique([despachoId, calificacionId])
 }

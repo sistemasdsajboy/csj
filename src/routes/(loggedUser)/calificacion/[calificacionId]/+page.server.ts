@@ -8,21 +8,21 @@ import _ from 'lodash';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
 
-const getDataForXlsxExport = async (calificacionId: string) => {
-	const calificacion = await db.calificacion.findUnique({
-		where: { id: calificacionId },
+const getDataForXlsxExport = async (calificacionDespachoId: string) => {
+	const calificacionDespacho = await db.calificacionDespacho.findUnique({
+		where: { id: calificacionDespachoId },
 		include: {
-			funcionario: { select: { nombre: true } },
+			calificacion: { select: { funcionario: { select: { nombre: true } }, periodo: true } },
 			despacho: { select: { nombre: true, codigo: true } }
 		}
 	});
-	if (!calificacion) error(400, 'Calificación no encontrada');
+	if (!calificacionDespacho) error(400, 'Calificación no encontrada');
 
 	const datosEstadistica = await db.registroCalificacion.findMany({
 		where: {
 			categoria: { not: 'Consolidado' },
-			periodo: calificacion.periodo,
-			despachoId: calificacion.despachoId
+			periodo: calificacionDespacho.calificacion.periodo,
+			despachoId: calificacionDespacho.despachoId
 		},
 		select: {
 			funcionario: { select: { nombre: true, documento: true } },
@@ -41,7 +41,10 @@ const getDataForXlsxExport = async (calificacionId: string) => {
 	});
 
 	const encabezadoPagina = [
-		['Despacho', `${calificacion.despacho.nombre} - ${calificacion.despacho.codigo}`],
+		[
+			'Despacho',
+			`${calificacionDespacho.despacho.nombre} - ${calificacionDespacho.despacho.codigo}`
+		],
 		[],
 		[
 			'Categoría',
@@ -91,52 +94,47 @@ const getDataForXlsxExport = async (calificacionId: string) => {
 	return paginas;
 };
 
-export const load = (async ({ params, locals }) => {
+export const load = (async ({ params, locals, url }) => {
 	if (!locals.user) error(400, 'No autorizado');
 
-	const calificacion = await db.calificacion.findFirst({
+	const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 		where: { id: params.calificacionId },
+		include: {
+			funcionario: true,
+			observacionesDevolucion: {
+				select: { observaciones: true, fecha: true, autor: { select: { username: true } } }
+			},
+			calificaciones: { select: { despachoId: true } }
+		}
+	});
+	if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+
+	const despachoId =
+		url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+	const calificacion = await db.calificacionDespacho.findFirst({
+		where: { calificacionId: params.calificacionId, despachoId },
 		include: {
 			registrosConsolidados: true,
 			subfactores: true,
 			despacho: true,
-			funcionario: true,
-			registroAudiencias: true,
-			observacionesDevolucion: {
-				select: { observaciones: true, fecha: true, autor: { select: { username: true } } }
-			}
+			registroAudiencias: true
 		}
 	});
-
 	if (!calificacion) error(404, 'Calificación no encontrada');
 
-	const calificacionesAdicionales = await db.calificacion.findMany({
-		where: {
-			id: { not: params.calificacionId },
-			periodo: calificacion.periodo,
-			funcionarioId: calificacion.funcionarioId
-		},
+	const calificacionesAdicionales = await db.calificacionDespacho.findMany({
+		where: { calificacionId: params.calificacionId, despachoId: { not: despachoId } },
 		select: { id: true, despacho: { select: { nombre: true, codigo: true } } }
 	});
 
 	const novedades = await db.novedadFuncionario.findMany({
 		where: {
-			despachoId: calificacion.despachoId,
+			despachoId,
 			OR: [
-				{ from: { lte: new Date(calificacion.periodo, 11, 31) } },
-				{ to: { gte: new Date(calificacion.periodo, 0, 1) } }
+				{ from: { lte: new Date(calificacionPeriodo.periodo, 11, 31) } },
+				{ to: { gte: new Date(calificacionPeriodo.periodo, 0, 1) } }
 			]
 		}
-	});
-
-	const funcionariosIds = _(calificacion.registrosConsolidados)
-		.uniqBy('funcionarioId')
-		.map((r) => r.funcionarioId)
-		.value();
-
-	const funcionariosPeriodo = await db.funcionario.findMany({
-		where: { id: { in: funcionariosIds } },
-		select: { id: true, nombre: true }
 	});
 
 	const consolidadoOrdinario = _(calificacion.registrosConsolidados)
@@ -169,9 +167,8 @@ export const load = (async ({ params, locals }) => {
 		calificacionesAdicionales,
 		despacho: calificacion.despacho,
 		diasNoHabiles,
-		funcionario: calificacion.funcionario,
+		funcionario: calificacionPeriodo.funcionario,
 		novedades,
-		funcionariosPeriodo,
 		consolidadoOrdinario,
 		consolidadoTutelas,
 		consolidadoGarantias,
@@ -185,17 +182,24 @@ export const load = (async ({ params, locals }) => {
 }) satisfies PageServerLoad;
 
 export const actions = {
-	addNovedad: async ({ request, params, locals }) => {
+	addNovedad: async ({ request, params, locals, url }) => {
 		try {
 			if (!locals.user) return { success: false, error: 'No autorizado' };
 
-			const calificacion = await db.calificacion.findFirst({
-				where: { id: params.calificacionId }
+			const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+				where: { id: params.calificacionId },
+				include: { calificaciones: { select: { despachoId: true } } }
 			});
+			if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+			const despachoId =
+				url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
+			const calificacion = await db.calificacionDespacho.findFirst({
+				where: { id: params.calificacionId, despachoId }
+			});
 			if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
 
-			if (calificacion.estado === 'aprobada')
+			if (calificacionPeriodo.estado === 'aprobada')
 				return {
 					success: false,
 					error: 'No es posible agregar una novedad a una calificación que ya ha sido aprobada.'
@@ -226,7 +230,7 @@ export const actions = {
 			const data = await request.formData();
 
 			const { success, data: newNovedad } = nuevaNovedadSchema.safeParse({
-				funcionarioId: calificacion.funcionarioId,
+				funcionarioId: calificacionPeriodo.funcionarioId,
 				despachoId: calificacion.despachoId,
 				type: data.get('type'),
 				from: new Date(data.get('from') as string),
@@ -243,9 +247,9 @@ export const actions = {
 			await db.novedadFuncionario.create({ data: newNovedad });
 
 			await generarCalificacionFuncionario(
-				calificacion.funcionarioId,
+				calificacionPeriodo.funcionarioId,
 				calificacion.despachoId,
-				calificacion.periodo
+				calificacionPeriodo.periodo
 			);
 
 			return { success: true };
@@ -255,16 +259,24 @@ export const actions = {
 		}
 	},
 
-	deleteNovedad: async ({ request, params, locals }) => {
+	deleteNovedad: async ({ request, params, locals, url }) => {
 		if (!locals.user) error(400, 'No autorizado');
 
-		const calificacion = await db.calificacion.findFirst({
-			where: { id: params.calificacionId }
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId },
+			include: { calificaciones: { select: { despachoId: true } } }
+		});
+		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+		const despachoId =
+			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+
+		const calificacion = await db.calificacionDespacho.findFirst({
+			where: { id: params.calificacionId, despachoId }
 		});
 
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
 
-		if (calificacion?.estado === 'aprobada')
+		if (calificacionPeriodo.estado === 'aprobada')
 			return {
 				success: false,
 				error:
@@ -277,24 +289,32 @@ export const actions = {
 		await db.novedadFuncionario.delete({ where: { id: novedadId } });
 
 		await generarCalificacionFuncionario(
-			calificacion.funcionarioId,
+			calificacionPeriodo.funcionarioId,
 			calificacion.despachoId,
-			calificacion.periodo
+			calificacionPeriodo.periodo
 		);
 
 		return { success: true };
 	},
 
-	addRegistroAudiencias: async ({ request, params, locals }) => {
+	addRegistroAudiencias: async ({ request, params, locals, url }) => {
 		if (!locals.user) error(400, 'No autorizado');
 
-		const calificacion = await db.calificacion.findFirst({
-			where: { id: params.calificacionId }
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId },
+			include: { calificaciones: { select: { despachoId: true } } }
+		});
+		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+		const despachoId =
+			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+
+		const calificacion = await db.calificacionDespacho.findFirst({
+			where: { id: params.calificacionId, despachoId }
 		});
 
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
 
-		if (calificacion?.estado === 'aprobada')
+		if (calificacionPeriodo.estado === 'aprobada')
 			return {
 				success: false,
 				error:
@@ -316,8 +336,8 @@ export const actions = {
 
 		const { success, data } = registroAudienciaSchema.safeParse({
 			despachoId: calificacion.despachoId,
-			funcionarioId: calificacion.funcionarioId,
-			periodo: calificacion.periodo,
+			funcionarioId: calificacionPeriodo.funcionarioId,
+			periodo: calificacionPeriodo.periodo,
 			...formData
 		});
 
@@ -339,7 +359,7 @@ export const actions = {
 		const existente = await db.registroAudiencias.findFirst({
 			where: {
 				despachoId: calificacion.despachoId,
-				funcionarioId: calificacion.funcionarioId,
+				funcionarioId: calificacionPeriodo.funcionarioId,
 				periodo: data.periodo
 			}
 		});
@@ -348,77 +368,107 @@ export const actions = {
 		else await db.registroAudiencias.create({ data });
 
 		await generarCalificacionFuncionario(
-			calificacion.funcionarioId,
+			calificacionPeriodo.funcionarioId,
 			calificacion.despachoId,
-			calificacion.periodo
+			calificacionPeriodo.periodo
 		);
 
 		return { success: true };
 	},
 
-	solicitarAprobacion: async ({ params, locals }) => {
+	solicitarAprobacion: async ({ params, locals, url }) => {
 		if (!locals.user) error(400, 'No autorizado');
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
 		if (!user) error(400, 'No autorizado');
 
-		const calificacion = await db.calificacion.findFirst({
-			where: { id: params.calificacionId }
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId },
+			include: { calificaciones: { select: { despachoId: true } } }
+		});
+		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+		const despachoId =
+			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+
+		const calificacion = await db.calificacionDespacho.findFirst({
+			where: { id: params.calificacionId, despachoId }
 		});
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
-		if (calificacion.estado !== 'borrador' && calificacion.estado !== 'devuelta')
+		if (calificacionPeriodo.estado !== 'borrador' && calificacionPeriodo.estado !== 'devuelta')
 			return {
 				success: false,
-				error: `El estado actual de la calificación es ${calificacion.estado} y ya no es un borrador que deba enviarse a revisión`
+				error: `El estado actual de la calificación es ${calificacionPeriodo.estado} y ya no es un borrador que deba enviarse a revisión`
 			};
 
 		const isEditor = user.roles.includes('editor');
 		if (!isEditor)
 			return { success: false, error: 'No tiene permiso para enviar una calificación a revision.' };
 
-		await db.calificacion.update({ where: { id: calificacion.id }, data: { estado: 'revision' } });
+		await db.calificacionPeriodo.update({
+			where: { id: params.calificacionId },
+			data: { estado: 'revision' }
+		});
 
 		return { success: true };
 	},
 
-	aprobar: async ({ params, locals }) => {
+	aprobar: async ({ params, locals, url }) => {
 		if (!locals.user) error(400, 'No autorizado');
 
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
 		if (!user) error(400, 'No autorizado');
 
-		const calificacion = await db.calificacion.findFirst({
-			where: { id: params.calificacionId }
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId },
+			include: { calificaciones: { select: { despachoId: true } } }
+		});
+		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+		const despachoId =
+			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+
+		const calificacion = await db.calificacionDespacho.findFirst({
+			where: { id: params.calificacionId, despachoId }
 		});
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
-		if (calificacion.estado !== 'revision')
+		if (calificacionPeriodo.estado !== 'revision')
 			return {
 				success: false,
-				error: `La calificación ya no se encuentra en revisión. El estado actual es ${calificacion.estado}.`
+				error: `La calificación ya no se encuentra en revisión. El estado actual es ${calificacionPeriodo.estado}.`
 			};
 
 		const isReviewer = user.roles.includes('reviewer');
 		if (!isReviewer)
 			return { success: false, error: 'No tiene permiso para aprobar una calificación.' };
 
-		await db.calificacion.update({ where: { id: calificacion.id }, data: { estado: 'aprobada' } });
+		await db.calificacionPeriodo.update({
+			where: { id: params.calificacionId },
+			data: { estado: 'aprobada' }
+		});
 
 		return { success: true };
 	},
 
-	devolver: async ({ params, locals, request }) => {
+	devolver: async ({ params, locals, request, url }) => {
 		if (!locals.user) error(400, 'No autorizado');
 
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
 		if (!user) error(400, 'No autorizado');
 
-		const calificacion = await db.calificacion.findFirst({
-			where: { id: params.calificacionId }
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId },
+			include: { calificaciones: { select: { despachoId: true } } }
+		});
+		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+		const despachoId =
+			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+
+		const calificacion = await db.calificacionDespacho.findFirst({
+			where: { id: params.calificacionId, despachoId }
 		});
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
-		if (calificacion.estado !== 'revision')
+		if (calificacionPeriodo.estado !== 'revision')
 			return {
 				success: false,
-				error: `La calificación ya no se encuentra en revisión. El estado actual es ${calificacion.estado}.`
+				error: `La calificación ya no se encuentra en revisión. El estado actual es ${calificacionPeriodo.estado}.`
 			};
 
 		const formData = await request.formData();
@@ -434,8 +484,8 @@ export const actions = {
 		if (!isReviewer)
 			return { success: false, error: 'No tiene permiso para aprobar una calificación.' };
 
-		await db.calificacion.update({
-			where: { id: calificacion.id },
+		await db.calificacionPeriodo.update({
+			where: { id: params.calificacionId },
 			data: {
 				estado: 'devuelta',
 				observacionesDevolucion: { create: { observaciones, autorId: user.id } }

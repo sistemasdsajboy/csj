@@ -8,7 +8,7 @@ import {
 	vacanciaJudicial
 } from '$lib/utils/dates';
 import type {
-	Calificacion,
+	CalificacionPeriodo,
 	CategoriaDespacho,
 	ClaseRegistroCalificacion,
 	EspecialidadDespacho,
@@ -231,16 +231,35 @@ async function calcularPonderada(
 		.sum();
 }
 
+async function generarCalificacionPonderada(calificacionId: string) {
+	const calificacion = await db.calificacionPeriodo.findFirst({
+		where: { id: calificacionId },
+		include: { calificaciones: true }
+	});
+	if (!calificacion) throw new Error('Calificación no encontrada');
+
+	const calificacionPonderada = await calcularPonderada(calificacion.calificaciones ?? []);
+	await db.calificacionPeriodo.update({
+		where: { id: calificacion?.id },
+		data: { calificacionPonderada }
+	});
+}
+
+async function findOrCreateCalificacionPeriodo(funcionarioId: string, periodo: number) {
+	const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+		where: { funcionarioId, periodo }
+	});
+	if (calificacionPeriodo) return calificacionPeriodo;
+	return db.calificacionPeriodo.create({ data: { estado: 'borrador', funcionarioId, periodo } });
+}
+
 export async function generarCalificacionFuncionario(
 	funcionarioId: string,
 	despachoId: string,
 	periodo: number
-): Promise<Calificacion> {
-	const calificacion = await db.calificacion.findFirst({
-		where: { funcionarioId, despachoId, periodo: periodo }
-	});
-
-	if (calificacion?.estado === 'aprobada') return calificacion;
+): Promise<string> {
+	const calificacionPeriodo = await findOrCreateCalificacionPeriodo(funcionarioId, periodo);
+	if (calificacionPeriodo.estado === 'aprobada') return calificacionPeriodo.id;
 
 	const registros = await db.registroCalificacion.findMany({
 		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
@@ -261,7 +280,6 @@ export async function generarCalificacionFuncionario(
 			}
 		}
 	});
-
 	if (!funcionario) throw new Error('Funcionario no encontrado');
 
 	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
@@ -378,22 +396,8 @@ export async function generarCalificacionFuncionario(
 		...consolidadoEscrito
 	];
 
-	const calificaciones = await db.calificacion.findMany({
-		where: { funcionarioId, periodo, id: { not: calificacion?.id } }
-	});
-	const calificacionPonderada = await calcularPonderada([
-		...calificaciones,
-		{ diasLaborados: diasHabilesLaborados, calificacionTotalFactorEficiencia }
-	]);
-	await db.calificacion.updateMany({
-		where: { funcionarioId, periodo, id: { not: calificacion?.id } },
-		data: { calificacionPonderada }
-	});
-
 	const data = {
-		estado: EstadoCalificacion.borrador,
-		periodo,
-		funcionarioId: funcionario.id,
+		calificacionId: calificacionPeriodo.id,
 		despachoId: despacho.id,
 		cargaEfectivaTotal: baseOral + baseGarantias,
 		egresoEfectivoTotal: egresoOral + egresoGarantias,
@@ -405,9 +409,12 @@ export async function generarCalificacionFuncionario(
 		registroAudienciasId: audiencias.id,
 		calificacionAudiencias,
 		factorOralMasAudiencias,
-		calificacionTotalFactorEficiencia,
-		calificacionPonderada
+		calificacionTotalFactorEficiencia
 	};
+
+	const calificacion = await db.calificacionDespacho.findFirst({
+		where: { calificacionId: calificacionPeriodo.id, despachoId: despacho.id }
+	});
 
 	if (calificacion) {
 		await db.registroCalificacion.deleteMany({
@@ -416,13 +423,12 @@ export async function generarCalificacionFuncionario(
 		await db.calificacionSubfactor.deleteMany({
 			where: { calificacionId: calificacion.id }
 		});
-
-		return db.calificacion.update({
-			where: { id: calificacion.id },
-			// Al regenerar la calificación, preservar el estado actual.
-			data: { ...data, estado: calificacion.estado }
-		});
+		await db.calificacionDespacho.update({ where: { id: calificacion.id }, data });
 	} else {
-		return db.calificacion.create({ data });
+		await db.calificacionDespacho.create({ data });
 	}
+
+	await generarCalificacionPonderada(calificacionPeriodo.id);
+
+	return calificacionPeriodo.id;
 }
