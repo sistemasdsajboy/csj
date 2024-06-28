@@ -4,8 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { formatDate } from '$lib/utils/dates';
 	import { cn } from '$lib/utils/shadcn';
-	import FileSaver from 'file-saver';
-	import * as XLSX from 'xlsx';
+	import { exportToSpreadsheet } from '$lib/utils/xlsx';
 	import EditorEstadoCalificacion from './editor-estado-calificacion.svelte';
 	import EstadoCalificacion from './estado-calificacion.svelte';
 	import NovedadForm from './novedad-form.svelte';
@@ -34,32 +33,10 @@
 
 	const calificacionTotal = $derived(calificacion.calificacionTotalFactorEficiencia.toFixed(2));
 	const calificacionPonderada = $derived(calificacion.calificacionPonderada?.toFixed(2) || 0);
-
-	const exportToSpreadsheet = (xlsxData, fileName) => {
-		const FILE_TYPE =
-			'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8';
-		const FILE_EXTENSION = '.xlsx';
-
-		const workSheets = xlsxData.reduce(
-			(ws, d) => ({
-				...ws,
-				[d.name]: XLSX.utils.aoa_to_sheet(d.data)
-			}),
-			{}
-		);
-		const workBook = { Sheets: workSheets, SheetNames: xlsxData.map((d) => d.name) };
-		const excelBuffer = XLSX.write(workBook, { bookType: 'xlsx', type: 'array' });
-		const fileData = new Blob([excelBuffer], { type: FILE_TYPE });
-		FileSaver.saveAs(fileData, fileName + FILE_EXTENSION);
-	};
 </script>
 
 {#snippet header()}
-	<div class="text-2xl font-bold">
-		<a href="/funcionario/{funcionario.id}">
-			{funcionario.nombre}
-		</a>
-	</div>
+	<div>Calificación</div>
 {/snippet}
 
 {#snippet tarjetaValor(title, value)}
@@ -116,7 +93,7 @@
 					<tr class="border-b border-gray-200 dark:border-gray-700">
 						<td
 							class={cn('text-nowrap px-2  text-gray-900 dark:text-gray-100', {
-								'font-light': calificacion.funcionarioId !== func.id
+								'font-light': calificacion.funcionarioId !== func?.id
 							})}
 						>
 							{func?.nombre}
@@ -164,24 +141,37 @@
 			</Button>
 		</div>
 
-		<div class="my-8 space-y-4">
-			<div class="flex justify-between font-bold">
-				<div class="flex gap-2">
-					{despacho.nombre}
+		<div class="my-8">
+			<div class="flex justify-between text-2xl font-bold">
+				<div class="text-3xl">
+					<a href="/funcionario/{funcionario.id}">
+						{funcionario.nombre}
+					</a>
+					<div>{funcionario.documento}</div>
 				</div>
 				<span>Periodo: {calificacion.periodo}</span>
 			</div>
-			{#if calificacionesAdicionales.length > 0}
-				<div>Calificaciones de otros despachos en el periodo.</div>
+
+			<h3 class="bold pt-8 text-2xl font-bold text-slate-800">
+				{#if calificacionesAdicionales.length > 0}
+					Despachos
+				{:else}
+					Despacho
+				{/if}
+			</h3>
+			<div class="font-bold">
+				<div>{despacho.codigo} - {despacho.nombre}</div>
 				{#each calificacionesAdicionales as adicional}
-					<a href="/calificacion/{adicional.id}" class="text-sky-800 underline">
-						{adicional.despacho.nombre}
-					</a>
+					<div>
+						<a href="/calificacion/{adicional.id}" class="text-sky-800 underline">
+							{adicional.despacho.codigo} - {adicional.despacho.nombre}
+						</a>
+					</div>
 				{/each}
-			{/if}
+			</div>
 		</div>
 
-		<h1 class="hidden text-3xl font-bold print:block">{funcionario.nombre}</h1>
+		<h3 class="bold text-2xl font-bold text-slate-800">Totales</h3>
 		<div class="flex flex-row gap-2">
 			{@render tarjetaValorResaltado('Calificación factor eficiencia', calificacionTotal)}
 			{#if calificacionTotal !== calificacionPonderada && calificacionPonderada !== 0}
@@ -205,7 +195,7 @@
 			{@render tarjetaValor('Días laborados', calificacion.diasLaborados)}
 		</div>
 
-		<div class="pt-4">
+		<div>
 			<NovedadesList {novedades} />
 		</div>
 

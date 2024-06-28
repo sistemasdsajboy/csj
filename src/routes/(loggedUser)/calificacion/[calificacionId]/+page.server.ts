@@ -116,7 +116,7 @@ export const load = (async ({ params, locals }) => {
 			periodo: calificacion.periodo,
 			funcionarioId: calificacion.funcionarioId
 		},
-		select: { id: true, despacho: { select: { nombre: true } } }
+		select: { id: true, despacho: { select: { nombre: true, codigo: true } } }
 	});
 
 	const novedades = await db.novedadFuncionario.findMany({
