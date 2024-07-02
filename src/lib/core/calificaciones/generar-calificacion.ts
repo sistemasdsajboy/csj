@@ -299,7 +299,11 @@ export async function generarCalificacionFuncionario(
 		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
 	});
 
-	const categoriasConstitucional = ['Incidentes de Desacato', 'Movimiento de Tutelas', "Procesos con sentencia y trámite posterior incidentes de Desacato"];
+	const categoriasConstitucional = [
+		'Incidentes de Desacato',
+		'Movimiento de Tutelas',
+		'Procesos con sentencia y trámite posterior incidentes de Desacato'
+	];
 	const registrosOrdinario = registros
 		.filter((registro) => registro.clase === 'oral')
 		.filter((r) => !categoriasConstitucional.includes(r.categoria));
@@ -358,11 +362,6 @@ export async function generarCalificacionFuncionario(
 		'garantias'
 	);
 
-	const baseOral = getCargaBaseCalificacionDespacho(registrosOral);
-	const baseGarantias = getCargaBaseCalificacionDespacho(registrosGarantias);
-	const egresoOral = getEgresoTotal(registrosOral);
-	const egresoGarantias = getEgresoTotal(registrosGarantias);
-
 	const regsEscrito = hayProcesosEscritos
 		? [...registrosEscrito, ...registrosTutelas]
 		: registrosEscrito;
@@ -383,6 +382,13 @@ export async function generarCalificacionFuncionario(
 
 	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 
+	const baseOral = getCargaBaseCalificacionDespacho(registrosOral);
+	const baseGarantias = getCargaBaseCalificacionDespacho(registrosGarantias);
+	const baseEscrito = getCargaBaseCalificacionDespacho(regsEscrito);
+	const egresoOral = getEgresoTotal(registrosOral);
+	const egresoGarantias = getEgresoTotal(registrosGarantias);
+	const egresoEscrito = getEgresoTotal(regsEscrito);
+
 	const calificacionTotalFactorEficiencia = hayProcesosEscritos
 		? (factorOralMasAudiencias + garantias.totalSubfactor + escrito.totalSubfactor) / 3
 		: (factorOralMasAudiencias + garantias.totalSubfactor) / 2;
@@ -397,8 +403,8 @@ export async function generarCalificacionFuncionario(
 	const data = {
 		calificacionId: calificacionPeriodo.id,
 		despachoId: despacho.id,
-		cargaEfectivaTotal: baseOral + baseGarantias,
-		egresoEfectivoTotal: egresoOral + egresoGarantias,
+		cargaEfectivaTotal: baseOral + baseGarantias + baseEscrito,
+		egresoEfectivoTotal: egresoOral + egresoGarantias + egresoEscrito,
 		diasHabilesDespacho,
 		diasDescontados,
 		diasLaborados: diasHabilesLaborados,
