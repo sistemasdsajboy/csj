@@ -114,17 +114,18 @@ export const load = (async ({ params, locals, url }) => {
 	const calificacion = await db.calificacionDespacho.findFirst({
 		where: { calificacionId: params.calificacionId, despachoId },
 		include: {
-			registrosConsolidados: true,
+			registrosConsolidados: { include: { funcionario: { select: { id: true, nombre: true } } } },
 			subfactores: true,
 			despacho: true,
-			registroAudiencias: true
+			registroAudiencias: true,
+			calificacion: { include: { observacionesDevolucion: { include: { autor: true } } } }
 		}
 	});
 	if (!calificacion) error(404, 'Calificación no encontrada');
 
 	const calificacionesAdicionales = await db.calificacionDespacho.findMany({
 		where: { calificacionId: params.calificacionId, despachoId: { not: despachoId } },
-		select: { id: true, despacho: { select: { nombre: true, codigo: true } } }
+		select: { id: true, despacho: { select: { id: true, nombre: true, codigo: true } } }
 	});
 
 	const novedades = await db.novedadFuncionario.findMany({
@@ -162,6 +163,8 @@ export const load = (async ({ params, locals, url }) => {
 
 	const consolidadoXlsxData = await getDataForXlsxExport(calificacion.id);
 
+	const despachos = await db.despachoSeccional.findMany({ orderBy: { nombre: 'asc' } });
+
 	return {
 		calificacion,
 		calificacionesAdicionales,
@@ -177,7 +180,8 @@ export const load = (async ({ params, locals, url }) => {
 		garantias,
 		escrito,
 		registroAudiencias: calificacion.registroAudiencias,
-		consolidadoXlsxData
+		consolidadoXlsxData,
+		despachos
 	};
 }) satisfies PageServerLoad;
 
@@ -195,7 +199,7 @@ export const actions = {
 				url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
 			const calificacion = await db.calificacionDespacho.findFirst({
-				where: { id: params.calificacionId, despachoId }
+				where: { calificacionId: params.calificacionId, despachoId }
 			});
 			if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
 
@@ -215,7 +219,7 @@ export const actions = {
 				type: z
 					.string()
 					.min(1)
-					// TODO: Validation requerida porque con select de shadui-svelte, si no se selecciona un valor, formData.get('type') returns the string'undefined'.
+					// TODO: Validación requerida porque con select de shadui-svelte, si no se selecciona un valor, formData.get('type') devuelve un string 'undefined'.
 					.refine((v) => v !== 'undefined'),
 				from: z.date(),
 				to: z.date(),
@@ -271,7 +275,7 @@ export const actions = {
 			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
 		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { id: params.calificacionId, despachoId }
+			where: { calificacionId: params.calificacionId, despachoId }
 		});
 
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
@@ -309,7 +313,7 @@ export const actions = {
 			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
 		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { id: params.calificacionId, despachoId }
+			where: { calificacionId: params.calificacionId, despachoId }
 		});
 
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
@@ -390,7 +394,7 @@ export const actions = {
 			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
 		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { id: params.calificacionId, despachoId }
+			where: { calificacionId: params.calificacionId, despachoId }
 		});
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
 		if (calificacionPeriodo.estado !== 'borrador' && calificacionPeriodo.estado !== 'devuelta')
@@ -426,7 +430,7 @@ export const actions = {
 			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
 		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { id: params.calificacionId, despachoId }
+			where: { calificacionId: params.calificacionId, despachoId }
 		});
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
 		if (calificacionPeriodo.estado !== 'revision')
@@ -462,7 +466,7 @@ export const actions = {
 			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
 		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { id: params.calificacionId, despachoId }
+			where: { calificacionId: params.calificacionId, despachoId }
 		});
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
 		if (calificacionPeriodo.estado !== 'revision')
@@ -493,5 +497,23 @@ export const actions = {
 		});
 
 		return { success: true };
+	},
+
+	actualizarDespacho: async ({ request, locals, params }) => {
+		if (!locals.user) error(400, 'No autorizado');
+
+		const calificacion = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId }
+		});
+		if (!calificacion) return fail(400, { error: 'Calificación no encontrada.' });
+
+		const formData = await request.formData();
+		const despachoId = formData.get('despachoId') as string;
+		if (!despachoId) return fail(400, { error: 'Debe seleccionar un despacho' });
+
+		await db.calificacionPeriodo.update({
+			where: { id: params.calificacionId },
+			data: { despachoSeccionalId: despachoId }
+		});
 	}
 };

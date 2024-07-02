@@ -2,11 +2,9 @@
 	import PageLayout from '$lib/components/custom/page-layout.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { cn } from '$lib/utils/shadcn';
-	import { Edit2Icon } from 'lucide-svelte';
-	import AsignarDespachoForm from './asignar-despacho-form.svelte';
 
 	const { data } = $props();
-	const { calificaciones, despachos } = data;
+	const { calificaciones } = data;
 
 	const colors = {
 		borrador: 'bg-slate-700',
@@ -35,28 +33,27 @@
 <PageLayout {header} username={data.user}>
 	<div>
 		{#each calificaciones as calificacion}
-			<div class="flex flex-row items-center justify-between gap-2">
-				<div
-					class={cn(
-						'inline-flex w-20 justify-center rounded-sm text-xs text-slate-100',
-						colors[calificacion.estado]
-					)}
-				>
-					{labels[calificacion.estado]}
+			<a
+				href="/calificacion/{calificacion.id}"
+				class="grid grid-cols-[160px_1fr] items-center justify-start gap-2 hover:bg-slate-100 p-2"
+			>
+				<div class="flex flex-col items-start gap-2">
+					<Badge variant={calificacion.despachoSeccional?.nombre ? 'default' : 'secondary'}>
+						{calificacion.despachoSeccional?.nombre.slice(0, 10) || 'Sin despacho asignado'}
+					</Badge>
+					<Badge class={colors[calificacion.estado]}>
+						{labels[calificacion.estado]}
+					</Badge>
 				</div>
-				<a href="/calificacion/{calificacion.id}"
-					>{calificacion.funcionario.nombre} - {calificacion.despacho.nombre}</a
-				>
-
-				<div class="grow"></div>
-
-				<Badge variant={calificacion.despachoSeccional?.nombre ? 'default' : 'secondary'}>
-					{calificacion.despachoSeccional?.nombre.slice(0, 10) || 'Sin despacho asignado'}
-				</Badge>
-				<AsignarDespachoForm calificacionId={calificacion.id} {despachos}>
-					<Edit2Icon class="h-4 w-4" />
-				</AsignarDespachoForm>
-			</div>
+				<div>
+					{calificacion.funcionario.nombre}
+					{#each calificacion.calificaciones as califDespacho}
+						<div class="text-sm text-slate-500">
+							{califDespacho.despacho.nombre}
+						</div>
+					{/each}
+				</div>
+			</a>
 		{/each}
 	</div>
 </PageLayout>

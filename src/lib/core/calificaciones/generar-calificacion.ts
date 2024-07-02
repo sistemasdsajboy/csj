@@ -240,7 +240,7 @@ async function generarCalificacionPonderada(calificacionId: string) {
 
 	const calificacionPonderada = await calcularPonderada(calificacion.calificaciones ?? []);
 	await db.calificacionPeriodo.update({
-		where: { id: calificacion?.id },
+		where: { id: calificacionId },
 		data: { calificacionPonderada }
 	});
 }

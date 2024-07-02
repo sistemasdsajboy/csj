@@ -5,6 +5,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { cn } from '$lib/utils/shadcn';
 	import { exportToSpreadsheet } from '$lib/utils/xlsx';
+	import AsignarDespachoForm from '../../calificaciones/asignar-despacho-form.svelte';
 	import EditorEstadoCalificacion from './editor-estado-calificacion.svelte';
 	import EstadoCalificacion from './estado-calificacion.svelte';
 	import NovedadForm from './novedad-form.svelte';
@@ -19,7 +20,6 @@
 		diasNoHabiles,
 		funcionario,
 		novedades,
-		funcionariosPeriodo,
 		consolidadoOrdinario,
 		consolidadoTutelas,
 		consolidadoGarantias,
@@ -28,11 +28,14 @@
 		garantias,
 		escrito,
 		registroAudiencias,
-		consolidadoXlsxData
+		consolidadoXlsxData,
+		despachos
 	} = $derived(data);
 
 	const calificacionTotal = $derived(calificacion.calificacionTotalFactorEficiencia.toFixed(2));
-	const calificacionPonderada = $derived(calificacion.calificacionPonderada?.toFixed(2) || 0);
+	const calificacionPonderada = $derived(
+		calificacion.calificacion.calificacionPonderada.toFixed(2) || 0
+	);
 </script>
 
 {#snippet header()}
@@ -89,14 +92,13 @@
 			</thead>
 			<tbody>
 				{#each filas as fila}
-					{@const func = funcionariosPeriodo.find((f) => f.id === fila.funcionarioId)}
 					<tr class="border-b border-gray-200 dark:border-gray-700">
 						<td
 							class={cn('text-nowrap px-2  text-gray-900 dark:text-gray-100', {
-								'font-light': calificacion.funcionarioId !== func?.id
+								'font-light': fila.funcionario.id !== calificacion.calificacion.funcionarioId
 							})}
 						>
-							{func?.nombre}
+							{fila.funcionario.nombre}
 						</td>
 						<td class="px-2 text-center text-gray-900 dark:text-gray-100">
 							<Badge variant="secondary">{formatDate(fila.desde)}-{formatDate(fila.hasta)}</Badge>
@@ -124,14 +126,17 @@
 	<div class="container mx-auto px-4">
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
 			<EstadoCalificacion
-				estado={calificacion.estado}
-				observaciones={calificacion.observacionesDevolucion}
+				estado={calificacion.calificacion.estado}
+				observaciones={calificacion.calificacion.observacionesDevolucion}
 			/>
-			<EditorEstadoCalificacion estado={calificacion.estado} />
+			<EditorEstadoCalificacion estado={calificacion.calificacion.estado} />
 			<div class="grow"></div>
-			{#if calificacion.estado !== 'aprobada'}
+			{#if calificacion.calificacion.estado !== 'aprobada'}
 				<RegistroAudienciasForm {registroAudiencias} />
 				<NovedadForm {diasNoHabiles} />
+				<AsignarDespachoForm calificacionId={calificacion.id} {despachos}>
+					Asignar despacho
+				</AsignarDespachoForm>
 			{/if}
 			<Button
 				variant="outline"
@@ -149,7 +154,7 @@
 					</a>
 					<div>{funcionario.documento}</div>
 				</div>
-				<span>Periodo: {calificacion.periodo}</span>
+				<span>Periodo: {calificacion.calificacion.periodo}</span>
 			</div>
 
 			<h3 class="bold pt-8 text-2xl font-bold text-slate-800">
@@ -163,7 +168,7 @@
 				<div>{despacho.codigo} - {despacho.nombre}</div>
 				{#each calificacionesAdicionales as adicional}
 					<div>
-						<a href="/calificacion/{adicional.id}" class="text-sky-800 underline">
+						<a href="?despacho={adicional.despacho.id}" class="text-sky-800 underline">
 							{adicional.despacho.codigo} - {adicional.despacho.nombre}
 						</a>
 					</div>

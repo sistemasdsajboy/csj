@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/alert-dialog';
-	import { Button } from '$lib/components/ui/button';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
@@ -14,10 +14,8 @@
 </script>
 
 <Dialog.Root>
-	<Dialog.Trigger asChild let:builder>
-		<Button builders={[builder]} size="sm" variant="link">
-			{@render children()}
-		</Button>
+	<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>
+		{@render children()}
 	</Dialog.Trigger>
 	<Dialog.Content>
 		<Dialog.Header>
