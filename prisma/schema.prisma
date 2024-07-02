@@ -50,6 +50,7 @@ enum EspecialidadDespacho {
   PenalConocimiento
   PenalGarantias
   PenalMixto
+  PeqCausas
   EjecucionPenas
   Civil
   Familia
