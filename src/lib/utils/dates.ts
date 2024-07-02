@@ -100,7 +100,7 @@ export const dateIsHoliday = (excludedDates: Record<string, Array<number>>, date
 	return isWeekend || holiday;
 };
 
-export const countLaborDaysBetweenDates = (
+export const contarDiasHabiles = (
 	excludedDates: Record<string, Array<number>>,
 	from: Date,
 	to: Date

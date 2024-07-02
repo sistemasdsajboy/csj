@@ -1,6 +1,6 @@
 import { db } from '$lib/db/client';
 import {
-	countLaborDaysBetweenDates,
+	contarDiasHabiles,
 	diaJusticia,
 	festivosPorMes,
 	mergeExcludedDates,
@@ -175,7 +175,7 @@ function generarConsolidado({
 			categoria: 'Consolidado',
 			desde: d[0].desde,
 			hasta: d[0].hasta,
-			dias: countLaborDaysBetweenDates(diasNoHabiles, d[0].desde, d[0].hasta),
+			dias: contarDiasHabiles(diasNoHabiles, d[0].desde, d[0].hasta),
 			inventarioInicial: _.sumBy(d, 'inventarioInicial'),
 			ingresoEfectivo: _.sumBy(d, 'ingresoEfectivo'),
 			cargaEfectiva: _.sumBy(d, 'cargaEfectiva'),
@@ -261,10 +261,6 @@ export async function generarCalificacionFuncionario(
 	const calificacionPeriodo = await findOrCreateCalificacionPeriodo(funcionarioId, periodo);
 	if (calificacionPeriodo.estado === 'aprobada') return calificacionPeriodo.id;
 
-	const registros = await db.registroCalificacion.findMany({
-		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
-	});
-
 	const funcionario = await db.funcionario.findFirst({
 		where: { id: funcionarioId },
 		include: {
@@ -284,6 +280,10 @@ export async function generarCalificacionFuncionario(
 
 	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
 	if (!despacho) throw new Error('Despacho no encontrado');
+
+	const registros = await db.registroCalificacion.findMany({
+		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
+	});
 
 	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
 	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
@@ -307,7 +307,7 @@ export async function generarCalificacionFuncionario(
 		});
 
 	const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
-	const diasHabilesDespacho = countLaborDaysBetweenDates(
+	const diasHabilesDespacho = contarDiasHabiles(
 		diasNoHabiles,
 		new Date(periodo, 0, 1),
 		new Date(periodo, 11, 31)

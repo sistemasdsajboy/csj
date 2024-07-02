@@ -5,7 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { countLaborDaysBetweenDates } from '$lib/utils/dates';
+	import { contarDiasHabiles } from '$lib/utils/dates';
 
 	let from = $state('');
 	let to = $state('');
@@ -16,7 +16,7 @@
 
 	$effect(() => {
 		if (from && to) {
-			dias = countLaborDaysBetweenDates(diasNoHabiles, new Date(from), new Date(to));
+			dias = contarDiasHabiles(diasNoHabiles, new Date(from), new Date(to));
 			diasDescontables = dias;
 		}
 	});

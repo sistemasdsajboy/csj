@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	countLaborDaysBetweenDates,
+	contarDiasHabiles,
 	dateIsHoliday,
 	festivosPorMes as f,
 	mergeExcludedDates
@@ -22,13 +22,13 @@ describe('dateIsHoliday', () => {
 	});
 });
 
-describe('countLaborDaysBetweenDates', () => {
+describe('contarDiasHabiles', () => {
 	it('returns the expected day count', () => {
-		expect(countLaborDaysBetweenDates(f, new Date('2023-06-01'), new Date('2023-06-09'))).toBe(7);
-		expect(countLaborDaysBetweenDates(f, new Date('2023-06-01'), new Date('2023-06-30'))).toBe(20);
-		expect(countLaborDaysBetweenDates(f, new Date('2023-07-01'), new Date('2023-07-31'))).toBe(19);
-		expect(countLaborDaysBetweenDates(f, new Date('2023-01-01'), new Date('2023-12-31'))).toBe(243);
-		expect(countLaborDaysBetweenDates(f, new Date('2023-04-28'), new Date('2023-04-28'))).toBe(1);
+		expect(contarDiasHabiles(f, new Date('2023-06-01'), new Date('2023-06-09'))).toBe(7);
+		expect(contarDiasHabiles(f, new Date('2023-06-01'), new Date('2023-06-30'))).toBe(20);
+		expect(contarDiasHabiles(f, new Date('2023-07-01'), new Date('2023-07-31'))).toBe(19);
+		expect(contarDiasHabiles(f, new Date('2023-01-01'), new Date('2023-12-31'))).toBe(243);
+		expect(contarDiasHabiles(f, new Date('2023-04-28'), new Date('2023-04-28'))).toBe(1);
 	});
 });
 
