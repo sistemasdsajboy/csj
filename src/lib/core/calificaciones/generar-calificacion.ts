@@ -302,7 +302,8 @@ export async function generarCalificacionFuncionario(
 	const categoriasConstitucional = [
 		'Incidentes de Desacato',
 		'Movimiento de Tutelas',
-		'Procesos con sentencia y trámite posterior incidentes de Desacato'
+		'Procesos con sentencia y trámite posterior incidentes de Desacato',
+		'Primera Instancia Acciones Constitucionales'
 	];
 	const registrosOrdinario = registros
 		.filter((registro) => registro.clase === 'oral')
