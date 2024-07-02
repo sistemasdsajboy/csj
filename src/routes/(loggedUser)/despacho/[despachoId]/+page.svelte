@@ -21,7 +21,8 @@
 		'PenalConocimiento',
 		'PenalGarantias',
 		'PenalMixto',
-		'Promiscuo'
+		'Promiscuo',
+		"PeqCausas"
 	];
 
 	const categorias = ['Municipal', 'Circuito', 'Tribunal'];
