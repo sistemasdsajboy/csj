@@ -56,7 +56,8 @@
 	</div>
 {/snippet}
 
-{#snippet tablaConsolidado(filas)}
+{#snippet tablaConsolidado(titulo, filas)}
+	<h3 class="bold pt-8 text-2xl font-bold text-slate-800">{titulo}</h3>
 	<div class="overflow-x-auto">
 		<table class="w-full table-auto border-collapse">
 			<thead>
@@ -204,38 +205,37 @@
 			<NovedadesList {novedades} />
 		</div>
 
-		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Oral</h3>
+		{#if consolidadoTutelas.length > 0 && consolidadoTutelas.some((c) => c.cargaEfectiva > 0)}
+			{@render tablaConsolidado('Tutelas e incidentes', consolidadoTutelas)}
+		{/if}
 
-		<h3 class="bold break-before-all pt-8 text-xl font-bold text-slate-800">Procesos</h3>
-		{@render tablaConsolidado(consolidadoOrdinario)}
+		{#if consolidadoOrdinario.length > 0 && consolidadoOrdinario.some((c) => c.cargaEfectiva > 0)}
+			{@render tablaConsolidado('Oral', consolidadoOrdinario)}
 
-		<h3 class="bold pt-8 text-xl font-bold text-slate-800">Tutelas e incidentes</h3>
-		{@render tablaConsolidado(consolidadoTutelas)}
+			<div
+				class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 print:grid-cols-7"
+			>
+				{@render tarjetaValor('Total inventario inicial', oral?.totalInventarioInicial)}
+				{@render tarjetaValor(
+					'Carga base del despacho modificada',
+					oral?.cargaBaseCalificacionDespacho
+				)}
+				{@render tarjetaValor(
+					'Carga base del funcionario modificada',
+					oral?.cargaBaseCalificacionFuncionario
+				)}
+				{@render tarjetaValor('Egreso del funcionario', oral?.egresoFuncionario)}
+				{@render tarjetaValor('Carga proporcional', oral?.cargaProporcional.toFixed(2))}
+				{@render tarjetaValor('Subfactor respuesta efectiva', oral?.totalSubfactor.toFixed(2))}
+				{@render tarjetaValorResaltado(
+					'Calificación eficiencia + audiencias',
+					calificacion.factorOralMasAudiencias.toFixed(2)
+				)}
+			</div>
+		{/if}
 
-		<div
-			class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 print:grid-cols-7"
-		>
-			{@render tarjetaValor('Total inventario inicial', oral?.totalInventarioInicial)}
-			{@render tarjetaValor(
-				'Carga base del despacho modificada',
-				oral?.cargaBaseCalificacionDespacho
-			)}
-			{@render tarjetaValor(
-				'Carga base del funcionario modificada',
-				oral?.cargaBaseCalificacionFuncionario
-			)}
-			{@render tarjetaValor('Egreso del funcionario', oral?.egresoFuncionario)}
-			{@render tarjetaValor('Carga proporcional', oral?.cargaProporcional.toFixed(2))}
-			{@render tarjetaValor('Subfactor respuesta efectiva', oral?.totalSubfactor.toFixed(2))}
-			{@render tarjetaValorResaltado(
-				'Calificación eficiencia + audiencias',
-				calificacion.factorOralMasAudiencias.toFixed(2)
-			)}
-		</div>
-
-		{#if consolidadoGarantias.length > 0}
-			<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Garantías</h3>
-			{@render tablaConsolidado(consolidadoGarantias)}
+		{#if consolidadoGarantias.length > 0 && consolidadoGarantias.some((c) => c.cargaEfectiva > 0)}
+			{@render tablaConsolidado('Garantías', consolidadoGarantias)}
 
 			<div
 				class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
@@ -255,10 +255,8 @@
 			</div>
 		{/if}
 
-		{#if consolidadoEscrito.length > 0}
-			<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Escritural</h3>
-
-			{@render tablaConsolidado(consolidadoEscrito)}
+		{#if consolidadoEscrito.length > 0 && consolidadoEscrito.some((c) => c.cargaEfectiva > 0)}
+			{@render tablaConsolidado('Escritural', consolidadoEscrito)}
 
 			<div
 				class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"

@@ -149,23 +149,13 @@ const generarResultadosSubfactor = (
 function generarConsolidado({
 	diasNoHabiles,
 	registros,
-	categorias = [],
-	excluirCategorias = false,
 	clase
 }: {
 	diasNoHabiles: Record<string, Array<number>>;
 	registros: RegistroCalificacion[];
-	categorias?: string[];
-	excluirCategorias?: boolean;
 	clase?: ClaseRegistroCalificacion;
 }) {
 	const agrupadoPorCategoria = _(registros)
-		.filter((d) => {
-			if (categorias.length === 0) return true;
-			return excluirCategorias
-				? !categorias.includes(d.categoria)
-				: categorias.includes(d.categoria);
-		})
 		.groupBy('desde')
 		.map((d) => ({
 			periodo: d[0].periodo,
@@ -281,14 +271,6 @@ export async function generarCalificacionFuncionario(
 	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
 	if (!despacho) throw new Error('Despacho no encontrado');
 
-	const registros = await db.registroCalificacion.findMany({
-		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
-	});
-
-	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
-	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
-	const registrosEscrito = registros.filter((registro) => registro.clase === 'escrito');
-
 	let audiencias = await db.registroAudiencias.findFirst({
 		where: { periodo, funcionarioId, despachoId }
 	});
@@ -313,20 +295,29 @@ export async function generarCalificacionFuncionario(
 		new Date(periodo, 11, 31)
 	);
 
-	const consolidadoOrdinario = generarConsolidado({
-		diasNoHabiles,
-		registros: registrosOral,
-		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas'],
-		excluirCategorias: true
+	const registros = await db.registroCalificacion.findMany({
+		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
 	});
 
+	const categoriasConstitucional = ['Incidentes de Desacato', 'Movimiento de Tutelas', "Procesos con sentencia y trámite posterior incidentes de Desacato"];
+	const registrosOrdinario = registros
+		.filter((registro) => registro.clase === 'oral')
+		.filter((r) => !categoriasConstitucional.includes(r.categoria));
+	const consolidadoOrdinario = generarConsolidado({ diasNoHabiles, registros: registrosOrdinario });
+
+	const registrosTutelas = registros
+		.filter((registro) => registro.clase === 'oral')
+		.filter((r) => categoriasConstitucional.includes(r.categoria));
 	const consolidadoTutelas = generarConsolidado({
 		diasNoHabiles,
-		registros: registrosOral,
-		categorias: ['Incidentes de Desacato', 'Movimiento de Tutelas'],
+		registros: registrosTutelas,
 		clase: 'constitucional'
 	});
+
+	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
 	const consolidadoGarantias = generarConsolidado({ diasNoHabiles, registros: registrosGarantias });
+
+	const registrosEscrito = registros.filter((registro) => registro.clase === 'escrito');
 	const consolidadoEscrito = generarConsolidado({ diasNoHabiles, registros: registrosEscrito });
 
 	const diasHabilesVinculacion = consolidadoOrdinario
@@ -335,9 +326,7 @@ export async function generarCalificacionFuncionario(
 		.reduce((a, b) => a + b, 0);
 
 	const diasDescontados = funcionario.novedades
-		? funcionario.novedades.reduce((dias, novedad) => {
-				return dias + novedad.days;
-			}, 0)
+		? funcionario.novedades.reduce((dias, novedad) => dias + novedad.days, 0)
 		: 0;
 
 	// Dias de las novedades que se encuentran dentro de los rangos de tiempo efectivamente laborado.
@@ -349,6 +338,11 @@ export async function generarCalificacionFuncionario(
 
 	const diasHabilesLaborados = diasHabilesVinculacion - diasDescontables;
 
+	const hayProcesosEscritos = registrosEscrito.some((r) => r.cargaEfectiva > 0);
+
+	const registrosOral = hayProcesosEscritos
+		? registrosOrdinario
+		: [...registrosOrdinario, ...registrosTutelas];
 	const oral = generarResultadosSubfactorOral(
 		funcionario,
 		diasHabilesDespacho,
@@ -369,11 +363,14 @@ export async function generarCalificacionFuncionario(
 	const egresoOral = getEgresoTotal(registrosOral);
 	const egresoGarantias = getEgresoTotal(registrosGarantias);
 
+	const regsEscrito = hayProcesosEscritos
+		? [...registrosEscrito, ...registrosTutelas]
+		: registrosEscrito;
 	const escrito = generarResultadosSubfactor(
 		funcionario,
 		diasHabilesDespacho,
 		diasHabilesLaborados,
-		registrosEscrito,
+		regsEscrito,
 		'escrito'
 	);
 
@@ -386,8 +383,9 @@ export async function generarCalificacionFuncionario(
 
 	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 
-	const calificacionTotalFactorEficiencia =
-		(factorOralMasAudiencias + garantias.totalSubfactor) / 2;
+	const calificacionTotalFactorEficiencia = hayProcesosEscritos
+		? (factorOralMasAudiencias + garantias.totalSubfactor + escrito.totalSubfactor) / 3
+		: (factorOralMasAudiencias + garantias.totalSubfactor) / 2;
 
 	const consolidados = [
 		...consolidadoOrdinario,
