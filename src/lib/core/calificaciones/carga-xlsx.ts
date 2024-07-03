@@ -115,6 +115,9 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 };
 
 async function getDespachoFromXlsxFileString(despachoString: string): Promise<Despacho | null> {
+	// Eliminar espacios múltiples
+	despachoString = despachoString.replace(/\s{2,}/g, ' ');
+
 	const codigoDespacho = _.last(despachoString.match(/\d{12}/));
 	if (!codigoDespacho || !_.isNumber(Number(codigoDespacho)) || codigoDespacho.length !== 12)
 		return null;
@@ -123,7 +126,7 @@ async function getDespachoFromXlsxFileString(despachoString: string): Promise<De
 	if (despacho) return despacho;
 
 	const match = despachoString.match(
-		/Despacho: [0-9]+ - ([A-Za-zÁÉÍÓÚáéíóú0-9]+( [A-Za-zÁÉÍÓÚáéíóú0-9]+)+)/
+		/Despacho: [0-9]+ - ([A-Za-zñÑÁÉÍÓÚáéíóú0-9]+( [A-Za-zñÑÁÉÍÓÚáéíóú0-9]+)+)/
 	);
 
 	return db.despacho.create({
@@ -135,7 +138,12 @@ async function getDespachoFromXlsxFileString(despachoString: string): Promise<De
 }
 
 async function getFuncionarioFromXlsxFileString(funcionarioString: string): Promise<Funcionario> {
-	const nombre = _.get(funcionarioString.match(/Funcionario: ([A-Za-z]+( [A-Za-z]+)+) /), 1) || '';
+	// Eliminar espacios múltiples
+	const funcionarioStringMatch = funcionarioString
+		.replace(/\s{2,}/g, ' ')
+		.match(/Funcionario: ([A-Za-zñÑÁÉÍÓÚáéíóú]+( [A-Za-zñÑÁÉÍÓÚáéíóú]+)+) /);
+
+	const nombre = _.get(funcionarioStringMatch, 1) || '';
 	const documento = _.first(funcionarioString.match(/[0-9]+$/)) || '';
 	let funcionario = await db.funcionario.findFirst({ where: { documento } });
 	if (funcionario) return funcionario;
