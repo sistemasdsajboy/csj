@@ -106,7 +106,7 @@ model NovedadFuncionario {
 
 enum ClaseRegistroCalificacion {
   oral
-  constitucional
+  tutelas
   escrito
   garantias
   otros

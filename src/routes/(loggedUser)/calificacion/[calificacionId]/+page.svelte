@@ -256,7 +256,7 @@
 		{/if}
 
 		{#if consolidadoEscrito.length > 0 && consolidadoEscrito.some((c) => c.cargaEfectiva > 0)}
-			{@render tablaConsolidado('Escritural', consolidadoEscrito)}
+			{@render tablaConsolidado('Escrito', consolidadoEscrito)}
 
 			<div
 				class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6"
@@ -272,7 +272,7 @@
 				)}
 				{@render tarjetaValor('Egreso del funcionario', escrito?.egresoFuncionario)}
 				{@render tarjetaValor('Carga proporcional', escrito?.cargaProporcional.toFixed(2))}
-				{@render tarjetaValorResaltado('Subfactor escritural', escrito?.totalSubfactor.toFixed(2))}
+				{@render tarjetaValorResaltado('Subfactor escrito', escrito?.totalSubfactor.toFixed(2))}
 			</div>
 		{/if}
 

@@ -143,7 +143,7 @@ export const load = (async ({ params, locals, url }) => {
 		.sortBy('desde')
 		.value();
 	const consolidadoTutelas = _(calificacion.registrosConsolidados)
-		.filter((r) => r.clase === 'constitucional')
+		.filter((r) => r.clase === 'tutelas')
 		.sortBy('desde')
 		.value();
 	const consolidadoGarantias = _(calificacion.registrosConsolidados)
