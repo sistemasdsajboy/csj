@@ -59,17 +59,20 @@ type WorkbookPage = { name: string; data: unknown[][] };
 type Workbook = Array<WorkbookPage>;
 
 export const createRegistrosCalificacionFromXlsx = async (file: File) => {
-	const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
-	const despachoString = woorkbook[0].data[0][0] as string;
+	try {
+		const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
+		const despachoString = woorkbook[0].data[0][0] as string;
 
-	const despacho = await getDespachoFromXlsxFileString(despachoString);
-	if (!despacho)
-		throw new Error('Información de despacho no válida en el archivo de calificación.');
+		const despacho = await getDespachoFromXlsxFileString(despachoString);
+		if (!despacho)
+			throw new Error('Información de despacho no válida en el archivo de calificación.');
 
-	const rows = woorkbook.flatMap((workbookPage) => extractWorkbookPageRows(workbookPage));
+		const rows = woorkbook.flatMap((workbookPage) => extractWorkbookPageRows(workbookPage));
 
-	const funcionariosByWorkbookString: Array<{ funcionarioStr: string; funcionario: Funcionario }> =
-		await Promise.all(
+		const funcionariosByWorkbookString: Array<{
+			funcionarioStr: string;
+			funcionario: Funcionario;
+		}> = await Promise.all(
 			_(rows)
 				.uniqBy('funcionario')
 				.value()
@@ -81,37 +84,53 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 				}, {})
 		);
 
-	const fileData = woorkbook.flatMap(
-		extractWorkbookPageData(despacho, funcionariosByWorkbookString)
-	);
+		const fileData = woorkbook.flatMap(
+			extractWorkbookPageData(despacho, funcionariosByWorkbookString)
+		);
+		if (!fileData.length)
+			throw new Error(
+				'El archivo no contiene información para cargar o no se reconoce el formato del contenido.'
+			);
 
-	const registro = await db.registroCalificacion.findFirst({
-		where: {
-			despachoId: despacho.id,
-			periodo: fileData[0].periodo,
-			categoria: { not: 'Consolidado' }
-		}
-	});
-	if (registro) throw new Error('Ya existe un registro de calificaciones para este despacho.');
+		const registro = await db.registroCalificacion.findFirst({
+			where: {
+				despachoId: despacho.id,
+				periodo: fileData[0].periodo,
+				categoria: { not: 'Consolidado' }
+			}
+		});
+		if (registro)
+			throw new Error(
+				`Ya existen registros de calificaciones para este despacho en el periodo ${fileData[0].periodo} .`
+			);
 
-	await db.registroCalificacion.createMany({
-		data: fileData.map((d) => ({
-			cargaEfectiva: d.cargaEfectiva,
-			egresoEfectivo: d.egresoEfectivo,
-			ingresoEfectivo: d.ingresoEfectivo,
-			inventarioFinal: d.inventarioFinal,
-			inventarioInicial: d.inventarioInicial,
-			restan: d.restan,
-			conciliaciones: d.conciliaciones,
-			desde: d.desde,
-			hasta: d.hasta,
-			periodo: d.periodo,
-			clase: d.clase,
-			categoria: d.categoria,
-			despachoId: d.despachoId,
-			funcionarioId: d.funcionarioId
-		}))
-	});
+		const { count } = await db.registroCalificacion.createMany({
+			data: fileData.map((d) => ({
+				cargaEfectiva: d.cargaEfectiva,
+				egresoEfectivo: d.egresoEfectivo,
+				ingresoEfectivo: d.ingresoEfectivo,
+				inventarioFinal: d.inventarioFinal,
+				inventarioInicial: d.inventarioInicial,
+				restan: d.restan,
+				conciliaciones: d.conciliaciones,
+				desde: d.desde,
+				hasta: d.hasta,
+				periodo: d.periodo,
+				clase: d.clase,
+				categoria: d.categoria,
+				despachoId: d.despachoId,
+				funcionarioId: d.funcionarioId
+			}))
+		});
+
+		return count;
+	} catch (error) {
+		throw new Error(
+			error instanceof Error
+				? error.message
+				: 'Ha ocurrido un error inesperado durante la carga del archivo.'
+		);
+	}
 };
 
 async function getDespachoFromXlsxFileString(despachoString: string): Promise<Despacho | null> {
@@ -154,7 +173,7 @@ async function getFuncionarioFromXlsxFileString(funcionarioString: string): Prom
 
 function extractWorkbookPageRows(workbookPage: WorkbookPage) {
 	return workbookPage.data
-		.map((data) => consolidadoRowSchema.safeParse(data))
+		.map((row) => consolidadoRowSchema.safeParse(row))
 		.filter((parsed) => parsed.success)
 		.map((parsed) => parsed.data!.filter((value) => value !== undefined))
 		.map((data) => {

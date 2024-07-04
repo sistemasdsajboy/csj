@@ -3,7 +3,7 @@ import { db } from '$lib/db/client';
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load = (async ({ locals }) => {
+export const load = (async () => {
 	const funcionarios = await db.funcionario.findMany({
 		orderBy: { nombre: 'asc' }
 	});
@@ -14,7 +14,7 @@ export const load = (async ({ locals }) => {
 export const actions = {
 	loadFile: async ({ request, locals }) => {
 		try {
-			if (!locals.user) return fail(401, { message: 'No autorizado' });
+			if (!locals.user) return fail(401, { error: 'Usuario no autorizado' });
 
 			const data = await request.formData();
 			const file = data.get('file') as File;
@@ -23,14 +23,10 @@ export const actions = {
 			if (!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx'))
 				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
 
-			await createRegistrosCalificacionFromXlsx(file);
-
-			return { success: true };
+			const registrosCargados = await createRegistrosCalificacionFromXlsx(file);
+			return { success: true, message: `Archivo cargado. ${registrosCargados} registros creados.` };
 		} catch (error) {
-			return {
-				success: false,
-				error: 'Ha ocurrido un error inesperado durante la carga del archivo.'
-			};
+			return { success: false, error: error instanceof Error ? error.message : '' };
 		}
 	}
 };

@@ -12,8 +12,12 @@
 {#snippet sidebar()}
 	<div class="max-w-md">
 		<FileLoader />
-		{#if !form?.success && form?.error}
-			<div>{form.error}</div>
+		{#if form}
+			{#if form.success}
+				<div>{form.message}</div>
+			{:else}
+				<div>{form.error}</div>
+			{/if}
 		{/if}
 	</div>
 {/snippet}
