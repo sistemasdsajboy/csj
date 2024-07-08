@@ -50,13 +50,21 @@ enum EspecialidadDespacho {
   PenalConocimiento
   PenalGarantias
   PenalMixto
-  PeqCausas
+  PenalEspecializado
+  PenalEspecializadoExtincion
   EjecucionPenas
   Civil
+  CivilConocimientoLaboral
+  CivilEjecucionSentencias
   Familia
   FamiliaPromiscuo
   Laboral
+  PeqCausas
   Administrativo
+  AdministrativoSeccion1
+  AdministrativoSeccion2
+  AdministrativoSeccion3
+  AdministrativoSeccion4
 }
 
 enum CategoriaDespacho {
@@ -65,13 +73,33 @@ enum CategoriaDespacho {
   Tribunal
 }
 
+model TipoDespacho {
+  id                 String                     @id @default(auto()) @map("_id") @db.ObjectId
+  nombre             String
+  especialidad       EspecialidadDespacho
+  categoria          CategoriaDespacho
+  despachos          Despacho[]
+  capacidadesMaximas CapacidadMaximaRespuesta[]
+
+  @@unique([especialidad, categoria])
+  @@unique([nombre])
+}
+
+model CapacidadMaximaRespuesta {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  tipoDespachoId String       @db.ObjectId
+  tipoDespacho   TipoDespacho @relation(fields: [tipoDespachoId], references: [id])
+  periodo        Int
+  cantidad       Int
+}
+
 model Despacho {
   id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
   codigo                String
   nombre                String
   numero                Int?
-  especialidad          EspecialidadDespacho?
-  categoria             CategoriaDespacho?
+  tipoDespachoId        String?                @db.ObjectId
+  tipoDespacho          TipoDespacho?          @relation(fields: [tipoDespachoId], references: [id])
   municipio             String?
   distrito              String?
   registrosCalificacion RegistroCalificacion[]

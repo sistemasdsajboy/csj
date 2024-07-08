@@ -82,7 +82,7 @@ export const vacanciaJudicial = {
 	'2025-12': [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
 };
 
-export const mergeExcludedDates = (
+export const unirFechasNoHabiles = (
 	...excludedDates: Array<Record<string, Array<number>>>
 ): Record<string, Array<number>> => {
 	const mergeArrays = (obj: Array<number> = [], src: Array<number> = []) => [

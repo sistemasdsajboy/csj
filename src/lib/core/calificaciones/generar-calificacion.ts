@@ -3,16 +3,11 @@ import {
 	contarDiasHabiles,
 	diaJusticia,
 	festivosPorMes,
-	mergeExcludedDates,
 	semanaSantaCompleta,
+	unirFechasNoHabiles,
 	vacanciaJudicial
 } from '$lib/utils/dates';
-import type {
-	CategoriaDespacho,
-	ClaseRegistroCalificacion,
-	EspecialidadDespacho,
-	RegistroCalificacion
-} from '@prisma/client';
+import type { ClaseRegistroCalificacion, RegistroCalificacion, TipoDespacho } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 
@@ -150,19 +145,13 @@ function generarConsolidado({
 	return agrupadoPorCategoria;
 }
 
-export function getDiasFestivosPorDespacho({
-	especialidad,
-	categoria
-}: {
-	especialidad: EspecialidadDespacho | null;
-	categoria: CategoriaDespacho | null;
-}) {
-	if (!especialidad || !categoria) throw new Error('Información del despacho no válida');
+export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null) {
+	if (tipoDespacho === null) return festivosPorMes;
 
-	if (especialidad === null || categoria === null) festivosPorMes;
+	const { especialidad, categoria } = tipoDespacho;
 
 	if (especialidad === 'EjecucionPenas' || especialidad === 'FamiliaPromiscuo')
-		return mergeExcludedDates(festivosPorMes, diaJusticia);
+		return unirFechasNoHabiles(festivosPorMes, diaJusticia);
 
 	if (
 		categoria === 'Municipal' &&
@@ -171,9 +160,9 @@ export function getDiasFestivosPorDespacho({
 			especialidad === 'PenalConocimiento' ||
 			especialidad === 'PenalMixto')
 	)
-		return mergeExcludedDates(festivosPorMes, diaJusticia, semanaSantaCompleta);
+		return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta);
 
-	return mergeExcludedDates(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
+	return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
 async function calcularPonderada(
@@ -274,7 +263,10 @@ export async function generarCalificacionFuncionario(
 	});
 	if (!funcionario) throw new Error('Funcionario no encontrado');
 
-	const despacho = await db.despacho.findFirst({ where: { id: despachoId } });
+	const despacho = await db.despacho.findFirst({
+		where: { id: despachoId },
+		include: { tipoDespacho: true }
+	});
 	if (!despacho) throw new Error('Despacho no encontrado');
 
 	let audiencias = await db.registroAudiencias.findFirst({
@@ -296,7 +288,7 @@ export async function generarCalificacionFuncionario(
 
 	await actualizarClaseRegistros(despachoId, periodo);
 
-	const diasNoHabiles = getDiasFestivosPorDespacho(despacho);
+	const diasNoHabiles = getDiasFestivosPorTipoDespacho(despacho.tipoDespacho);
 	const diasHabilesDespacho = contarDiasHabiles(
 		diasNoHabiles,
 		new Date(periodo, 0, 1),

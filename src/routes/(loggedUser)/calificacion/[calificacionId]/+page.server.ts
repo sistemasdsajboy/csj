@@ -1,6 +1,6 @@
 import {
 	generarCalificacionFuncionario,
-	getDiasFestivosPorDespacho
+	getDiasFestivosPorTipoDespacho
 } from '$lib/core/calificaciones/generar-calificacion';
 import { db } from '$lib/db/client';
 import { error, fail } from '@sveltejs/kit';
@@ -116,7 +116,7 @@ export const load = (async ({ params, locals, url }) => {
 		include: {
 			registrosConsolidados: { include: { funcionario: { select: { id: true, nombre: true } } } },
 			subfactores: true,
-			despacho: true,
+			despacho: { include: { tipoDespacho: true } },
 			registroAudiencias: true,
 			calificacion: { include: { observacionesDevolucion: { include: { autor: true } } } }
 		}
@@ -159,7 +159,7 @@ export const load = (async ({ params, locals, url }) => {
 	const garantias = calificacion.subfactores.find((s) => s.subfactor === 'garantias');
 	const escrito = calificacion.subfactores.find((s) => s.subfactor === 'escrito');
 
-	const diasNoHabiles = getDiasFestivosPorDespacho(calificacion.despacho);
+	const diasNoHabiles = getDiasFestivosPorTipoDespacho(calificacion.despacho.tipoDespacho);
 
 	const consolidadoXlsxData = await getDataForXlsxExport(calificacion.id);
 

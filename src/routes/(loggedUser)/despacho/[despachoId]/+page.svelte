@@ -7,25 +7,7 @@
 	import type { PageData } from './$types';
 
 	export let data: PageData;
-	const despacho = data.despacho;
-
-	const especialidades = [
-		'Administrativo',
-		'Civil',
-		'EjecucionPenas',
-		'Familia',
-		'FamiliaPromiscuo',
-		'Laboral',
-		'Penal',
-		'PenalAdolescentes',
-		'PenalConocimiento',
-		'PenalGarantias',
-		'PenalMixto',
-		'Promiscuo',
-		"PeqCausas"
-	];
-
-	const categorias = ['Municipal', 'Circuito', 'Tribunal'];
+	const { despacho, opcionesTipoDespacho } = data;
 </script>
 
 <PageLayout username={data.user}>
@@ -36,44 +18,22 @@
 			<Label for="numero">Número</Label>
 			<Input type="number" name="numero" value={despacho.numero} required />
 
-			<Label for="especialidad">Especialidad</Label>
+			<Label for="tipoDespachoId">Tipo de despacho</Label>
 			<Select.Root
 				portal={null}
-				selected={despacho.especialidad
-					? { label: despacho.especialidad, value: despacho.especialidad }
-					: undefined}
+				selected={opcionesTipoDespacho.find(({ value }) => value === despacho.tipoDespachoId)}
 			>
 				<Select.Trigger class="w-full">
 					<Select.Value />
 				</Select.Trigger>
 				<Select.Content>
 					<Select.Group>
-						{#each especialidades as e}
-							<Select.Item value={e} label={e}>{e}</Select.Item>
+						{#each opcionesTipoDespacho as op}
+							<Select.Item value={op.value} label={op.label}>{op.label}</Select.Item>
 						{/each}
 					</Select.Group>
 				</Select.Content>
-				<Select.Input name="especialidad" required />
-			</Select.Root>
-
-			<Label for="categoria">Categoría</Label>
-			<Select.Root
-				portal={null}
-				selected={despacho.categoria
-					? { label: despacho.categoria, value: despacho.categoria }
-					: undefined}
-			>
-				<Select.Trigger class="w-full">
-					<Select.Value />
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Group>
-						{#each categorias as c}
-							<Select.Item value={c} label={c}>{c}</Select.Item>
-						{/each}
-					</Select.Group>
-				</Select.Content>
-				<Select.Input name="categoria" required />
+				<Select.Input name="tipoDespachoId" required />
 			</Select.Root>
 
 			<Label for="municipio">Municipio</Label>

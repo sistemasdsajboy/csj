@@ -3,7 +3,7 @@ import {
 	contarDiasHabiles,
 	dateIsHoliday,
 	festivosPorMes as f,
-	mergeExcludedDates
+	unirFechasNoHabiles
 } from './dates';
 
 describe('dateIsHoliday', () => {
@@ -32,15 +32,15 @@ describe('contarDiasHabiles', () => {
 	});
 });
 
-describe('mergeExcludedDates', () => {
+describe('unirFechasNoHabiles', () => {
 	it('returns the expected merged object with excluded dates', () => {
-		expect(mergeExcludedDates(f, f)).toEqual(f);
-		expect(mergeExcludedDates({ '2023-1': [1, 2, 3] })).toEqual({ '2023-1': [1, 2, 3] });
-		expect(mergeExcludedDates({ '2023-1': [1, 2, 3] }, { '2023-2': [3, 4, 5] })).toEqual({
+		expect(unirFechasNoHabiles(f, f)).toEqual(f);
+		expect(unirFechasNoHabiles({ '2023-1': [1, 2, 3] })).toEqual({ '2023-1': [1, 2, 3] });
+		expect(unirFechasNoHabiles({ '2023-1': [1, 2, 3] }, { '2023-2': [3, 4, 5] })).toEqual({
 			'2023-1': [1, 2, 3],
 			'2023-2': [3, 4, 5]
 		});
-		expect(mergeExcludedDates({ '2023-1': [1, 2, 3] }, { '2023-1': [3, 4, 5] })).toEqual({
+		expect(unirFechasNoHabiles({ '2023-1': [1, 2, 3] }, { '2023-1': [3, 4, 5] })).toEqual({
 			'2023-1': [1, 2, 3, 4, 5]
 		});
 	});
