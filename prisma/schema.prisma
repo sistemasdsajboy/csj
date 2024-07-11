@@ -180,7 +180,10 @@ model RegistroCalificacion {
   calificacionId    String?                   @db.ObjectId
   calificacion      CalificacionDespacho?     @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
 
-  @@unique([despachoId, funcionarioId, clase, categoria, desde])
+  // Se incluye el campo calificacionId porque el mismo consolidado puede aparecer en más de una calificación cuando dos o 
+  // más funcionarios calificables trabajan en el mismo despacho en el mismo periodo.
+  // TODO: Separar los registros con la categoria "Consolidado" a una colección aparte.
+  @@unique([despachoId, funcionarioId, clase, categoria, desde, calificacionId])
 }
 
 model CalificacionSubfactor {
