@@ -145,7 +145,7 @@ async function getDespachoFromXlsxFileString(despachoString: string): Promise<De
 	if (despacho) return despacho;
 
 	const match = despachoString.match(
-		/Despacho: [0-9]+ - ([A-Za-zñÑÁÉÍÓÚáéíóú0-9]+( [A-Za-zñÑÁÉÍÓÚáéíóú0-9]+)+)/
+		/Despacho: [0-9]+ - ([A-Za-zñÑÁÉÍÓÚáéíóúÜü0-9]+( [A-Za-zñÑÁÉÍÓÚáéíóúÜü0-9]+)+)/
 	);
 
 	return db.despacho.create({
@@ -160,7 +160,7 @@ async function getFuncionarioFromXlsxFileString(funcionarioString: string): Prom
 	// Eliminar espacios múltiples
 	const funcionarioStringMatch = funcionarioString
 		.replace(/\s{2,}/g, ' ')
-		.match(/Funcionario: ([A-Za-zñÑÁÉÍÓÚáéíóú]+( [A-Za-zñÑÁÉÍÓÚáéíóú]+)+) /);
+		.match(/Funcionario: ([A-Za-zñÑÁÉÍÓÚáéíóúÜü]+( [A-Za-zñÑÁÉÍÓÚáéíóúÜü]+)+) /);
 
 	const nombre = _.get(funcionarioStringMatch, 1) || '';
 	const documento = _.first(funcionarioString.match(/[0-9]+$/)) || '';
