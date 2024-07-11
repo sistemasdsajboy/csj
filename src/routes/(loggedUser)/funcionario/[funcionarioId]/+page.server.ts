@@ -32,8 +32,12 @@ export const actions = {
 		if (!despachoId || !periodo || Number.isNaN(periodo))
 			return fail(400, { error: 'Datos incompletos.' });
 
-		const calificacionId = await generarCalificacionFuncionario(funcionarioId, despachoId, periodo);
-
+		let calificacionId: string;
+		try {
+			calificacionId = await generarCalificacionFuncionario(funcionarioId, despachoId, periodo);
+		} catch (error) {
+			return fail(400, { error: error instanceof Error ? error.message : '' });
+		}
 		return redirect(302, `/calificacion/${calificacionId}`);
 	}
 };

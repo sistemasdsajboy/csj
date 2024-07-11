@@ -268,6 +268,10 @@ export async function generarCalificacionFuncionario(
 		include: { tipoDespacho: true }
 	});
 	if (!despacho) throw new Error('Despacho no encontrado');
+	if (!despacho.tipoDespacho)
+		throw new Error(
+			`Se debe especificar el tipo de despacho para el ${despacho.nombre} antes de poder generar la calificación.`
+		);
 
 	let audiencias = await db.registroAudiencias.findFirst({
 		where: { periodo, funcionarioId, despachoId }

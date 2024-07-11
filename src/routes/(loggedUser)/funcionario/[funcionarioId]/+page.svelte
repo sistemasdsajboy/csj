@@ -5,7 +5,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Edit2Icon } from 'lucide-svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
 	let despachoId: string | null = $state(null);
 </script>
 
@@ -63,6 +63,9 @@
 						<Button type="submit">Ver calificación</Button>
 					</div>
 				</div>
+				{#if form?.error}
+					<div class="text-rose-700">{form.error}</div>
+				{/if}
 			</form>
 		</div>
 	</div>
