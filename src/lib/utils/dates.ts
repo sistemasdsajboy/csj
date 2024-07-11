@@ -91,13 +91,18 @@ export const unirFechasNoHabiles = (
 	return excludedDates.reduce((prev, curr) => _.mergeWith(prev, curr, mergeArrays), {});
 };
 
+export const dateIsWeekend = (date: Date) => {
+	date = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+	return date.getDay() === 0 || date.getDay() === 6;
+};
+
 export const dateIsHoliday = (excludedDates: Record<string, Array<number>>, date: Date) => {
-	const isWeekend = date.getDay() === 5 || date.getDay() === 6;
-	const dayjsDate = dayjs(date.toString()).add(1, 'day');
+	date = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+	const dayjsDate = dayjs(date.toString());
 	const holiday = Boolean(
 		excludedDates[`${dayjsDate.year()}-${dayjsDate.month() + 1}`]?.includes(dayjsDate.date())
 	);
-	return isWeekend || holiday;
+	return holiday;
 };
 
 export const contarDiasHabiles = (
@@ -108,7 +113,7 @@ export const contarDiasHabiles = (
 	let count = 0;
 	let day = dayjs(from);
 	while (day.isBefore(to) || day.isSame(to)) {
-		if (!dateIsHoliday(excludedDates, day.toDate())) count++;
+		if (!dateIsHoliday(excludedDates, day.toDate()) && !dateIsWeekend(day.toDate())) count++;
 		day = day.add(1, 'day');
 	}
 	return count;
