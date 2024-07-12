@@ -49,69 +49,83 @@ const getCargaBaseCalificacionDespacho = (data: RegistroCalificacion[]) => {
 	return totalInventarioInicial + ingresoEfectivo;
 };
 
-const generarResultadosSubfactor = (
-	funcionarioId: string,
-	diasHabilesDespacho: number,
-	diasHabilesFuncionario: number,
-	data: RegistroCalificacion[],
-	dataTutelas: RegistroCalificacion[],
-	maxResultado: number,
-	hayEscritos: boolean,
-	clase: ClaseRegistroCalificacion
-) => {
-	if (!data.length)
-		return {
-			subfactor: clase,
-			totalInventarioInicial: 0,
-			cargaBaseCalificacionDespacho: 0,
-			cargaBaseCalificacionFuncionario: 0,
-			egresoFuncionario: 0,
-			cargaProporcional: 0,
-			totalSubfactor: 0
-		};
+const generadorResultadosSubfactor =
+	(
+		funcionarioId: string,
+		diasHabilesDespacho: number,
+		diasHabilesFuncionario: number,
+		hayEscritos: boolean,
+		capacidadMaxima: number
+	) =>
+	(
+		data: RegistroCalificacion[],
+		dataTutelas: RegistroCalificacion[],
+		maxResultado: number,
+		clase: ClaseRegistroCalificacion
+	) => {
+		if (!data.length)
+			return {
+				subfactor: clase,
+				totalInventarioInicial: 0,
+				cargaBaseCalificacionDespacho: 0,
+				cargaBaseCalificacionFuncionario: 0,
+				egresoFuncionario: 0,
+				cargaProporcional: 0,
+				totalSubfactor: 0
+			};
 
-	const subfactor = data[0].clase;
-	let totalInventarioInicial = getInventarioInicial(data);
-	let egresoFuncionario = getEgresoFuncionario(data, funcionarioId);
-	let egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionarioId);
-	let cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data);
+		const subfactor = data[0].clase;
+		let totalInventarioInicial = getInventarioInicial(data);
+		let egresoFuncionario = getEgresoFuncionario(data, funcionarioId);
+		let egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionarioId);
+		let cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data);
 
-	if (subfactor === 'oral' || subfactor === 'escrito') {
-		cargaBaseCalificacionDespacho =
-			cargaBaseCalificacionDespacho - getIngresoEfectivoUltimoPeriodo(data);
-		if ((!hayEscritos && subfactor === 'oral') || (hayEscritos && subfactor === 'escrito')) {
-			totalInventarioInicial = totalInventarioInicial + getInventarioInicial(dataTutelas);
-			egresoFuncionario = egresoFuncionario + getEgresoFuncionario(dataTutelas, funcionarioId);
-			egresoOtrosFuncionarios =
-				egresoOtrosFuncionarios + getEgresoOtrosFuncionarios(dataTutelas, funcionarioId);
+		if (subfactor === 'oral' || subfactor === 'escrito') {
 			cargaBaseCalificacionDespacho =
-				cargaBaseCalificacionDespacho +
-				getCargaBaseCalificacionDespacho(dataTutelas) -
-				getInventarioFinal(dataTutelas, funcionarioId);
+				cargaBaseCalificacionDespacho - getIngresoEfectivoUltimoPeriodo(data);
+			if ((!hayEscritos && subfactor === 'oral') || (hayEscritos && subfactor === 'escrito')) {
+				totalInventarioInicial = totalInventarioInicial + getInventarioInicial(dataTutelas);
+				egresoFuncionario = egresoFuncionario + getEgresoFuncionario(dataTutelas, funcionarioId);
+				egresoOtrosFuncionarios =
+					egresoOtrosFuncionarios + getEgresoOtrosFuncionarios(dataTutelas, funcionarioId);
+				cargaBaseCalificacionDespacho =
+					cargaBaseCalificacionDespacho +
+					getCargaBaseCalificacionDespacho(dataTutelas) -
+					getInventarioFinal(dataTutelas, funcionarioId);
+			}
 		}
-	}
-	let cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
+		let cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 
-	const cargaProporcional =
-		(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
-	const totalSubfactor = cargaProporcional
-		? Math.min(
-				(Math.min(egresoFuncionario, cargaBaseCalificacionFuncionario) / cargaProporcional) *
-					maxResultado,
-				maxResultado
-			)
-		: 0;
+		// La capacidad máxima solo aplica para el subfactor "oral", de modo que para los demás subfactores se usa el valor
+		// infinito para excluirlo del cálculo de la carga mínima.
+		const capacidadMaximaProporcional =
+			subfactor === 'oral'
+				? (capacidadMaxima * diasHabilesFuncionario) / diasHabilesDespacho
+				: Infinity;
+		const cargaProporcional =
+			(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
 
-	return {
-		subfactor,
-		totalInventarioInicial,
-		cargaBaseCalificacionDespacho,
-		cargaBaseCalificacionFuncionario,
-		egresoFuncionario,
-		cargaProporcional,
-		totalSubfactor
+		// Se calcula la carga que resulta más favorable para el funcionario, es decir, la menor carga.
+		const cargaMinima = Math.min(
+			cargaProporcional,
+			cargaBaseCalificacionFuncionario,
+			capacidadMaximaProporcional
+		);
+
+		const totalSubfactor = cargaMinima
+			? Math.min((egresoFuncionario / cargaMinima) * maxResultado, maxResultado)
+			: 0;
+
+		return {
+			subfactor,
+			totalInventarioInicial,
+			cargaBaseCalificacionDespacho,
+			cargaBaseCalificacionFuncionario,
+			egresoFuncionario,
+			cargaProporcional,
+			totalSubfactor
+		};
 	};
-};
 
 function generarConsolidado({
 	diasNoHabiles,
@@ -265,12 +279,20 @@ export async function generarCalificacionFuncionario(
 
 	const despacho = await db.despacho.findFirst({
 		where: { id: despachoId },
-		include: { tipoDespacho: true }
+		include: { tipoDespacho: { include: { capacidadesMaximas: true } } }
 	});
 	if (!despacho) throw new Error('Despacho no encontrado');
 	if (!despacho.tipoDespacho)
 		throw new Error(
 			`Se debe especificar el tipo de despacho para el ${despacho.nombre} antes de poder generar la calificación.`
+		);
+
+	const capacidadMaxima = await db.capacidadMaximaRespuesta.findFirst({
+		where: { tipoDespachoId: despacho.tipoDespacho.id, periodo }
+	});
+	if (!capacidadMaxima)
+		throw new Error(
+			`No se puede generar la calificación porque el tipo de despacho ${despacho.tipoDespacho.nombre} no tiene capacidad máxima de respuesta para el periodo ${periodo}.`
 		);
 
 	let audiencias = await db.registroAudiencias.findFirst({
@@ -326,51 +348,32 @@ export async function generarCalificacionFuncionario(
 
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
 
-	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
-	const consolidadoOral = generarConsolidado({ diasNoHabiles, registros: registrosOral });
-	const oral = generarResultadosSubfactor(
+	const generarResultadosSubfactor = generadorResultadosSubfactor(
 		funcionario.id,
 		diasHabilesDespacho,
 		diasHabilesLaborados,
-		registrosOral,
-		cuentaProcesosEscritos > 0 ? [] : registrosTutelas,
-		40,
 		cuentaProcesosEscritos > 0,
-		'oral'
+		capacidadMaxima.cantidad
 	);
+
+	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
+	const consolidadoOral = generarConsolidado({ diasNoHabiles, registros: registrosOral });
+	const tutelasOral = cuentaProcesosEscritos > 0 ? [] : registrosTutelas;
+	const oral = generarResultadosSubfactor(registrosOral, tutelasOral, 40, 'oral');
 
 	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
 	const consolidadoGarantias = generarConsolidado({ diasNoHabiles, registros: registrosGarantias });
-	const garantias = generarResultadosSubfactor(
-		funcionario.id,
-		diasHabilesDespacho,
-		diasHabilesLaborados,
-		registrosGarantias,
-		[],
-		45,
-		cuentaProcesosEscritos > 0,
-		'garantias'
-	);
+	const garantias = generarResultadosSubfactor(registrosGarantias, [], 45, 'garantias');
 
 	const registrosEscrito = registros.filter((registro) => registro.clase === 'escrito');
 	const consolidadoEscrito = generarConsolidado({ diasNoHabiles, registros: registrosEscrito });
-	const escrito = generarResultadosSubfactor(
-		funcionario.id,
-		diasHabilesDespacho,
-		diasHabilesLaborados,
-		registrosEscrito,
-		cuentaProcesosEscritos > 0 ? registrosTutelas : [],
-		45,
-		cuentaProcesosEscritos > 0,
-		'escrito'
-	);
+	const tutelasEscrito = cuentaProcesosEscritos > 0 ? registrosTutelas : [];
+	const escrito = generarResultadosSubfactor(registrosEscrito, tutelasEscrito, 45, 'escrito');
 
+	const sumaAudiencias =
+		audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas;
 	const calificacionAudiencias =
-		audiencias.programadas === 0
-			? 0
-			: ((audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas) /
-					audiencias.programadas) *
-				5;
+		audiencias.programadas === 0 ? 0 : (sumaAudiencias / audiencias.programadas) * 5;
 
 	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 
