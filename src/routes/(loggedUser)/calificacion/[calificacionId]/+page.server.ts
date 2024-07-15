@@ -123,6 +123,16 @@ export const load = (async ({ params, locals, url }) => {
 	});
 	if (!calificacion) error(404, 'Calificación no encontrada');
 
+	if (!calificacion.despacho.tipoDespachoId)
+		error(404, 'El despacho de la calificación no tiene asignado un tipo de despacho.');
+
+	const capacidadMaxima = await db.capacidadMaximaRespuesta.findFirst({
+		where: {
+			periodo: calificacionPeriodo.periodo,
+			tipoDespachoId: calificacion.despacho.tipoDespachoId
+		}
+	});
+
 	const calificacionesAdicionales = await db.calificacionDespacho.findMany({
 		where: { calificacionId: params.calificacionId, despachoId: { not: despachoId } },
 		select: { id: true, despacho: { select: { id: true, nombre: true, codigo: true } } }
@@ -183,7 +193,8 @@ export const load = (async ({ params, locals, url }) => {
 		escrito,
 		registroAudiencias: calificacion.registroAudiencias,
 		consolidadoXlsxData,
-		despachos
+		despachos,
+		capacidadMaxima
 	};
 }) satisfies PageServerLoad;
 

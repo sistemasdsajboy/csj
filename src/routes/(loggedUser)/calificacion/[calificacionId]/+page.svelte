@@ -29,7 +29,8 @@
 		escrito,
 		registroAudiencias,
 		consolidadoXlsxData,
-		despachos
+		despachos,
+		capacidadMaxima
 	} = $derived(data);
 
 	const calificacionTotal = $derived(calificacion.calificacionTotalFactorEficiencia.toFixed(2));
@@ -189,6 +190,9 @@
 		>
 			{@render tarjetaValor('Carga efectiva total', calificacion.cargaEfectivaTotal)}
 			{@render tarjetaValor('Egreso efectivo total', calificacion.egresoEfectivoTotal)}
+			{#if capacidadMaxima?.cantidad}
+				{@render tarjetaValor('Capacidad máxima de respuesta', capacidadMaxima?.cantidad)}
+			{/if}
 		</div>
 
 		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
