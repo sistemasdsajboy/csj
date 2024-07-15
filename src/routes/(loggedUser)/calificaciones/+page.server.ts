@@ -1,5 +1,5 @@
 import { db } from '$lib/db/client';
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load = (async ({ locals }) => {
@@ -18,7 +18,7 @@ export const load = (async ({ locals }) => {
 			estado: {
 				in: roles.includes('editor')
 					? ['aprobada', 'revision', 'borrador', 'devuelta']
-					: ['aprobada', 'revision']
+					: ['aprobada', 'revision', 'devuelta']
 			}
 		},
 		select: {

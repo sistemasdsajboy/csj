@@ -163,7 +163,9 @@ export const load = (async ({ params, locals, url }) => {
 
 	const consolidadoXlsxData = await getDataForXlsxExport(calificacion.id);
 
-	const despachos = await db.despachoSeccional.findMany({ orderBy: { nombre: 'asc' } });
+	const despachos = (await db.despachoSeccional.findMany({ orderBy: { nombre: 'asc' } })).map(
+		(d) => ({ label: d.nombre, value: d.id })
+	);
 
 	return {
 		calificacion,
@@ -380,8 +382,9 @@ export const actions = {
 		return { success: true };
 	},
 
-	solicitarAprobacion: async ({ params, locals, url }) => {
+	solicitarAprobacion: async ({ request, params, locals, url }) => {
 		if (!locals.user) error(400, 'No autorizado');
+
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
 		if (!user) error(400, 'No autorizado');
 
@@ -407,9 +410,38 @@ export const actions = {
 		if (!isEditor)
 			return { success: false, error: 'No tiene permiso para enviar una calificación a revision.' };
 
+		const formData = await request.formData();
+		const observaciones =
+			formData.get('observaciones')?.toString() || 'Enviado para revisión sin observaciones.';
+		const despachoCalificadorId = formData.get('despachoId')?.toString();
+
+		console.log({
+			estado: 'revision',
+			observacionesDevolucion: { create: { observaciones, autorId: user.id } },
+			despachoSeccional: despachoCalificadorId
+		});
+
+		if (despachoCalificadorId?.length !== 24)
+			return fail(400, { error: 'Debe especificar el despacho calificador.' });
+		const despachoCalificador = await db.despachoSeccional.findFirst({
+			where: { id: despachoCalificadorId }
+		});
+		if (!despachoCalificador) return fail(400, { error: 'Despacho calificador no encontrado.' });
+
+		console.log({
+			despachoCalificador,
+			estado: 'revision',
+			observacionesDevolucion: { create: { observaciones, autorId: user.id } },
+			despachoSeccional: despachoCalificador
+		});
+
 		await db.calificacionPeriodo.update({
 			where: { id: params.calificacionId },
-			data: { estado: 'revision' }
+			data: {
+				estado: 'revision',
+				observacionesDevolucion: { create: { observaciones, autorId: user.id } },
+				despachoSeccionalId: despachoCalificadorId
+			}
 		});
 
 		return { success: true };
@@ -497,23 +529,5 @@ export const actions = {
 		});
 
 		return { success: true };
-	},
-
-	actualizarDespacho: async ({ request, locals, params }) => {
-		if (!locals.user) error(400, 'No autorizado');
-
-		const calificacion = await db.calificacionPeriodo.findFirst({
-			where: { id: params.calificacionId }
-		});
-		if (!calificacion) return fail(400, { error: 'Calificación no encontrada.' });
-
-		const formData = await request.formData();
-		const despachoId = formData.get('despachoId') as string;
-		if (!despachoId) return fail(400, { error: 'Debe seleccionar un despacho' });
-
-		await db.calificacionPeriodo.update({
-			where: { id: params.calificacionId },
-			data: { despachoSeccionalId: despachoId }
-		});
 	}
 };

@@ -2,10 +2,19 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import type { EstadoCalificacion } from '@prisma/client';
 
-	const { estado }: { estado: EstadoCalificacion } = $props();
+	const {
+		estado,
+		despachos,
+		calificadorId
+	}: {
+		estado: EstadoCalificacion;
+		despachos: { label: string; value: string }[];
+		calificadorId: string | null;
+	} = $props();
 </script>
 
 {#if estado === 'borrador' || estado === 'devuelta'}
@@ -21,12 +30,32 @@
 					continuar?
 				</AlertDialog.Description>
 			</AlertDialog.Header>
-			<AlertDialog.Footer>
-				<AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
-				<form action="?/solicitarAprobacion" method="post">
+			<form action="?/solicitarAprobacion" method="post" class="space-y-4">
+				<Select.Root
+					portal={null}
+					selected={despachos.find(({ value }) => value === calificadorId)}
+				>
+					<Select.Trigger class="w-full">
+						<Select.Value placeholder="Seleccione el despacho calificador" />
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Group>
+							{#each despachos as d}
+								<Select.Item value={d.value}>{d.label}</Select.Item>
+							{/each}
+						</Select.Group>
+					</Select.Content>
+					<Select.Input name="despachoId" />
+				</Select.Root>
+				<div>
+					<Label for="observaciones">Observaciones</Label>
+					<Textarea name="observaciones" rows={5} />
+				</div>
+				<AlertDialog.Footer>
+					<AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
 					<Button type="submit">Enviar</Button>
-				</form>
-			</AlertDialog.Footer>
+				</AlertDialog.Footer>
+			</form>
 		</AlertDialog.Content>
 	</AlertDialog.Root>
 {/if}

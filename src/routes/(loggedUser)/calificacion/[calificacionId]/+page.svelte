@@ -5,11 +5,11 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { cn } from '$lib/utils/shadcn';
 	import { exportToSpreadsheet } from '$lib/utils/xlsx';
-	import AsignarDespachoForm from '../../calificaciones/asignar-despacho-form.svelte';
 	import EditorEstadoCalificacion from './editor-estado-calificacion.svelte';
 	import EstadoCalificacion from './estado-calificacion.svelte';
 	import NovedadForm from './novedad-form.svelte';
 	import NovedadesList from './novedades-list.svelte';
+	import Observaciones from './observaciones.svelte';
 	import RegistroAudienciasForm from './registro-audiencias-form.svelte';
 
 	let { data } = $props();
@@ -124,20 +124,19 @@
 {/snippet}
 
 <PageLayout {header} username={data.user}>
-	<div class="container mx-auto px-4">
+	<div class="container mx-auto space-y-4 px-4">
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
-			<EstadoCalificacion
+			<EstadoCalificacion estado={calificacion.calificacion.estado} />
+			<EditorEstadoCalificacion
 				estado={calificacion.calificacion.estado}
-				observaciones={calificacion.calificacion.observacionesDevolucion}
+				{despachos}
+				calificadorId={calificacion.calificacion.despachoSeccionalId}
 			/>
-			<EditorEstadoCalificacion estado={calificacion.calificacion.estado} />
+			<Observaciones observaciones={calificacion.calificacion.observacionesDevolucion} />
 			<div class="grow"></div>
 			{#if calificacion.calificacion.estado !== 'aprobada'}
 				<RegistroAudienciasForm {registroAudiencias} />
 				<NovedadForm {diasNoHabiles} />
-				<AsignarDespachoForm calificacionId={calificacion.id} {despachos}>
-					Asignar despacho
-				</AsignarDespachoForm>
 			{/if}
 			<Button
 				variant="outline"
@@ -147,7 +146,7 @@
 			</Button>
 		</div>
 
-		<div class="my-8">
+		<div>
 			<div class="flex justify-between text-2xl font-bold">
 				<div class="text-3xl">
 					<a href="/funcionario/{funcionario.id}">
