@@ -314,19 +314,24 @@ export const actions = {
 		return { success: true };
 	},
 
-	addRegistroAudiencias: async ({ request, params, locals, url }) => {
-		if (!locals.user) error(400, 'No autorizado');
+	addRegistroAudiencias: async ({ request, params, locals }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
 			include: { calificaciones: { select: { despachoId: true } } }
 		});
-		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
-		const despachoId =
-			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
+
+		const formData = Object.fromEntries(await request.formData());
+		if (!formData.despachoId || typeof formData.despachoId !== 'string')
+			return {
+				success: false,
+				error: 'Se debe especificar el despacho al cual corresponde la información de audiencias.'
+			};
 
 		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { calificacionId: params.calificacionId, despachoId }
+			where: { calificacionId: params.calificacionId, despachoId: formData.despachoId }
 		});
 
 		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
@@ -338,20 +343,35 @@ export const actions = {
 					'No es posible modificar la información de audiencias de una calificación que ya ha sido aprobada.'
 			};
 
-		const formData = Object.fromEntries(await request.formData());
+		const registroAudienciaSchema = z
+			.object({
+				despachoId: z.string(),
+				funcionarioId: z.string(),
+				periodo: z.coerce.number(),
+				programadas: z.coerce.number(),
+				atendidas: z.coerce.number(),
+				aplazadasAjenas: z.coerce.number(),
+				aplazadasJustificadas: z.coerce.number(),
+				aplazadasNoJustificadas: z.coerce.number()
+			})
+			.refine(
+				(args) => {
+					return (
+						args.programadas ===
+						args.atendidas +
+							args.aplazadasAjenas +
+							args.aplazadasJustificadas +
+							args.aplazadasNoJustificadas
+					);
+				},
+				{
+					message:
+						'La suma de las audiencias atendidas y aplazadas debe ser igual al número de audiencias programadas.',
+					path: ['programadas']
+				}
+			);
 
-		const registroAudienciaSchema = z.object({
-			despachoId: z.string(),
-			funcionarioId: z.string(),
-			periodo: z.coerce.number(),
-			programadas: z.coerce.number(),
-			atendidas: z.coerce.number(),
-			aplazadasAjenas: z.coerce.number(),
-			aplazadasJustificadas: z.coerce.number(),
-			aplazadasNoJustificadas: z.coerce.number()
-		});
-
-		const { success, data } = registroAudienciaSchema.safeParse({
+		const { success, data, error } = registroAudienciaSchema.safeParse({
 			despachoId: calificacion.despachoId,
 			funcionarioId: calificacionPeriodo.funcionarioId,
 			periodo: calificacionPeriodo.periodo,
@@ -359,19 +379,6 @@ export const actions = {
 		});
 
 		if (!success) return { success: false, error: 'Datos de registro no válidos' };
-
-		if (
-			data.programadas !==
-			data.atendidas +
-				data.aplazadasAjenas +
-				data.aplazadasJustificadas +
-				data.aplazadasNoJustificadas
-		)
-			return {
-				success: false,
-				error:
-					'La suma de las audiencias atendidas y aplazadas debe ser igual al número de audiencias programadas.'
-			};
 
 		const existente = await db.registroAudiencias.findFirst({
 			where: {

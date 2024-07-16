@@ -18,6 +18,7 @@
 
 		<form method="post" action="?/addRegistroAudiencias">
 			<div class="grid grid-cols-3 gap-4 py-4">
+				<input type="hidden" name="despachoId" value={registroAudiencias.despachoId} />
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="programadas">Programadas</Label>
 					<Input
