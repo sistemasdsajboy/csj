@@ -7,7 +7,7 @@ export const load = (async ({ params }) => {
 	const despacho = await db.despacho.findFirst({ where: { id: params.despachoId } });
 	if (!despacho) error(404, 'Despacho no encontrado');
 
-	const tiposDespacho = await db.tipoDespacho.findMany();
+	const tiposDespacho = await db.tipoDespacho.findMany({ orderBy: { nombre: 'asc' } });
 	const opcionesTipoDespacho = tiposDespacho.map(({ id, nombre }) => ({
 		label: nombre,
 		value: id
