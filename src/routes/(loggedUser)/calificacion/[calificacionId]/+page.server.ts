@@ -3,7 +3,7 @@ import {
 	getDiasFestivosPorTipoDespacho
 } from '$lib/core/calificaciones/generar-calificacion';
 import { db } from '$lib/db/client';
-import { error, fail } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import _ from 'lodash';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
@@ -199,7 +199,7 @@ export const load = (async ({ params, locals, url }) => {
 }) satisfies PageServerLoad;
 
 export const actions = {
-	addNovedad: async ({ request, params, locals, url }) => {
+	addNovedad: async ({ request, params, locals }) => {
 		try {
 			if (!locals.user) return { success: false, error: 'No autorizado' };
 
@@ -207,9 +207,15 @@ export const actions = {
 				where: { id: params.calificacionId },
 				include: { calificaciones: { select: { despachoId: true } } }
 			});
-			if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
-			const despachoId =
-				url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+			if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada.' };
+
+			const data = Object.fromEntries(await request.formData());
+			const despachoId = data.despachoId.toString();
+			if (!despachoId)
+				return {
+					success: false,
+					error: 'Se debe especificar el despacho al cual corresponde la novedad.'
+				};
 
 			const calificacion = await db.calificacionDespacho.findFirst({
 				where: { calificacionId: params.calificacionId, despachoId }
@@ -242,19 +248,17 @@ export const actions = {
 			});
 
 			const despacho = await db.despacho.findFirst({ where: { id: calificacion.despachoId } });
-			if (!despacho) return fail(404, { error: 'Despacho no encontrado' });
-
-			const data = await request.formData();
+			if (!despacho) return { success: false, error: 'Despacho no encontrado.' };
 
 			const { success, data: newNovedad } = nuevaNovedadSchema.safeParse({
 				funcionarioId: calificacionPeriodo.funcionarioId,
 				despachoId: calificacion.despachoId,
-				type: data.get('type'),
-				from: new Date(data.get('from') as string),
-				to: new Date(data.get('to') as string),
-				days: data.get('dias') as string,
-				diasDescontables: data.get('diasDescontables') as string,
-				notes: data.get('notes') as string
+				type: data.type,
+				from: new Date(data.from.toString()),
+				to: new Date(data.to.toString()),
+				days: data.dias.toString(),
+				diasDescontables: data.diasDescontables.toString(),
+				notes: data.notes.toString()
 			});
 
 			if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
@@ -276,22 +280,25 @@ export const actions = {
 		}
 	},
 
-	deleteNovedad: async ({ request, params, locals, url }) => {
-		if (!locals.user) error(400, 'No autorizado');
+	deleteNovedad: async ({ request, params, locals }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
 			include: { calificaciones: { select: { despachoId: true } } }
 		});
-		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
-		const despachoId =
-			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
 
-		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { calificacionId: params.calificacionId, despachoId }
-		});
+		const formData = Object.fromEntries(await request.formData());
+		const novedadId = formData.novedadId.toString();
+		if (!formData.novedadId || typeof formData.novedadId !== 'string')
+			return {
+				success: false,
+				error: 'Se debe especificar la novedad que desea eliminar.'
+			};
 
-		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+		const novedad = await db.novedadFuncionario.findFirst({ where: { id: novedadId } });
+		if (!novedad) return { success: false, error: 'Novedad no encontrada.' };
 
 		if (calificacionPeriodo.estado === 'aprobada')
 			return {
@@ -300,14 +307,11 @@ export const actions = {
 					'No es posible eliminar la novedad. La calificación a la que corresponde ya ha sido aprobada.'
 			};
 
-		const data = await request.formData();
-		const novedadId = data.get('novedadId') as string;
-
 		await db.novedadFuncionario.delete({ where: { id: novedadId } });
 
 		await generarCalificacionFuncionario(
 			calificacionPeriodo.funcionarioId,
-			calificacion.despachoId,
+			novedad.despachoId,
 			calificacionPeriodo.periodo
 		);
 
@@ -401,16 +405,16 @@ export const actions = {
 	},
 
 	solicitarAprobacion: async ({ request, params, locals, url }) => {
-		if (!locals.user) error(400, 'No autorizado');
+		if (!locals.user) return { success: false, error: 'No autorizado' };
 
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
-		if (!user) error(400, 'No autorizado');
+		if (!user) return { success: false, error: 'No autorizado' };
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
 			include: { calificaciones: { select: { despachoId: true } } }
 		});
-		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
 		const despachoId =
 			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
 
@@ -433,25 +437,14 @@ export const actions = {
 			formData.get('observaciones')?.toString() || 'Enviado para revisión sin observaciones.';
 		const despachoCalificadorId = formData.get('despachoId')?.toString();
 
-		console.log({
-			estado: 'revision',
-			observacionesDevolucion: { create: { observaciones, autorId: user.id } },
-			despachoSeccional: despachoCalificadorId
-		});
-
 		if (despachoCalificadorId?.length !== 24)
-			return fail(400, { error: 'Debe especificar el despacho calificador.' });
+			return { success: false, error: 'Debe especificar el despacho calificador.' };
+
 		const despachoCalificador = await db.despachoSeccional.findFirst({
 			where: { id: despachoCalificadorId }
 		});
-		if (!despachoCalificador) return fail(400, { error: 'Despacho calificador no encontrado.' });
-
-		console.log({
-			despachoCalificador,
-			estado: 'revision',
-			observacionesDevolucion: { create: { observaciones, autorId: user.id } },
-			despachoSeccional: despachoCalificador
-		});
+		if (!despachoCalificador)
+			return { success: false, error: 'Despacho calificador no encontrado.' };
 
 		await db.calificacionPeriodo.update({
 			where: { id: params.calificacionId },
@@ -465,24 +458,17 @@ export const actions = {
 		return { success: true };
 	},
 
-	aprobar: async ({ params, locals, url }) => {
-		if (!locals.user) error(400, 'No autorizado');
+	aprobar: async ({ params, locals }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
 
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
-		if (!user) error(400, 'No autorizado');
+		if (!user) return { success: false, error: 'No autorizado' };
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
 			include: { calificaciones: { select: { despachoId: true } } }
 		});
-		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
-		const despachoId =
-			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
-
-		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { calificacionId: params.calificacionId, despachoId }
-		});
-		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
 		if (calificacionPeriodo.estado !== 'revision')
 			return {
 				success: false,
@@ -502,23 +488,16 @@ export const actions = {
 	},
 
 	devolver: async ({ params, locals, request, url }) => {
-		if (!locals.user) error(400, 'No autorizado');
+		if (!locals.user) return { success: false, error: 'No autorizado' };
 
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
-		if (!user) error(400, 'No autorizado');
+		if (!user) return { success: false, error: 'No autorizado' };
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
 			include: { calificaciones: { select: { despachoId: true } } }
 		});
-		if (!calificacionPeriodo) error(404, 'Calificación no encontrada');
-		const despachoId =
-			url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
-
-		const calificacion = await db.calificacionDespacho.findFirst({
-			where: { calificacionId: params.calificacionId, despachoId }
-		});
-		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
 		if (calificacionPeriodo.estado !== 'revision')
 			return {
 				success: false,

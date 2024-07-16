@@ -137,7 +137,7 @@
 			<div class="grow"></div>
 			{#if calificacion.calificacion.estado !== 'aprobada'}
 				<RegistroAudienciasForm {registroAudiencias} />
-				<NovedadForm {diasNoHabiles} />
+				<NovedadForm {diasNoHabiles} despachoId={calificacion.despachoId} />
 			{/if}
 			<Button
 				variant="outline"

@@ -12,7 +12,10 @@
 	let dias = $state(0);
 	let diasDescontables = $state(0);
 
-	const { diasNoHabiles }: { diasNoHabiles: Record<string, number[]> } = $props();
+	const {
+		diasNoHabiles,
+		despachoId
+	}: { diasNoHabiles: Record<string, number[]>; despachoId: string } = $props();
 
 	$effect(() => {
 		if (from && to) {
@@ -47,6 +50,7 @@
 
 		<form method="post" action="?/addNovedad">
 			<div class="grid items-center gap-2 pb-2 sm:grid-cols-[1fr_2fr]">
+				<input type="hidden" name="despachoId" value={despachoId} />
 				<Label for="type">Tipo de novedad</Label>
 				<Select.Root portal={null}>
 					<Select.Trigger class="w-full">
