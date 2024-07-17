@@ -181,7 +181,11 @@ function extractWorkbookPageRows(workbookPage: WorkbookPage) {
 				...registroCalificacionDataSchema.parse(
 					_.zipObject(registroCalificacionDataSchemaColumns, data)
 				),
-				clase: workbookPage.name.toLowerCase() as ClaseRegistroCalificacion
+				// .normalize y .replace eliminan los caracteres acentuados.
+				clase: workbookPage.name
+					.toLowerCase()
+					.normalize('NFKD')
+					.replace(/[\u0300-\u036f]/g, '') as ClaseRegistroCalificacion
 			};
 		});
 }
