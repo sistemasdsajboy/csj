@@ -169,7 +169,8 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 
 	if (
 		categoria === 'Municipal' &&
-		(especialidad === 'PenalAdolescentes' ||
+		(especialidad === 'Penal' ||
+			especialidad === 'PenalAdolescentes' ||
 			especialidad === 'PenalGarantias' ||
 			especialidad === 'PenalConocimiento' ||
 			especialidad === 'PenalMixto')
