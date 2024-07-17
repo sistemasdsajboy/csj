@@ -24,6 +24,7 @@
 					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300">
 						Observaciones
 					</th>
+					<th></th>
 				</tr>
 			</thead>
 			<tbody>

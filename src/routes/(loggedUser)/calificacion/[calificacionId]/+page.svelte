@@ -94,29 +94,24 @@
 			</thead>
 			<tbody>
 				{#each filas as fila}
-					<tr class="border-b border-gray-200 dark:border-gray-700">
+					<tr class="border-b border-gray-200">
 						<td
-							class={cn('text-nowrap px-2  text-gray-900 dark:text-gray-100', {
+							class={cn('text-nowrap px-2 text-gray-900 ', {
 								'font-light': fila.funcionario.id !== calificacion.calificacion.funcionarioId
 							})}
 						>
 							{fila.funcionario.nombre}
 						</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">
+						<td class="px-2 text-center text-gray-900">
 							<Badge variant="secondary">{formatDate(fila.desde)}-{formatDate(fila.hasta)}</Badge>
 						</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{fila.dias}</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">
-							{fila.inventarioInicial}
-						</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">
-							{fila.ingresoEfectivo}
-						</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{fila.cargaEfectiva}</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{fila.egresoEfectivo}</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{fila.conciliaciones}</td>
-						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{fila.inventarioFinal}</td
-						>
+						<td class="px-2 text-center text-sky-800">{fila.dias}</td>
+						<td class="px-2 text-center text-gray-900">{fila.inventarioInicial}</td>
+						<td class="px-2 text-center text-gray-900">{fila.ingresoEfectivo}</td>
+						<td class="px-2 text-center text-gray-900">{fila.cargaEfectiva}</td>
+						<td class="px-2 text-center text-gray-900">{fila.egresoEfectivo}</td>
+						<td class="px-2 text-center text-gray-900">{fila.conciliaciones}</td>
+						<td class="px-2 text-center text-gray-900">{fila.inventarioFinal}</td>
 					</tr>
 				{/each}
 			</tbody>
