@@ -30,7 +30,7 @@
 	<Dialog.Content>
 		<Dialog.Header>
 			<Dialog.Title>
-				{tipoDespacho ? 'Editar tipo de despacho' : 'Nuevo tipo de despacho'}}
+				{tipoDespacho ? 'Editar tipo de despacho' : 'Nuevo tipo de despacho'}
 			</Dialog.Title>
 		</Dialog.Header>
 		<form
