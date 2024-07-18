@@ -8,15 +8,20 @@ export const load = (async ({ params }) => {
 	const funcionario = await db.funcionario.findFirst({ where: { id: params.funcionarioId } });
 	if (!funcionario) error(400, 'Funcionario no encontrado');
 
-	const despachosPeriodoIds = await db.registroCalificacion.findMany({
-		where: { funcionarioId: params.funcionarioId, periodo: 2023 },
-		select: { despachoId: true },
+	const registrosPeriodos = await db.registroCalificacion.findMany({
+		where: { funcionarioId: params.funcionarioId },
+		select: { periodo: true },
+		distinct: ['periodo']
+	});
+	const periodos = _.map(registrosPeriodos, 'periodo');
+
+	const despachosPeriodos = await db.registroCalificacion.findMany({
+		where: { funcionarioId: params.funcionarioId },
+		select: { despacho: true, periodo: true },
 		distinct: ['despachoId']
 	});
-	const despachosIds = _.map(despachosPeriodoIds, 'despachoId');
-	const despachos = await db.despacho.findMany({ where: { id: { in: despachosIds } } });
 
-	return { funcionario, despachos };
+	return { funcionario, periodos, despachosPeriodos };
 }) satisfies PageServerLoad;
 
 export const actions = {
