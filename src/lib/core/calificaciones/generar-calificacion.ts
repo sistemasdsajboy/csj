@@ -232,13 +232,24 @@ async function getCuentaProcesosEscritos(despachoId: string, periodo: number) {
 async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
 
+	const categoriasConstitucional = ['Primera Instancia Acciones Constitucionales'];
 	if (cuentaProcesosEscritos > 0) {
 		// Cuando hay procesos escritos, estas categorías se acumulan con ellos.
-		const categoriasConstitucional = ['Primera Instancia Acciones Constitucionales'];
 		await db.registroCalificacion.updateMany({
 			where: { despachoId, periodo, categoria: { in: categoriasConstitucional } },
 			data: { clase: 'escrito' }
 		});
+	} else {
+		// Si el despacho es de control de garantías, las acciones constitucionales de primera instancia se asumen como "oral".
+		const despacho = await db.despacho.findFirst({
+			where: { id: despachoId },
+			include: { tipoDespacho: true }
+		});
+		if (despacho?.tipoDespacho?.especialidad === 'PenalGarantias')
+			await db.registroCalificacion.updateMany({
+				where: { despachoId, periodo, categoria: { in: categoriasConstitucional } },
+				data: { clase: 'oral' }
+			});
 	}
 
 	// Categorías incluidas en la clase oral que deben consolidarse bajo la clase "tutelas".
