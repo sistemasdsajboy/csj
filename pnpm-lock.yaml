@@ -108,6 +108,9 @@ importers:
       node-xlsx:
         specifier: ^0.24.0
         version: 0.24.0
+      playwright:
+        specifier: ^1.45.2
+        version: 1.45.2
       postcss:
         specifier: ^8.4.33
         version: 8.4.38
@@ -2096,9 +2099,19 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
+  playwright-core@1.45.2:
+    resolution: {integrity: sha512-ha175tAWb0dTK0X4orvBIqi3jGEt701SMxMhyujxNrgd8K0Uy5wMSwwcQHtyB4om7INUkfndx02XnQ2p6dvLDw==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   playwright@1.44.0:
     resolution: {integrity: sha512-F9b3GUCLQ3Nffrfb6dunPOkE5Mh68tR7zN32L4jCk4FjQamgesGay7/dAAe1WaMEGV04DkdJfcJzjoCKygUaRQ==}
     engines: {node: '>=16'}
+    hasBin: true
+
+  playwright@1.45.2:
+    resolution: {integrity: sha512-ReywF2t/0teRvNBpfIgh5e4wnrI/8Su8ssdo5XsQKpjxJj+jspm00jSoz9BTg91TT0c9HRjXO7LBNVrgYj9X0g==}
+    engines: {node: '>=18'}
     hasBin: true
 
   postcss-import@15.1.0:
@@ -4694,9 +4707,17 @@ snapshots:
 
   playwright-core@1.44.0: {}
 
+  playwright-core@1.45.2: {}
+
   playwright@1.44.0:
     dependencies:
       playwright-core: 1.44.0
+    optionalDependencies:
+      fsevents: 2.3.2
+
+  playwright@1.45.2:
+    dependencies:
+      playwright-core: 1.45.2
     optionalDependencies:
       fsevents: 2.3.2
 
