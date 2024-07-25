@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import '../../app.css';
 
 	const { children } = $props();
 </script>
 
-<div class="flex h-full flex-col">
+<ScrollArea class="flex h-screen flex-col bg-slate-50">
 	{@render children()}
-</div>
+</ScrollArea>
 
 <style></style>
