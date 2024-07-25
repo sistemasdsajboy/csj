@@ -5,7 +5,7 @@
 	const { children } = $props();
 </script>
 
-<ScrollArea class="flex h-screen flex-col bg-slate-50">
+<ScrollArea class="flex h-screen flex-col">
 	{@render children()}
 </ScrollArea>
 
