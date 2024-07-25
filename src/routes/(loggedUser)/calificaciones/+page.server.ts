@@ -1,8 +1,9 @@
+import { createRegistrosCalificacionFromXlsx } from '$lib/core/calificaciones/carga-xlsx';
 import { db } from '$lib/db/client';
-import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
 import type { EstadoCalificacion } from '@prisma/client';
+import { error, fail } from '@sveltejs/kit';
 import _ from 'lodash';
+import type { PageServerLoad } from './$types';
 
 export const load = (async ({ locals }) => {
 	if (!locals.user) error(400, 'No autorizado');
@@ -45,5 +46,38 @@ export const load = (async ({ locals }) => {
 		...despachosSeccional.map((d) => ({ label: d.nombre, value: d.id }))
 	];
 
-	return { estadoPorDefecto, estados, cuentaPorEstado, despachosCalificadores, calificaciones };
+	const funcionarios = (
+		await db.funcionario.findMany({
+			orderBy: { nombre: 'asc' }
+		})
+	).map((f) => ({ label: f.nombre, value: f.id }));
+
+	return {
+		estadoPorDefecto,
+		estados,
+		cuentaPorEstado,
+		despachosCalificadores,
+		calificaciones,
+		funcionarios
+	};
 }) satisfies PageServerLoad;
+
+export const actions = {
+	loadFile: async ({ request, locals }) => {
+		try {
+			if (!locals.user) return fail(401, { error: 'Usuario no autorizado' });
+
+			const data = await request.formData();
+			const file = data.get('file') as File;
+			if (!file.name)
+				return fail(400, { error: 'Debe seleccionar un archivo de calificaciones para iniciar.' });
+			if (!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx'))
+				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
+
+			const registrosCargados = await createRegistrosCalificacionFromXlsx(file);
+			return { success: true, message: `Archivo cargado. ${registrosCargados} registros creados.` };
+		} catch (error) {
+			return { success: false, error: error instanceof Error ? error.message : '' };
+		}
+	}
+};
