@@ -110,30 +110,6 @@
 					No hay calificaciones que coincidan con los criterios de búsqueda.
 				</div>
 			{/each}
-			{#each calificaciones as calificacion}
-				<a
-					href="/calificacion/{calificacion.id}"
-					class="grid grid-cols-[160px_1fr] items-center justify-start gap-2 p-2 hover:bg-slate-100"
-				>
-					<div class="flex flex-col items-start gap-2">
-						<Badge variant={calificacion.despachoSeccional?.nombre ? 'default' : 'secondary'}>
-							{calificacion.despachoSeccional?.nombre.slice(0, 10) || 'Sin despacho asignado'}
-						</Badge>
-					</div>
-					<div>
-						{calificacion.funcionario.nombre}
-						{#each calificacion.calificaciones as califDespacho}
-							<div class="text-sm text-slate-500">
-								{califDespacho.despacho.nombre}
-							</div>
-						{/each}
-					</div>
-				</a>
-			{:else}
-				<div class="text-slate-600">
-					No hay calificaciones que coincidan con los criterios de búsqueda.
-				</div>
-			{/each}
 		</Tabs.Content>
 	</Tabs.Root>
 </PageLayout>
