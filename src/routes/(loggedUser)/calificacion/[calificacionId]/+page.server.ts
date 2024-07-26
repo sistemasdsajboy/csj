@@ -141,6 +141,7 @@ export const load = (async ({ params, locals, url }) => {
 	const novedades = await db.novedadFuncionario.findMany({
 		where: {
 			despachoId,
+			funcionarioId: calificacionPeriodo.funcionarioId,
 			OR: [
 				{ from: { lte: new Date(calificacionPeriodo.periodo, 11, 31) } },
 				{ to: { gte: new Date(calificacionPeriodo.periodo, 0, 1) } }
