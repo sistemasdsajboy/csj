@@ -7,7 +7,12 @@ import {
 	unirFechasNoHabiles,
 	vacanciaJudicial
 } from '$lib/utils/dates';
-import type { ClaseRegistroCalificacion, RegistroCalificacion, TipoDespacho } from '@prisma/client';
+import type {
+	ClaseRegistroCalificacion,
+	EspecialidadDespacho,
+	RegistroCalificacion,
+	TipoDespacho
+} from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 
@@ -55,7 +60,8 @@ const generadorResultadosSubfactor =
 		diasHabilesDespacho: number,
 		diasHabilesFuncionario: number,
 		hayEscritos: boolean,
-		capacidadMaxima: number
+		capacidadMaxima: number,
+		especialidad: EspecialidadDespacho
 	) =>
 	(
 		data: RegistroCalificacion[],
@@ -81,8 +87,10 @@ const generadorResultadosSubfactor =
 		let cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data);
 
 		if (subfactor === 'oral' || subfactor === 'escrito') {
-			cargaBaseCalificacionDespacho =
-				cargaBaseCalificacionDespacho - getIngresoEfectivoUltimoPeriodo(data);
+			// No restar el ingreso del último periodo cuando el despacho es un Juzgado de Ejecución de Penas.
+			if (especialidad !== 'EjecucionPenas')
+				cargaBaseCalificacionDespacho =
+					cargaBaseCalificacionDespacho - getIngresoEfectivoUltimoPeriodo(data);
 			if ((!hayEscritos && subfactor === 'oral') || (hayEscritos && subfactor === 'escrito')) {
 				totalInventarioInicial = totalInventarioInicial + getInventarioInicial(dataTutelas);
 				egresoFuncionario = egresoFuncionario + getEgresoFuncionario(dataTutelas, funcionarioId);
@@ -365,7 +373,8 @@ export async function generarCalificacionFuncionario(
 		diasHabilesDespacho,
 		diasHabilesLaborados,
 		cuentaProcesosEscritos > 0,
-		capacidadMaxima.cantidad
+		capacidadMaxima.cantidad,
+		despacho.tipoDespacho.especialidad
 	);
 
 	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
