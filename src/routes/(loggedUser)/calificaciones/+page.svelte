@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto, invalidateAll } from '$app/navigation';
 	import PageLayout from '$lib/components/custom/page-layout.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
@@ -10,18 +11,7 @@
 	import SeleccionFuncionario from './seleccion-funcionario.svelte';
 
 	const { data, form }: { data: PageData; form: ActionData } = $props();
-	let estado = $state<string>(data.estadoPorDefecto);
-	let calificaciones = $state<typeof data.calificaciones>([]);
-	let despachoId = $state<string>('todos');
 	let funcionarioId = $state<string | null>(null);
-
-	$effect(() => {
-		calificaciones = data.calificaciones.filter(
-			(c) =>
-				c.estado === estado &&
-				(despachoId !== 'todos' ? c.despachoSeccional?.id === despachoId : true)
-		);
-	});
 
 	const labels = {
 		borrador: 'Borrador',
@@ -29,6 +19,16 @@
 		aprobada: 'Aprobada',
 		devuelta: 'Devuelta'
 	};
+
+	function actualizarFiltro(filter: string, value: string) {
+		fetch('?/actualizarFiltro', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams({ filter, value })
+		}).then(() => {
+			goto('/calificaciones', { replaceState: true, invalidateAll: true });
+		});
+	}
 </script>
 
 {#snippet header()}
@@ -38,32 +38,131 @@
 {#snippet sidebar()}
 	<div class="flex max-w-md flex-col gap-2 pt-10">
 		<Badge variant="secondary" class="m-auto text-center">
-			{calificaciones.length}
-			{calificaciones.length === 1 ? 'calificación' : 'calificaciones'}
+			{data.calificaciones.length}
+			{data.calificaciones.length === 1 ? 'calificación' : 'calificaciones'}
 		</Badge>
 
-		{#if data.despachosCalificadores.length > 1}
+		{#if data.opcionesFiltros.despachosCalificadores.length > 1}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>Filtrar calificaciones</Card.Title>
 				</Card.Header>
 				<Card.Content>
-					<Label for="despachoId">Despacho</Label>
+					<Label for="periodo">Periodo</Label>
 					<Select.Root
-						onSelectedChange={(selected) => (despachoId = selected?.value?.toString() ?? 'todos')}
-						selected={data.despachosCalificadores.find((d) => d.value === despachoId)}
+						onSelectedChange={(selected) => actualizarFiltro('periodo', selected?.value || '')}
+						selected={data.opcionesFiltros.periodos.find((d) => data.periodo === d.value)}
 					>
 						<Select.Trigger class="w-full">
 							<Select.Value />
 						</Select.Trigger>
 						<Select.Content>
 							<Select.Group>
-								{#each data.despachosCalificadores as d}
+								{#each data.opcionesFiltros.periodos as d}
+									<Select.Item value={d.value}>{d.label}</Select.Item>
+								{/each}
+							</Select.Group>
+						</Select.Content>
+						<Select.Input name="periodo" />
+					</Select.Root>
+
+					<Label for="despachoId">Despacho Calificador</Label>
+					<Select.Root
+						onSelectedChange={(selected) =>
+							actualizarFiltro('despachoSeccionalId', selected?.value || '')}
+						selected={data.opcionesFiltros.despachosCalificadores.find(
+							(d) => data.filtros.despachoSeccionalId === d.value
+						)}
+					>
+						<Select.Trigger class="w-full">
+							<Select.Value />
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								{#each data.opcionesFiltros.despachosCalificadores as d}
 									<Select.Item value={d.value}>{d.label}</Select.Item>
 								{/each}
 							</Select.Group>
 						</Select.Content>
 						<Select.Input name="despachoId" />
+					</Select.Root>
+
+					<Label for="especialidad">Especialidad</Label>
+					<Select.Root
+						onSelectedChange={(selected) => actualizarFiltro('especialidad', selected?.value || '')}
+						selected={data.opcionesFiltros.especialidades.find(
+							(d) => data.filtros.especialidad === d.value
+						)}
+					>
+						<Select.Trigger class="w-full">
+							<Select.Value />
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								{#each data.opcionesFiltros.especialidades as e}
+									<Select.Item value={e.value}>{e.label}</Select.Item>
+								{/each}
+							</Select.Group>
+						</Select.Content>
+						<Select.Input name="especialidad" />
+					</Select.Root>
+
+					<Label for="categoria">Categoría</Label>
+					<Select.Root
+						onSelectedChange={(selected) => actualizarFiltro('categoria', selected?.value || '')}
+						selected={data.opcionesFiltros.categorias.find(
+							(d) => data.filtros.categoria === d.value
+						)}
+					>
+						<Select.Trigger class="w-full">
+							<Select.Value />
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								{#each data.opcionesFiltros.categorias as c}
+									<Select.Item value={c.value}>{c.label}</Select.Item>
+								{/each}
+							</Select.Group>
+						</Select.Content>
+						<Select.Input name="categoria" />
+					</Select.Root>
+
+					<Label for="municipio">Municipio</Label>
+					<Select.Root
+						onSelectedChange={(selected) => actualizarFiltro('municipio', selected?.value || '')}
+						selected={data.opcionesFiltros.municipios.find(
+							(d) => data.filtros.municipio === d.value
+						)}
+					>
+						<Select.Trigger class="w-full">
+							<Select.Value />
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								{#each data.opcionesFiltros.municipios as m}
+									<Select.Item value={m.value}>{m.label}</Select.Item>
+								{/each}
+							</Select.Group>
+						</Select.Content>
+						<Select.Input name="municipio" />
+					</Select.Root>
+
+					<Label for="distrito">Distrito</Label>
+					<Select.Root
+						onSelectedChange={(selected) => actualizarFiltro('distrito', selected?.value || '')}
+						selected={data.opcionesFiltros.distritos.find((d) => data.filtros.distrito === d.value)}
+					>
+						<Select.Trigger class="w-full">
+							<Select.Value />
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								{#each data.opcionesFiltros.distritos as d}
+									<Select.Item value={d.value}>{d.label}</Select.Item>
+								{/each}
+							</Select.Group>
+						</Select.Content>
+						<Select.Input name="distrito" />
 					</Select.Root>
 				</Card.Content>
 			</Card.Root>
@@ -77,7 +176,11 @@
 {/snippet}
 
 <PageLayout {header} {sidebar} username={data.user}>
-	<Tabs.Root value={data.estadoPorDefecto} class="w-full" onValueChange={(e) => (estado = e || '')}>
+	<Tabs.Root
+		value={data.estado}
+		class="w-full"
+		onValueChange={(e) => actualizarFiltro('estado', e as string)}
+	>
 		<Tabs.List class="flex w-full justify-between">
 			{#each data.estados as e}
 				<Tabs.Trigger value={e} class="flex w-full gap-2 ">
@@ -85,8 +188,8 @@
 				</Tabs.Trigger>
 			{/each}
 		</Tabs.List>
-		<Tabs.Content value={estado}>
-			{#each calificaciones as calificacion}
+		<Tabs.Content value={data.estado}>
+			{#each data.calificaciones as calificacion}
 				<a
 					href="/calificacion/{calificacion.id}"
 					class="grid grid-cols-[160px_1fr] items-center justify-start gap-2 p-2 hover:bg-slate-100"

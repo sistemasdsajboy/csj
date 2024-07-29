@@ -59,7 +59,7 @@
 			<Command.List>
 				<Command.Empty>Sin resultados</Command.Empty>
 				<Command.Group>
-					{#each options as option}
+					{#each options as option (option.value)}
 						<Command.Item
 							value={option.label}
 							aria-label={option.label}

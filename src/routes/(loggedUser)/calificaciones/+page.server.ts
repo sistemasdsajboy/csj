@@ -1,29 +1,48 @@
 import { createRegistrosCalificacionFromXlsx } from '$lib/core/calificaciones/carga-xlsx';
 import { db } from '$lib/db/client';
-import type { EstadoCalificacion } from '@prisma/client';
+import { CategoriaDespacho, EspecialidadDespacho, EstadoCalificacion } from '@prisma/client';
 import { error, fail } from '@sveltejs/kit';
-import _ from 'lodash';
 import type { PageServerLoad } from './$types';
+import { filtroCalificacionesSchema } from './validation';
 
 export const load = (async ({ locals }) => {
 	if (!locals.user) error(400, 'No autorizado');
-	const user = await db.user.findFirst({ where: { id: locals.user?.id } });
+	const user = await db.user.findFirst({
+		where: { id: locals.user?.id },
+		include: { preferencias: true }
+	});
 
 	if (!user) error(400, 'Usuario no encontrado');
 	const { roles, despachosSeccionalIds } = user;
 
-	const estadoPorDefecto: EstadoCalificacion = roles.includes('editor') ? 'borrador' : 'revision';
 	const estados: EstadoCalificacion[] = roles.includes('editor')
 		? ['borrador', 'devuelta', 'revision', 'aprobada']
 		: ['devuelta', 'revision', 'aprobada'];
 
+	const prefs = user.preferencias;
+
+	const estado: EstadoCalificacion =
+		prefs?.estado || (roles.includes('editor') ? 'borrador' : 'revision');
+
+	const periodo = prefs?.periodo ? prefs.periodo : '';
+
 	const calificaciones = await db.calificacionPeriodo.findMany({
 		where: {
-			OR: [
-				{ despachoSeccionalId: { in: despachosSeccionalIds } },
-				{ despachoSeccionalId: { isSet: false } }
-			],
-			estado: { in: estados }
+			estado,
+			periodo: periodo ? parseInt(periodo) : undefined,
+			despachoSeccionalId: prefs?.despachoSeccionalId || undefined,
+			calificaciones: {
+				some: {
+					despacho: {
+						tipoDespacho: {
+							especialidad: prefs?.especialidad || undefined,
+							categoria: prefs?.categoria || undefined
+						},
+						municipio: prefs?.municipio || undefined,
+						distrito: prefs?.distrito || undefined
+					}
+				}
+			}
 		},
 		select: {
 			id: true,
@@ -35,15 +54,62 @@ export const load = (async ({ locals }) => {
 		orderBy: { funcionario: { nombre: 'asc' } }
 	});
 
-	const cuentaPorEstado = _.countBy(calificaciones, 'estado');
+	const periodos = [
+		{ label: 'Todos los periodos', value: '' },
+		...(
+			await db.registroCalificacion.findMany({
+				select: { periodo: true },
+				distinct: ['periodo']
+			})
+		).map((p) => ({ label: p.periodo.toString(), value: p.periodo.toString() }))
+	];
 
-	const despachosSeccional = await db.despachoSeccional.findMany({
-		where: { id: { in: despachosSeccionalIds } },
-		select: { id: true, nombre: true }
-	});
 	const despachosCalificadores = [
-		{ label: 'Todos los despachos', value: 'todos' },
-		...despachosSeccional.map((d) => ({ label: d.nombre, value: d.id }))
+		{ label: 'Todos los despachos', value: '' },
+		...(
+			await db.despachoSeccional.findMany({
+				where: { id: { in: despachosSeccionalIds } },
+				select: { id: true, nombre: true }
+			})
+		).map((d) => ({ label: d.nombre, value: d.id }))
+	];
+
+	const especialidades = [
+		{ label: 'Todas las especialidades', value: '' },
+		...Object.values(EspecialidadDespacho).map((e) => ({
+			label: e,
+			value: e
+		}))
+	];
+
+	const categorias = [
+		{ label: 'Todas las categorías', value: '' },
+		...Object.values(CategoriaDespacho).map((e) => ({ label: e, value: e }))
+	];
+
+	const distritos = [
+		{ label: 'Todos los distritos', value: '' },
+		...((
+			await db.despacho.findMany({
+				where: { distrito: { not: null } },
+				distinct: ['distrito'],
+				select: { distrito: true }
+			})
+		).map((d) => ({ label: d.distrito, value: d.distrito })) as { label: string; value: string }[])
+	];
+
+	const municipios = [
+		{ label: 'Todos los municipios', value: '' },
+		...((
+			await db.despacho.findMany({
+				where: { municipio: { not: null } },
+				distinct: ['municipio'],
+				select: { municipio: true }
+			})
+		).map((m) => ({ label: m.municipio, value: m.municipio })) as {
+			label: string;
+			value: string;
+		}[])
 	];
 
 	const funcionarios = (
@@ -53,16 +119,55 @@ export const load = (async ({ locals }) => {
 	).map((f) => ({ label: f.nombre, value: f.id }));
 
 	return {
-		estadoPorDefecto,
+		estado,
+		periodo,
 		estados,
-		cuentaPorEstado,
-		despachosCalificadores,
+		opcionesFiltros: {
+			periodos,
+			despachosCalificadores,
+			especialidades,
+			categorias,
+			municipios,
+			distritos
+		},
+		filtros: {
+			despachoSeccionalId: prefs?.despachoSeccionalId || '',
+			especialidad: prefs?.especialidad || '',
+			categoria: prefs?.categoria || '',
+			municipio: prefs?.municipio || '',
+			distrito: prefs?.distrito || ''
+		},
 		calificaciones,
 		funcionarios
 	};
 }) satisfies PageServerLoad;
 
 export const actions = {
+	actualizarFiltro: async ({ request, locals }) => {
+		const data = await request.formData();
+		const filter = data.get('filter') as string;
+		const value = data.get('value') as string;
+
+		if (!locals.user) return fail(401, { error: 'Usuario no autorizado' });
+
+		const { success, data: validData } = filtroCalificacionesSchema.safeParse({
+			filter,
+			value: value || null
+		});
+		if (!success) return { success: false, error: 'Filtro no válido' };
+
+		await db.preferencias.upsert({
+			where: { userId: locals.user?.id },
+			create: {
+				userId: locals.user?.id,
+				[validData.filter]: validData.value
+			},
+			update: { [validData.filter]: validData.value }
+		});
+
+		return { success: true };
+	},
+
 	loadFile: async ({ request, locals }) => {
 		try {
 			if (!locals.user) return fail(401, { error: 'Usuario no autorizado' });

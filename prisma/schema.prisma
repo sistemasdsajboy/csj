@@ -33,6 +33,7 @@ model User {
   despachosSeccionalIds   String[]                @db.ObjectId
   despachosSeccional      DespachoSeccional[]     @relation(fields: [despachosSeccionalIds], references: [id])
   observacionesDevolucion ObservacionDevolucion[]
+  preferencias            Preferencias?
 }
 
 model Session {
@@ -41,6 +42,21 @@ model Session {
   user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
   expiresAt DateTime
   username  String
+}
+
+model Preferencias {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @unique @db.ObjectId
+  user   User   @relation(references: [id], fields: [userId], onDelete: Cascade)
+
+  // Filtros de calificaciones
+  estado              EstadoCalificacion?
+  despachoSeccionalId String?
+  periodo             String?
+  especialidad        EspecialidadDespacho?
+  categoria           CategoriaDespacho?
+  municipio           String?
+  distrito            String?
 }
 
 enum EspecialidadDespacho {
