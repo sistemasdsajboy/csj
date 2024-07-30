@@ -239,6 +239,11 @@ async function getCuentaProcesosEscritos(despachoId: string, periodo: number) {
 
 async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
+	const despacho = await db.despacho.findFirst({
+		where: { id: despachoId },
+		include: { tipoDespacho: true }
+	});
+	if (!despacho) return;
 
 	const categoriasConstitucional = ['Primera Instancia Acciones Constitucionales'];
 	if (cuentaProcesosEscritos > 0) {
@@ -247,6 +252,18 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 			where: { despachoId, periodo, categoria: { in: categoriasConstitucional } },
 			data: { clase: 'escrito' }
 		});
+
+		const categoriaPenalEscrito =
+			'segunda Instancia Ejecución de penas y medidas de seguridad ccto';
+		if (
+			despacho.tipoDespacho?.especialidad.startsWith('Penal') &&
+			despacho.tipoDespacho.categoria === 'Circuito'
+		) {
+			await db.registroCalificacion.updateMany({
+				where: { despachoId, periodo, categoria: categoriaPenalEscrito },
+				data: { clase: 'escrito' }
+			});
+		}
 	} else {
 		// Si el despacho es de control de garantías, las acciones constitucionales de primera instancia se asumen como "oral".
 		const despacho = await db.despacho.findFirst({
