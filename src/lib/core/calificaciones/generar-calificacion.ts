@@ -253,14 +253,16 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 			data: { clase: 'escrito' }
 		});
 
-		const categoriaPenalEscrito =
-			'segunda Instancia Ejecución de penas y medidas de seguridad ccto';
+		const categoriaPenalEscrito = [
+			'segunda Instancia Ejecución de penas y medidas de seguridad ccto',
+			'Segunda Instancia Acciones Constitucionales'
+		];
 		if (
 			despacho.tipoDespacho?.especialidad.startsWith('Penal') &&
 			despacho.tipoDespacho.categoria === 'Circuito'
 		) {
 			await db.registroCalificacion.updateMany({
-				where: { despachoId, periodo, categoria: categoriaPenalEscrito },
+				where: { despachoId, periodo, categoria: { in: categoriaPenalEscrito } },
 				data: { clase: 'escrito' }
 			});
 		}
@@ -281,7 +283,9 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	const categoriasTutelas = [
 		'Incidentes de Desacato',
 		'Movimiento de Tutelas',
-		'Procesos con sentencia y trámite posterior incidentes de Desacato'
+		'Procesos con sentencia y trámite posterior incidentes de Desacato',
+		'Consultas Incidentes de Desacato',
+		'Movimiento de Impugnaciones'
 	];
 	await db.registroCalificacion.updateMany({
 		where: { despachoId, periodo, categoria: { in: categoriasTutelas } },
