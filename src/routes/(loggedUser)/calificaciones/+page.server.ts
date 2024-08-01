@@ -2,8 +2,15 @@ import { createRegistrosCalificacionFromXlsx } from '$lib/core/calificaciones/ca
 import { db } from '$lib/db/client';
 import { CategoriaDespacho, EspecialidadDespacho, EstadoCalificacion } from '@prisma/client';
 import { error, fail } from '@sveltejs/kit';
+import _ from 'lodash';
 import type { PageServerLoad } from './$types';
 import { filtroCalificacionesSchema } from './validation';
+
+const estadosVisiblesPorRol: Record<string, EstadoCalificacion[]> = {
+	admin: ['borrador', 'devuelta', 'revision', 'aprobada', 'eliminada'],
+	editor: ['borrador', 'devuelta', 'revision', 'aprobada'],
+	reviewer: ['devuelta', 'revision', 'aprobada']
+};
 
 export const load = (async ({ locals }) => {
 	if (!locals.user) error(400, 'No autorizado');
@@ -15,9 +22,7 @@ export const load = (async ({ locals }) => {
 	if (!user) error(400, 'Usuario no encontrado');
 	const { roles, despachosSeccionalIds } = user;
 
-	const estados: EstadoCalificacion[] = roles.includes('editor')
-		? ['borrador', 'devuelta', 'revision', 'aprobada']
-		: ['devuelta', 'revision', 'aprobada'];
+	const estados: EstadoCalificacion[] = _.uniq(roles.flatMap((rol) => estadosVisiblesPorRol[rol]));
 
 	const prefs = user.preferencias;
 
@@ -49,7 +54,8 @@ export const load = (async ({ locals }) => {
 			estado: true,
 			funcionario: { select: { nombre: true } },
 			calificaciones: { select: { despacho: { select: { nombre: true } } } },
-			despachoSeccional: { select: { id: true, nombre: true } }
+			despachoSeccional: { select: { id: true, nombre: true } },
+			observaciones: { where: { estado: 'devuelta' } }
 		},
 		orderBy: { funcionario: { nombre: 'asc' } }
 	});

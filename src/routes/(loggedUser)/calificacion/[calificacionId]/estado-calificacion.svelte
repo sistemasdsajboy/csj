@@ -14,6 +14,8 @@
 		<span class="font-bold text-teal-700">Aprobada</span>
 	{:else if estado === 'devuelta'}
 		<span class="font-bold text-rose-700">Devuelta</span>
+	{:else if estado === 'eliminada'}
+		<span class="font-bold text-slate-700">Eliminada</span>
 	{:else}
 		<span class="font-bold">{_.capitalize(estado)}</span>
 	{/if}

@@ -58,6 +58,56 @@
 			</form>
 		</AlertDialog.Content>
 	</AlertDialog.Root>
+
+	<AlertDialog.Root>
+		<AlertDialog.Trigger asChild let:builder>
+			<Button builders={[builder]} variant="destructive">Eliminar</Button>
+		</AlertDialog.Trigger>
+		<AlertDialog.Content>
+			<AlertDialog.Header>
+				<AlertDialog.Title>Eliminación de calificación</AlertDialog.Title>
+				<AlertDialog.Description>
+					Se va a eliminar esta calificación. Desea continuar?
+				</AlertDialog.Description>
+			</AlertDialog.Header>
+			<form action="?/eliminarCalificacion" method="post" class="space-y-4">
+				<div>
+					<Label for="observaciones">Observaciones</Label>
+					<Textarea name="observaciones" rows={5} placeholder="Motivo de la eliminación" />
+				</div>
+				<AlertDialog.Footer>
+					<AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
+					<Button type="submit" variant="destructive">Eliminar</Button>
+				</AlertDialog.Footer>
+			</form>
+		</AlertDialog.Content>
+	</AlertDialog.Root>
+{/if}
+
+{#if estado === 'eliminada'}
+<AlertDialog.Root>
+	<AlertDialog.Trigger asChild let:builder>
+		<Button builders={[builder]} variant="destructive">Restaurar</Button>
+	</AlertDialog.Trigger>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Restaurar calificación</AlertDialog.Title>
+			<AlertDialog.Description>
+				Está seguro que desea restaurar la calificación que fue previamente eliminada?
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<form action="?/restaurarCalificacion" method="post" class="space-y-4">
+			<div>
+				<Label for="observaciones">Observaciones</Label>
+				<Textarea name="observaciones" rows={5} placeholder="Motivo de la restauración de la calificación eliminada." />
+			</div>
+			<AlertDialog.Footer>
+				<AlertDialog.Cancel>Cancelar</AlertDialog.Cancel>
+				<Button type="submit" variant="destructive">Restaurar</Button>
+			</AlertDialog.Footer>
+		</form>
+	</AlertDialog.Content>
+</AlertDialog.Root>
 {/if}
 
 {#if estado === 'revision'}

@@ -128,7 +128,7 @@
 				{despachos}
 				calificadorId={calificacion.calificacion.despachoSeccionalId}
 			/>
-			<Observaciones observaciones={calificacion.calificacion.observacionesDevolucion} />
+			<Observaciones observaciones={calificacion.calificacion.observaciones} />
 			<div class="grow"></div>
 			{#if calificacion.calificacion.estado !== 'aprobada'}
 				<RegistroAudienciasForm {registroAudiencias} />

@@ -24,16 +24,16 @@ model DespachoSeccional {
 }
 
 model User {
-  id                      String                  @id @default(auto()) @map("_id") @db.ObjectId
-  username                String
-  password                String
-  passwordExpiresAt       DateTime
-  sessions                Session[]
-  roles                   UserRoles[]
-  despachosSeccionalIds   String[]                @db.ObjectId
-  despachosSeccional      DespachoSeccional[]     @relation(fields: [despachosSeccionalIds], references: [id])
-  observacionesDevolucion ObservacionDevolucion[]
-  preferencias            Preferencias?
+  id                        String                    @id @default(auto()) @map("_id") @db.ObjectId
+  username                  String
+  password                  String
+  passwordExpiresAt         DateTime
+  sessions                  Session[]
+  roles                     UserRoles[]
+  despachosSeccionalIds     String[]                  @db.ObjectId
+  despachosSeccional        DespachoSeccional[]       @relation(fields: [despachosSeccionalIds], references: [id])
+  observacionesCalificacion ObservacionCalificacion[]
+  preferencias              Preferencias?
 }
 
 model Session {
@@ -222,31 +222,33 @@ enum EstadoCalificacion {
   revision
   aprobada
   devuelta
+  eliminada
 }
 
-model ObservacionDevolucion {
-  id             String               @id @default(auto()) @map("_id") @db.ObjectId
-  fecha          DateTime             @default(now()) @db.Date
-  autorId        String?              @db.ObjectId
-  autor          User?                @relation(fields: [autorId], references: [id])
+model ObservacionCalificacion {
+  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  fecha          DateTime            @default(now()) @db.Date
+  autorId        String?             @db.ObjectId
+  autor          User?               @relation(fields: [autorId], references: [id])
+  estado         EstadoCalificacion
   observaciones  String
-  calificacionId String?              @db.ObjectId
-  calificacion   CalificacionPeriodo? @relation(fields: [calificacionId], references: [id])
+  calificacionId String              @db.ObjectId
+  calificacion   CalificacionPeriodo @relation(fields: [calificacionId], references: [id])
 }
 
 model CalificacionPeriodo {
-  id                      String                  @id @default(auto()) @map("_id") @db.ObjectId
-  estado                  EstadoCalificacion
-  observacionesDevolucion ObservacionDevolucion[]
+  id                    String                    @id @default(auto()) @map("_id") @db.ObjectId
+  estado                EstadoCalificacion
+  observaciones         ObservacionCalificacion[]
   // Año de la calificacion
-  periodo                 Int
-  funcionarioId           String                  @db.ObjectId
-  funcionario             Funcionario             @relation(fields: [funcionarioId], references: [id])
+  periodo               Int
+  funcionarioId         String                    @db.ObjectId
+  funcionario           Funcionario               @relation(fields: [funcionarioId], references: [id])
   // Despacho que aprueba la calificación
-  despachoSeccionalId     String?                 @db.ObjectId
-  despachoSeccional       DespachoSeccional?      @relation(fields: [despachoSeccionalId], references: [id])
-  calificaciones          CalificacionDespacho[]
-  calificacionPonderada   Float                   @default(0)
+  despachoSeccionalId   String?                   @db.ObjectId
+  despachoSeccional     DespachoSeccional?        @relation(fields: [despachoSeccionalId], references: [id])
+  calificaciones        CalificacionDespacho[]
+  calificacionPonderada Float                     @default(0)
 
   @@unique([funcionarioId, periodo])
 }

@@ -3,7 +3,7 @@ import {
 	getDiasFestivosPorTipoDespacho
 } from '$lib/core/calificaciones/generar-calificacion';
 import { db } from '$lib/db/client';
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import _ from 'lodash';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
@@ -101,7 +101,7 @@ export const load = (async ({ params, locals, url }) => {
 		where: { id: params.calificacionId },
 		include: {
 			funcionario: true,
-			observacionesDevolucion: {
+			observaciones: {
 				select: { observaciones: true, fecha: true, autor: { select: { username: true } } }
 			},
 			calificaciones: { select: { despachoId: true } }
@@ -118,7 +118,7 @@ export const load = (async ({ params, locals, url }) => {
 			subfactores: true,
 			despacho: { include: { tipoDespacho: true } },
 			registroAudiencias: true,
-			calificacion: { include: { observacionesDevolucion: { include: { autor: true } } } }
+			calificacion: { include: { observaciones: { include: { autor: true } } } }
 		}
 	});
 	if (!calificacion) error(404, 'Calificación no encontrada');
@@ -451,7 +451,7 @@ export const actions = {
 			where: { id: params.calificacionId },
 			data: {
 				estado: 'revision',
-				observacionesDevolucion: { create: { observaciones, autorId: user.id } },
+				observaciones: { create: { observaciones, autorId: user.id, estado: 'revision' } },
 				despachoSeccionalId: despachoCalificadorId
 			}
 		});
@@ -522,10 +522,85 @@ export const actions = {
 			where: { id: params.calificacionId },
 			data: {
 				estado: 'devuelta',
-				observacionesDevolucion: { create: { observaciones, autorId: user.id } }
+				observaciones: { create: { observaciones, autorId: user.id, estado: 'devuelta' } }
 			}
 		});
 
 		return { success: true };
+	},
+
+	eliminarCalificacion: async ({ params, locals, request }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user) return { success: false, error: 'No autorizado' };
+
+		const isAdmin = user.roles.includes('admin');
+		if (!isAdmin)
+			return { success: false, error: 'No tiene permiso para eliminar una calificación.' };
+
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId }
+		});
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
+		if (calificacionPeriodo.estado == 'revision' || calificacionPeriodo.estado == 'aprobada')
+			return {
+				success: false,
+				error:
+					'No es posible eliminar una calificación que se encuentre en revisión o que ya haya sido aprobada'
+			};
+		if (calificacionPeriodo.estado === 'eliminada')
+			return {
+				success: false,
+				error: 'No es posible eliminar una calificación que ya ha sido eliminada'
+			};
+
+		const formData = await request.formData();
+		const observaciones =
+			formData.get('observaciones')?.toString() || 'Calificación eliminada. Sin observaciones.';
+
+		await db.calificacionPeriodo.update({
+			where: { id: params.calificacionId },
+			data: {
+				estado: 'eliminada',
+				observaciones: { create: { observaciones, autorId: user.id, estado: 'eliminada' } }
+			}
+		});
+
+		throw redirect(303, '/calificaciones');
+	},
+
+	restaurarCalificacion: async ({ params, locals, request }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user) return { success: false, error: 'No autorizado' };
+
+		const isAdmin = user.roles.includes('admin');
+		if (!isAdmin)
+			return { success: false, error: 'No tiene permiso para restaurar una calificación.' };
+
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId }
+		});
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
+
+		if (calificacionPeriodo.estado !== 'eliminada')
+			return {
+				success: false,
+				error: 'No es posible restaurar una calificación a menos que se encuentre eliminada.'
+			};
+
+		const formData = await request.formData();
+		const observaciones =
+			formData.get('observaciones')?.toString() || 'Calificación restaurada. Sin observaciones.';
+
+		await db.calificacionPeriodo.update({
+			where: { id: params.calificacionId },
+			data: {
+				estado: 'borrador',
+				observaciones: { create: { observaciones, autorId: user.id, estado: 'borrador' } }
+			}
+		});
 	}
 };

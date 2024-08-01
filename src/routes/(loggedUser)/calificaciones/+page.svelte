@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import PageLayout from '$lib/components/custom/page-layout.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Card from '$lib/components/ui/card';
@@ -17,7 +17,8 @@
 		borrador: 'Borrador',
 		revision: 'Para revisar',
 		aprobada: 'Aprobada',
-		devuelta: 'Devuelta'
+		devuelta: 'Devuelta',
+		eliminada: 'Eliminada'
 	};
 
 	function actualizarFiltro(filter: string, value: string) {
@@ -200,7 +201,15 @@
 						</Badge>
 					</div>
 					<div>
-						{calificacion.funcionario.nombre}
+						<div class="flex items-center gap-4">
+							{calificacion.funcionario.nombre}
+							{#if calificacion.estado === 'revision' && calificacion.observaciones?.length > 0}
+								<Badge class="bg-amber-700">
+									{calificacion.observaciones.length}
+									{calificacion.observaciones.length === 1 ? 'devolución' : 'devoluciones'}
+								</Badge>
+							{/if}
+						</div>
 						{#each calificacion.calificaciones as califDespacho}
 							<div class="text-sm text-slate-500">
 								{califDespacho.despacho.nombre}
