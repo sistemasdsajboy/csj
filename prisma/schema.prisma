@@ -53,8 +53,7 @@ model Preferencias {
   estado              EstadoCalificacion?
   despachoSeccionalId String?
   periodo             String?
-  especialidad        EspecialidadDespacho?
-  categoria           CategoriaDespacho?
+  tipoDespachoId      String?
   municipio           String?
   distrito            String?
 }

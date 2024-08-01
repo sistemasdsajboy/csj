@@ -88,11 +88,12 @@
 						<Select.Input name="despachoId" />
 					</Select.Root>
 
-					<Label for="especialidad">Especialidad</Label>
+					<Label for="tipoDespachoId">Tipo de despacho</Label>
 					<Select.Root
-						onSelectedChange={(selected) => actualizarFiltro('especialidad', selected?.value || '')}
-						selected={data.opcionesFiltros.especialidades.find(
-							(d) => data.filtros.especialidad === d.value
+						onSelectedChange={(selected) =>
+							actualizarFiltro('tipoDespachoId', selected?.value || '')}
+						selected={data.opcionesFiltros.tiposDespacho.find(
+							(d) => data.filtros.tipoDespachoId === d.value
 						)}
 					>
 						<Select.Trigger class="w-full">
@@ -100,32 +101,30 @@
 						</Select.Trigger>
 						<Select.Content>
 							<Select.Group>
-								{#each data.opcionesFiltros.especialidades as e}
-									<Select.Item value={e.value}>{e.label}</Select.Item>
+								{#each data.opcionesFiltros.tiposDespacho as td}
+									<Select.Item value={td.value}>{td.label}</Select.Item>
 								{/each}
 							</Select.Group>
 						</Select.Content>
-						<Select.Input name="especialidad" />
+						<Select.Input name="tipoDespachoId" />
 					</Select.Root>
 
-					<Label for="categoria">Categoría</Label>
+					<Label for="distrito">Distrito</Label>
 					<Select.Root
-						onSelectedChange={(selected) => actualizarFiltro('categoria', selected?.value || '')}
-						selected={data.opcionesFiltros.categorias.find(
-							(d) => data.filtros.categoria === d.value
-						)}
+						onSelectedChange={(selected) => actualizarFiltro('distrito', selected?.value || '')}
+						selected={data.opcionesFiltros.distritos.find((d) => data.filtros.distrito === d.value)}
 					>
 						<Select.Trigger class="w-full">
 							<Select.Value />
 						</Select.Trigger>
 						<Select.Content>
 							<Select.Group>
-								{#each data.opcionesFiltros.categorias as c}
-									<Select.Item value={c.value}>{c.label}</Select.Item>
+								{#each data.opcionesFiltros.distritos as d}
+									<Select.Item value={d.value}>{d.label}</Select.Item>
 								{/each}
 							</Select.Group>
 						</Select.Content>
-						<Select.Input name="categoria" />
+						<Select.Input name="distrito" />
 					</Select.Root>
 
 					<Label for="municipio">Municipio</Label>
@@ -146,24 +145,6 @@
 							</Select.Group>
 						</Select.Content>
 						<Select.Input name="municipio" />
-					</Select.Root>
-
-					<Label for="distrito">Distrito</Label>
-					<Select.Root
-						onSelectedChange={(selected) => actualizarFiltro('distrito', selected?.value || '')}
-						selected={data.opcionesFiltros.distritos.find((d) => data.filtros.distrito === d.value)}
-					>
-						<Select.Trigger class="w-full">
-							<Select.Value />
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Group>
-								{#each data.opcionesFiltros.distritos as d}
-									<Select.Item value={d.value}>{d.label}</Select.Item>
-								{/each}
-							</Select.Group>
-						</Select.Content>
-						<Select.Input name="distrito" />
 					</Select.Root>
 				</Card.Content>
 			</Card.Root>
@@ -205,8 +186,7 @@
 							{calificacion.funcionario.nombre}
 							{#if calificacion.estado === 'revision' && calificacion.observaciones?.length > 0}
 								<Badge class="bg-amber-700">
-									{calificacion.observaciones.length}
-									{calificacion.observaciones.length === 1 ? 'devolución' : 'devoluciones'}
+									{`${calificacion.observaciones.length} ${calificacion.observaciones.length === 1 ? 'devolución' : 'devoluciones'}`}
 								</Badge>
 							{/if}
 						</div>

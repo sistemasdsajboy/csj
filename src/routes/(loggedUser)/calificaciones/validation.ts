@@ -15,12 +15,8 @@ export const filtroCalificacionesSchema = z.discriminatedUnion('filter', [
 		value: z.nullable(z.string())
 	}),
 	z.object({
-		filter: z.literal('especialidad'),
-		value: z.nullable(z.nativeEnum(EspecialidadDespacho))
-	}),
-	z.object({
-		filter: z.literal('categoria'),
-		value: z.nullable(z.nativeEnum(CategoriaDespacho))
+		filter: z.literal('tipoDespachoId'),
+		value: z.nullable(z.string())
 	}),
 	z.object({
 		filter: z.literal('municipio'),

@@ -1,6 +1,6 @@
 import { createRegistrosCalificacionFromXlsx } from '$lib/core/calificaciones/carga-xlsx';
 import { db } from '$lib/db/client';
-import { CategoriaDespacho, EspecialidadDespacho, EstadoCalificacion } from '@prisma/client';
+import { EstadoCalificacion } from '@prisma/client';
 import { error, fail } from '@sveltejs/kit';
 import _ from 'lodash';
 import type { PageServerLoad } from './$types';
@@ -39,10 +39,7 @@ export const load = (async ({ locals }) => {
 			calificaciones: {
 				some: {
 					despacho: {
-						tipoDespacho: {
-							especialidad: prefs?.especialidad || undefined,
-							categoria: prefs?.categoria || undefined
-						},
+						tipoDespachoId: prefs?.tipoDespachoId || undefined,
 						municipio: prefs?.municipio || undefined,
 						distrito: prefs?.distrito || undefined
 					}
@@ -80,26 +77,27 @@ export const load = (async ({ locals }) => {
 		).map((d) => ({ label: d.nombre, value: d.id }))
 	];
 
-	const especialidades = [
-		{ label: 'Todas las especialidades', value: '' },
-		...Object.values(EspecialidadDespacho).map((e) => ({
-			label: e,
-			value: e
+	const tiposDespacho = [
+		{ label: 'Todos los tipos de despacho', value: '' },
+		...(
+			await db.tipoDespacho.findMany({
+				select: { id: true, nombre: true },
+				orderBy: { nombre: 'asc' }
+			})
+		).map((t) => ({
+			label: t.nombre,
+			value: t.id
 		}))
-	];
-
-	const categorias = [
-		{ label: 'Todas las categorías', value: '' },
-		...Object.values(CategoriaDespacho).map((e) => ({ label: e, value: e }))
 	];
 
 	const distritos = [
 		{ label: 'Todos los distritos', value: '' },
 		...((
 			await db.despacho.findMany({
-				where: { distrito: { not: null } },
+				where: { AND: [{ distrito: { not: '' } }, { distrito: { not: null } }] },
 				distinct: ['distrito'],
-				select: { distrito: true }
+				select: { distrito: true },
+				orderBy: { distrito: 'asc' }
 			})
 		).map((d) => ({ label: d.distrito, value: d.distrito })) as { label: string; value: string }[])
 	];
@@ -108,9 +106,13 @@ export const load = (async ({ locals }) => {
 		{ label: 'Todos los municipios', value: '' },
 		...((
 			await db.despacho.findMany({
-				where: { municipio: { not: null } },
+				where: {
+					AND: [{ municipio: { not: null } }, { municipio: { not: '' } }],
+					distrito: prefs?.distrito || undefined
+				},
 				distinct: ['municipio'],
-				select: { municipio: true }
+				select: { municipio: true },
+				orderBy: { municipio: 'asc' }
 			})
 		).map((m) => ({ label: m.municipio, value: m.municipio })) as {
 			label: string;
@@ -131,17 +133,15 @@ export const load = (async ({ locals }) => {
 		opcionesFiltros: {
 			periodos,
 			despachosCalificadores,
-			especialidades,
-			categorias,
-			municipios,
-			distritos
+			tiposDespacho,
+			distritos,
+			municipios
 		},
 		filtros: {
 			despachoSeccionalId: prefs?.despachoSeccionalId || '',
-			especialidad: prefs?.especialidad || '',
-			categoria: prefs?.categoria || '',
-			municipio: prefs?.municipio || '',
-			distrito: prefs?.distrito || ''
+			tipoDespachoId: prefs?.tipoDespachoId || '',
+			distrito: prefs?.distrito || '',
+			municipio: prefs?.municipio || ''
 		},
 		calificaciones,
 		funcionarios
