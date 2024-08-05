@@ -48,7 +48,7 @@ const getEgresoOtrosFuncionarios = (data: RegistroCalificacion[], funcionarioId:
 	return _.sumBy(data, (d) => (d.funcionarioId !== funcionarioId ? d.egresoEfectivo : 0));
 };
 
-const getCargaBaseCalificacionDespacho = (data: RegistroCalificacion[]) => {
+const getCargaBaseCalificacion = (data: RegistroCalificacion[]) => {
 	const totalInventarioInicial = getInventarioInicial(data);
 	const ingresoEfectivo = getIngresoEfectivo(data);
 	return totalInventarioInicial + ingresoEfectivo;
@@ -80,29 +80,58 @@ const generadorResultadosSubfactor =
 				totalSubfactor: 0
 			};
 
+		const filtrarRegistrosCalificacionPorPeriodoFuncionario = (data: RegistroCalificacion[]) => {
+			// Filtrar "data" para conservar solo los registros del funcionario desde el ingreso del
+			// funcionario al despacho hasta su salida, descartando los periodos al inicio o al final
+			// del año que no correspondan al funcionario calificable.
+
+			const desdeFuncionario = _(data)
+				.filter((d) => d.funcionarioId === funcionarioId)
+				.minBy('desde')?.desde;
+			const hastaFuncionario = _(data)
+				.filter((d) => d.funcionarioId === funcionarioId)
+				.maxBy('desde')?.hasta;
+
+			if (!desdeFuncionario || !hastaFuncionario) return [];
+
+			const dataFuncionario = _(data)
+				.filter((d) => d.desde >= desdeFuncionario && d.desde <= hastaFuncionario)
+				.value();
+
+			return dataFuncionario;
+		};
+
 		const subfactor = data[0].clase;
 		let totalInventarioInicial = getInventarioInicial(data);
 		let egresoFuncionario = getEgresoFuncionario(data, funcionarioId);
 		let egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionarioId);
-		let cargaBaseCalificacionDespacho = getCargaBaseCalificacionDespacho(data);
+		let cargaBaseCalificacionDespacho = getCargaBaseCalificacion(data);
+
+		const dataFuncionario = filtrarRegistrosCalificacionPorPeriodoFuncionario(data);
+		const dataFuncionarioTutelas = filtrarRegistrosCalificacionPorPeriodoFuncionario(dataTutelas);
+
+		let cargaBaseCalificacionFuncionario = getCargaBaseCalificacion(dataFuncionario);
 
 		if (subfactor === 'oral' || subfactor === 'escrito') {
 			// No restar el ingreso del último periodo cuando el despacho es un Juzgado de Ejecución de Penas.
-			if (especialidad !== 'EjecucionPenas')
-				cargaBaseCalificacionDespacho =
-					cargaBaseCalificacionDespacho - getIngresoEfectivoUltimoPeriodo(data);
+			if (especialidad !== 'EjecucionPenas') {
+				cargaBaseCalificacionDespacho -= getIngresoEfectivoUltimoPeriodo(data);
+				cargaBaseCalificacionFuncionario -= getIngresoEfectivoUltimoPeriodo(dataFuncionario);
+			}
 			if ((!hayEscritos && subfactor === 'oral') || (hayEscritos && subfactor === 'escrito')) {
-				totalInventarioInicial = totalInventarioInicial + getInventarioInicial(dataTutelas);
-				egresoFuncionario = egresoFuncionario + getEgresoFuncionario(dataTutelas, funcionarioId);
+				totalInventarioInicial += getInventarioInicial(dataTutelas);
+				egresoFuncionario += getEgresoFuncionario(dataTutelas, funcionarioId);
 				egresoOtrosFuncionarios =
 					egresoOtrosFuncionarios + getEgresoOtrosFuncionarios(dataTutelas, funcionarioId);
-				cargaBaseCalificacionDespacho =
-					cargaBaseCalificacionDespacho +
-					getCargaBaseCalificacionDespacho(dataTutelas) -
-					getInventarioFinal(dataTutelas, funcionarioId);
+				cargaBaseCalificacionDespacho +=
+					getCargaBaseCalificacion(dataTutelas) - getInventarioFinal(dataTutelas, funcionarioId);
+				cargaBaseCalificacionFuncionario +=
+					getCargaBaseCalificacion(dataFuncionarioTutelas) -
+					getInventarioFinal(dataFuncionarioTutelas, funcionarioId);
 			}
 		}
-		let cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
+
+		cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
 
 		// La capacidad máxima solo aplica para el subfactor "oral", de modo que para los demás subfactores se usa el valor
 		// infinito para excluirlo del cálculo de la carga mínima.
@@ -419,10 +448,10 @@ export async function generarCalificacionFuncionario(
 
 	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 
-	const baseTutelas = getCargaBaseCalificacionDespacho(registrosTutelas);
-	const baseOral = getCargaBaseCalificacionDespacho(registrosOral);
-	const baseGarantias = getCargaBaseCalificacionDespacho(registrosGarantias);
-	const baseEscrito = getCargaBaseCalificacionDespacho(registrosEscrito);
+	const baseTutelas = getCargaBaseCalificacion(registrosTutelas);
+	const baseOral = getCargaBaseCalificacion(registrosOral);
+	const baseGarantias = getCargaBaseCalificacion(registrosGarantias);
+	const baseEscrito = getCargaBaseCalificacion(registrosEscrito);
 	const egresoTutelas = getEgresoTotal(registrosTutelas);
 	const egresoOral = getEgresoTotal(registrosOral);
 	const egresoGarantias = getEgresoTotal(registrosGarantias);
