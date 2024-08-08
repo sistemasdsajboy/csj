@@ -227,8 +227,8 @@ enum EstadoCalificacion {
 model ObservacionCalificacion {
   id             String              @id @default(auto()) @map("_id") @db.ObjectId
   fecha          DateTime            @default(now()) @db.Date
-  autorId        String?             @db.ObjectId
-  autor          User?               @relation(fields: [autorId], references: [id])
+  autorId        String              @db.ObjectId
+  autor          User                @relation(fields: [autorId], references: [id])
   estado         EstadoCalificacion
   observaciones  String
   calificacionId String              @db.ObjectId
