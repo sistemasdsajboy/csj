@@ -9,14 +9,14 @@ import { filtroCalificacionesSchema } from './validation';
 const estadosVisiblesPorRol: Record<string, EstadoCalificacion[]> = {
 	admin: ['borrador', 'devuelta', 'revision', 'aprobada', 'eliminada'],
 	editor: ['borrador', 'devuelta', 'revision', 'aprobada'],
-	reviewer: ['devuelta', 'revision', 'aprobada']
+	reviewer: ['devuelta', 'revision', 'aprobada'],
 };
 
 export const load = (async ({ locals }) => {
 	if (!locals.user) error(400, 'No autorizado');
 	const user = await db.user.findFirst({
 		where: { id: locals.user?.id },
-		include: { preferencias: true }
+		include: { preferencias: true },
 	});
 
 	if (!user) error(400, 'Usuario no encontrado');
@@ -26,8 +26,7 @@ export const load = (async ({ locals }) => {
 
 	const prefs = user.preferencias;
 
-	const estado: EstadoCalificacion =
-		prefs?.estado || (roles.includes('editor') ? 'borrador' : 'revision');
+	const estado: EstadoCalificacion = prefs?.estado || (roles.includes('editor') ? 'borrador' : 'revision');
 
 	const periodo = prefs?.periodo ? prefs.periodo : '';
 
@@ -41,20 +40,20 @@ export const load = (async ({ locals }) => {
 					despacho: {
 						tipoDespachoId: prefs?.tipoDespachoId || undefined,
 						municipio: prefs?.municipio || undefined,
-						distrito: prefs?.distrito || undefined
-					}
-				}
-			}
+						distrito: prefs?.distrito || undefined,
+					},
+				},
+			},
 		},
 		select: {
 			id: true,
 			estado: true,
 			funcionario: { select: { nombre: true } },
-			calificaciones: { select: { despacho: { select: { nombre: true } } } },
+			calificaciones: { select: { despachoId: true, despacho: { select: { nombre: true } } } },
 			despachoSeccional: { select: { id: true, nombre: true } },
-			observaciones: { where: { estado: 'devuelta' } }
+			observaciones: { where: { estado: 'devuelta' } },
 		},
-		orderBy: { funcionario: { nombre: 'asc' } }
+		orderBy: { funcionario: { nombre: 'asc' } },
 	});
 
 	const periodos = [
@@ -62,9 +61,9 @@ export const load = (async ({ locals }) => {
 		...(
 			await db.registroCalificacion.findMany({
 				select: { periodo: true },
-				distinct: ['periodo']
+				distinct: ['periodo'],
 			})
-		).map((p) => ({ label: p.periodo.toString(), value: p.periodo.toString() }))
+		).map((p) => ({ label: p.periodo.toString(), value: p.periodo.toString() })),
 	];
 
 	const despachosCalificadores = [
@@ -72,9 +71,9 @@ export const load = (async ({ locals }) => {
 		...(
 			await db.despachoSeccional.findMany({
 				where: { id: { in: despachosSeccionalIds } },
-				select: { id: true, nombre: true }
+				select: { id: true, nombre: true },
 			})
-		).map((d) => ({ label: d.nombre, value: d.id }))
+		).map((d) => ({ label: d.nombre, value: d.id })),
 	];
 
 	const tiposDespacho = [
@@ -82,12 +81,9 @@ export const load = (async ({ locals }) => {
 		...(
 			await db.tipoDespacho.findMany({
 				select: { id: true, nombre: true },
-				orderBy: { nombre: 'asc' }
+				orderBy: { nombre: 'asc' },
 			})
-		).map((t) => ({
-			label: t.nombre,
-			value: t.id
-		}))
+		).map((t) => ({ label: t.nombre, value: t.id })),
 	];
 
 	const distritos = [
@@ -97,9 +93,9 @@ export const load = (async ({ locals }) => {
 				where: { AND: [{ distrito: { not: '' } }, { distrito: { not: null } }] },
 				distinct: ['distrito'],
 				select: { distrito: true },
-				orderBy: { distrito: 'asc' }
+				orderBy: { distrito: 'asc' },
 			})
-		).map((d) => ({ label: d.distrito, value: d.distrito })) as { label: string; value: string }[])
+		).map((d) => ({ label: d.distrito, value: d.distrito })) as { label: string; value: string }[]),
 	];
 
 	const municipios = [
@@ -108,21 +104,18 @@ export const load = (async ({ locals }) => {
 			await db.despacho.findMany({
 				where: {
 					AND: [{ municipio: { not: null } }, { municipio: { not: '' } }],
-					distrito: prefs?.distrito || undefined
+					distrito: prefs?.distrito || undefined,
 				},
 				distinct: ['municipio'],
 				select: { municipio: true },
-				orderBy: { municipio: 'asc' }
+				orderBy: { municipio: 'asc' },
 			})
-		).map((m) => ({ label: m.municipio, value: m.municipio })) as {
-			label: string;
-			value: string;
-		}[])
+		).map((m) => ({ label: m.municipio, value: m.municipio })) as { label: string; value: string }[]),
 	];
 
 	const funcionarios = (
 		await db.funcionario.findMany({
-			orderBy: { nombre: 'asc' }
+			orderBy: { nombre: 'asc' },
 		})
 	).map((f) => ({ label: f.nombre, value: f.id }));
 
@@ -135,16 +128,16 @@ export const load = (async ({ locals }) => {
 			despachosCalificadores,
 			tiposDespacho,
 			distritos,
-			municipios
+			municipios,
 		},
 		filtros: {
 			despachoSeccionalId: prefs?.despachoSeccionalId || '',
 			tipoDespachoId: prefs?.tipoDespachoId || '',
 			distrito: prefs?.distrito || '',
-			municipio: prefs?.municipio || ''
+			municipio: prefs?.municipio || '',
 		},
 		calificaciones,
-		funcionarios
+		funcionarios,
 	};
 }) satisfies PageServerLoad;
 
@@ -158,7 +151,7 @@ export const actions = {
 
 		const { success, data: validData } = filtroCalificacionesSchema.safeParse({
 			filter,
-			value: value || null
+			value: value || null,
 		});
 		if (!success) return { success: false, error: 'Filtro no válido' };
 
@@ -166,9 +159,9 @@ export const actions = {
 			where: { userId: locals.user?.id },
 			create: {
 				userId: locals.user?.id,
-				[validData.filter]: validData.value
+				[validData.filter]: validData.value,
 			},
-			update: { [validData.filter]: validData.value }
+			update: { [validData.filter]: validData.value },
 		});
 
 		return { success: true };
@@ -180,8 +173,7 @@ export const actions = {
 
 			const data = await request.formData();
 			const file = data.get('file') as File;
-			if (!file.name)
-				return fail(400, { error: 'Debe seleccionar un archivo de calificaciones para iniciar.' });
+			if (!file.name) return fail(400, { error: 'Debe seleccionar un archivo de calificaciones para iniciar.' });
 			if (!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx'))
 				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
 
@@ -190,5 +182,5 @@ export const actions = {
 		} catch (error) {
 			return { success: false, error: error instanceof Error ? error.message : '' };
 		}
-	}
+	},
 };

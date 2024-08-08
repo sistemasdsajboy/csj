@@ -49,7 +49,7 @@ export const festivosPorMes: Record<string, Array<number>> = {
 	'2025-8': [7, 18],
 	'2025-10': [13],
 	'2025-11': [3, 17],
-	'2025-12': [8, 25]
+	'2025-12': [8, 25],
 };
 
 export const diaJusticia = {
@@ -57,7 +57,7 @@ export const diaJusticia = {
 	'2022-12': [17],
 	'2023-12': [17],
 	'2024-12': [17],
-	'2025-12': [17]
+	'2025-12': [17],
 };
 
 export const semanaSantaCompleta = {
@@ -66,7 +66,7 @@ export const semanaSantaCompleta = {
 	'2022-4': [11, 12, 13, 14, 15],
 	'2023-4': [3, 4, 5, 6, 7],
 	'2024-3': [25, 26, 27, 28, 29],
-	'2025-4': [14, 15, 16, 17, 18]
+	'2025-4': [14, 15, 16, 17, 18],
 };
 
 export const vacanciaJudicial = {
@@ -79,15 +79,11 @@ export const vacanciaJudicial = {
 	'2024-1': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 	'2024-12': [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
 	'2025-1': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-	'2025-12': [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+	'2025-12': [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
 };
 
-export const unirFechasNoHabiles = (
-	...excludedDates: Array<Record<string, Array<number>>>
-): Record<string, Array<number>> => {
-	const mergeArrays = (obj: Array<number> = [], src: Array<number> = []) => [
-		...new Set([...obj, ...src])
-	];
+export const unirFechasNoHabiles = (...excludedDates: Array<Record<string, Array<number>>>): Record<string, Array<number>> => {
+	const mergeArrays = (obj: Array<number> = [], src: Array<number> = []) => [...new Set([...obj, ...src])];
 	return excludedDates.reduce((prev, curr) => _.mergeWith(prev, curr, mergeArrays), {});
 };
 
@@ -99,17 +95,11 @@ export const dateIsWeekend = (date: Date) => {
 export const dateIsHoliday = (excludedDates: Record<string, Array<number>>, date: Date) => {
 	date = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 	const dayjsDate = dayjs(date.toString());
-	const holiday = Boolean(
-		excludedDates[`${dayjsDate.year()}-${dayjsDate.month() + 1}`]?.includes(dayjsDate.date())
-	);
+	const holiday = Boolean(excludedDates[`${dayjsDate.year()}-${dayjsDate.month() + 1}`]?.includes(dayjsDate.date()));
 	return holiday;
 };
 
-export const contarDiasHabiles = (
-	excludedDates: Record<string, Array<number>>,
-	from: Date,
-	to: Date
-) => {
+export const contarDiasHabiles = (excludedDates: Record<string, Array<number>>, from: Date, to: Date) => {
 	let count = 0;
 	let day = dayjs(from);
 	while (day.isBefore(to) || day.isSame(to)) {
@@ -120,5 +110,8 @@ export const contarDiasHabiles = (
 };
 
 // TODO: Just using .format('DD/MM/YYYY') on the db date cause some dates to be shown as the previous day.
-export const formatDate = (date: Date) =>
-	dayjs(date.toISOString().slice(0, 10)).endOf('day').format('DD/MM/YYYY');
+const getISODateDayJs = (date: Date) => dayjs(date.toISOString().slice(0, 10));
+
+export const getISODate = (date: Date) => getISODateDayJs(date).toDate();
+
+export const formatDate = (date: Date) => getISODateDayJs(date).endOf('day').format('DD/MM/YYYY');

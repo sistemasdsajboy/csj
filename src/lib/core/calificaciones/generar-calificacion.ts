@@ -3,49 +3,57 @@ import {
 	contarDiasHabiles,
 	diaJusticia,
 	festivosPorMes,
+	getISODate,
 	semanaSantaCompleta,
 	unirFechasNoHabiles,
-	vacanciaJudicial
+	vacanciaJudicial,
 } from '$lib/utils/dates';
-import type {
-	ClaseRegistroCalificacion,
-	EspecialidadDespacho,
-	RegistroCalificacion,
-	TipoDespacho
-} from '@prisma/client';
+import type { ClaseRegistroCalificacion, EspecialidadDespacho, RegistroCalificacion, TipoDespacho } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 
 const getInventarioInicial = (data: RegistroCalificacion[]) => {
 	const minDate = _.minBy(data, 'desde')?.desde;
-	return _.sumBy(data, (d) => (dayjs(d.desde).isSame(minDate) ? d.inventarioInicial : 0));
+	if (!minDate) return 0;
+
+	return _(data)
+		.filter((d) => dayjs(d.desde).isSame(minDate))
+		.sumBy('inventarioInicial');
 };
 
 const getIngresoEfectivo = (data: RegistroCalificacion[]) => {
-	return _.sumBy(data, (d) => d.ingresoEfectivo);
+	return _(data).sumBy('ingresoEfectivo');
 };
 
 const getIngresoEfectivoUltimoPeriodo = (data: RegistroCalificacion[]) => {
-	return _.sumBy(data, (d) => (dayjs(d.desde).month() >= 9 ? d.ingresoEfectivo : 0));
+	return _(data)
+		.filter((d) => getISODate(d.desde).getMonth() >= 9)
+		.sumBy('ingresoEfectivo');
 };
 
 const getInventarioFinal = (data: RegistroCalificacion[], funcionarioId: string) => {
 	const maxDesde = _.maxBy(data, 'desde')?.desde;
+	if (!maxDesde) return 0;
+	// El inventario final de acciones de tutela solo se descuenta si se encuentra en el último trimestre.
+	if (getISODate(maxDesde).getMonth() < 9) return 0;
+
 	return _(data)
 		.filter((d) => d.funcionarioId === funcionarioId && dayjs(d.desde).isSame(maxDesde))
-		.sumBy((d) => d.inventarioFinal);
+		.sumBy('inventarioFinal');
 };
 
 const getEgresoTotal = (data: RegistroCalificacion[]) => _.sumBy(data, 'egresoEfectivo');
 
 const getEgresoFuncionario = (data: RegistroCalificacion[], funcionarioId: string) => {
-	return _.sumBy(data, (d) =>
-		d.funcionarioId === funcionarioId ? d.egresoEfectivo + d.conciliaciones : 0
-	);
+	return _(data)
+		.filter((d) => d.funcionarioId === funcionarioId)
+		.sumBy((d) => d.egresoEfectivo + d.conciliaciones);
 };
 
 const getEgresoOtrosFuncionarios = (data: RegistroCalificacion[], funcionarioId: string) => {
-	return _.sumBy(data, (d) => (d.funcionarioId !== funcionarioId ? d.egresoEfectivo : 0));
+	return _(data)
+		.filter((d) => d.funcionarioId !== funcionarioId)
+		.sumBy('egresoEfectivo');
 };
 
 const getCargaBaseCalificacion = (data: RegistroCalificacion[]) => {
@@ -63,21 +71,16 @@ const generadorResultadosSubfactor =
 		capacidadMaxima: number,
 		especialidad: EspecialidadDespacho
 	) =>
-	(
-		data: RegistroCalificacion[],
-		dataTutelas: RegistroCalificacion[],
-		maxResultado: number,
-		clase: ClaseRegistroCalificacion
-	) => {
+	(data: RegistroCalificacion[], dataTutelas: RegistroCalificacion[], maxResultado: number, subfactor: ClaseRegistroCalificacion) => {
 		if (!data.length)
 			return {
-				subfactor: clase,
+				subfactor,
 				totalInventarioInicial: 0,
 				cargaBaseCalificacionDespacho: 0,
 				cargaBaseCalificacionFuncionario: 0,
 				egresoFuncionario: 0,
 				cargaProporcional: 0,
-				totalSubfactor: 0
+				totalSubfactor: 0,
 			};
 
 		const filtrarRegistrosCalificacionPorPeriodoFuncionario = (data: RegistroCalificacion[]) => {
@@ -101,57 +104,45 @@ const generadorResultadosSubfactor =
 			return dataFuncionario;
 		};
 
-		const subfactor = data[0].clase;
-		let totalInventarioInicial = getInventarioInicial(data);
-		let egresoFuncionario = getEgresoFuncionario(data, funcionarioId);
-		let egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(data, funcionarioId);
-		let cargaBaseCalificacionDespacho = getCargaBaseCalificacion(data);
-
 		const dataFuncionario = filtrarRegistrosCalificacionPorPeriodoFuncionario(data);
-		const dataFuncionarioTutelas = filtrarRegistrosCalificacionPorPeriodoFuncionario(dataTutelas);
+		const dataFuncTutelas = filtrarRegistrosCalificacionPorPeriodoFuncionario(dataTutelas);
 
+		let totalInventarioInicial = getInventarioInicial(data);
+		let egresoFuncionario = getEgresoFuncionario(dataFuncionario, funcionarioId);
+		let egresoOtrosFuncionarios = getEgresoOtrosFuncionarios(dataFuncionario, funcionarioId);
+		let cargaBaseCalificacionDespacho = getCargaBaseCalificacion(data);
 		let cargaBaseCalificacionFuncionario = getCargaBaseCalificacion(dataFuncionario);
 
 		if (subfactor === 'oral' || subfactor === 'escrito') {
 			// No restar el ingreso del último periodo cuando el despacho es un Juzgado de Ejecución de Penas.
 			if (especialidad !== 'EjecucionPenas') {
-				cargaBaseCalificacionDespacho -= getIngresoEfectivoUltimoPeriodo(data);
-				cargaBaseCalificacionFuncionario -= getIngresoEfectivoUltimoPeriodo(dataFuncionario);
+				const ingresoEfectivoUltimoPeriodo = getIngresoEfectivoUltimoPeriodo(data);
+				cargaBaseCalificacionDespacho -= ingresoEfectivoUltimoPeriodo;
+				const ingresoEfectivoUltimoPeriodoFunc = getIngresoEfectivoUltimoPeriodo(dataFuncionario);
+				cargaBaseCalificacionFuncionario -= ingresoEfectivoUltimoPeriodoFunc;
 			}
 			if ((!hayEscritos && subfactor === 'oral') || (hayEscritos && subfactor === 'escrito')) {
 				totalInventarioInicial += getInventarioInicial(dataTutelas);
 				egresoFuncionario += getEgresoFuncionario(dataTutelas, funcionarioId);
-				egresoOtrosFuncionarios =
-					egresoOtrosFuncionarios + getEgresoOtrosFuncionarios(dataTutelas, funcionarioId);
-				cargaBaseCalificacionDespacho +=
-					getCargaBaseCalificacion(dataTutelas) - getInventarioFinal(dataTutelas, funcionarioId);
-				cargaBaseCalificacionFuncionario +=
-					getCargaBaseCalificacion(dataFuncionarioTutelas) -
-					getInventarioFinal(dataFuncionarioTutelas, funcionarioId);
+				egresoOtrosFuncionarios += getEgresoOtrosFuncionarios(dataFuncTutelas, funcionarioId);
+				const cargaBaseTutelas = getCargaBaseCalificacion(dataTutelas);
+				const inventarioFinalTutelas = getInventarioFinal(dataTutelas, funcionarioId);
+				cargaBaseCalificacionDespacho += cargaBaseTutelas - inventarioFinalTutelas;
+				cargaBaseCalificacionFuncionario += getCargaBaseCalificacion(dataFuncTutelas) - getInventarioFinal(dataFuncTutelas, funcionarioId);
 			}
 		}
 
-		cargaBaseCalificacionFuncionario = cargaBaseCalificacionDespacho - egresoOtrosFuncionarios;
+		cargaBaseCalificacionFuncionario -= egresoOtrosFuncionarios;
 
 		// La capacidad máxima solo aplica para el subfactor "oral", de modo que para los demás subfactores se usa el valor
 		// infinito para excluirlo del cálculo de la carga mínima.
-		const capacidadMaximaProporcional =
-			subfactor === 'oral'
-				? (capacidadMaxima * diasHabilesFuncionario) / diasHabilesDespacho
-				: Infinity;
-		const cargaProporcional =
-			(cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
+		const capacidadMaximaProporcional = subfactor === 'oral' ? (capacidadMaxima * diasHabilesFuncionario) / diasHabilesDespacho : Infinity;
+		const cargaProporcional = (cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
 
 		// Se calcula la carga que resulta más favorable para el funcionario, es decir, la menor carga.
-		const cargaMinima = Math.min(
-			cargaProporcional,
-			cargaBaseCalificacionFuncionario,
-			capacidadMaximaProporcional
-		);
+		const cargaMinima = Math.min(cargaProporcional, cargaBaseCalificacionFuncionario, capacidadMaximaProporcional);
 
-		const totalSubfactor = cargaMinima
-			? Math.min((egresoFuncionario / cargaMinima) * maxResultado, maxResultado)
-			: 0;
+		const totalSubfactor = cargaMinima ? Math.min((egresoFuncionario / cargaMinima) * maxResultado, maxResultado) : 0;
 
 		return {
 			subfactor,
@@ -160,13 +151,13 @@ const generadorResultadosSubfactor =
 			cargaBaseCalificacionFuncionario,
 			egresoFuncionario,
 			cargaProporcional,
-			totalSubfactor
+			totalSubfactor,
 		};
 	};
 
 function generarConsolidado({
 	diasNoHabiles,
-	registros
+	registros,
 }: {
 	diasNoHabiles: Record<string, Array<number>>;
 	registros: RegistroCalificacion[];
@@ -188,7 +179,7 @@ function generarConsolidado({
 			egresoEfectivo: _.sumBy(d, 'egresoEfectivo'),
 			conciliaciones: _.sumBy(d, 'conciliaciones'),
 			inventarioFinal: _.sumBy(d, 'inventarioFinal'),
-			restan: _.sumBy(d, 'restan')
+			restan: _.sumBy(d, 'restan'),
 		}))
 		.sortBy('desde')
 		.value();
@@ -201,8 +192,7 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 
 	const { especialidad, categoria } = tipoDespacho;
 
-	if (especialidad === 'EjecucionPenas' || especialidad === 'FamiliaPromiscuo')
-		return unirFechasNoHabiles(festivosPorMes, diaJusticia);
+	if (especialidad === 'EjecucionPenas' || especialidad === 'FamiliaPromiscuo') return unirFechasNoHabiles(festivosPorMes, diaJusticia);
 
 	if (
 		categoria === 'Municipal' &&
@@ -217,38 +207,33 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 	return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
-async function calcularPonderada(
-	calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[]
-) {
+async function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[]) {
 	if (calificaciones.length === 0) return 0;
 	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
 
 	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborados');
 	return _(calificaciones)
-		.map(
-			({ diasLaborados, calificacionTotalFactorEficiencia }) =>
-				(calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborados
-		)
+		.map(({ diasLaborados, calificacionTotalFactorEficiencia }) => (calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborados)
 		.sum();
 }
 
 async function generarCalificacionPonderada(calificacionId: string) {
 	const calificacion = await db.calificacionPeriodo.findFirst({
 		where: { id: calificacionId },
-		include: { calificaciones: true }
+		include: { calificaciones: true },
 	});
 	if (!calificacion) throw new Error('Calificación no encontrada');
 
 	const calificacionPonderada = await calcularPonderada(calificacion.calificaciones ?? []);
 	await db.calificacionPeriodo.update({
 		where: { id: calificacionId },
-		data: { calificacionPonderada }
+		data: { calificacionPonderada },
 	});
 }
 
 async function findOrCreateCalificacionPeriodo(funcionarioId: string, periodo: number) {
 	const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
-		where: { funcionarioId, periodo }
+		where: { funcionarioId, periodo },
 	});
 	if (calificacionPeriodo) return calificacionPeriodo;
 	return db.calificacionPeriodo.create({ data: { estado: 'borrador', funcionarioId, periodo } });
@@ -261,8 +246,8 @@ async function getCuentaProcesosEscritos(despachoId: string, periodo: number) {
 			periodo,
 			clase: 'escrito',
 			categoria: { not: 'Consolidado' },
-			cargaEfectiva: { gt: 0 }
-		}
+			cargaEfectiva: { gt: 0 },
+		},
 	});
 }
 
@@ -270,7 +255,7 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
 	const despacho = await db.despacho.findFirst({
 		where: { id: despachoId },
-		include: { tipoDespacho: true }
+		include: { tipoDespacho: true },
 	});
 	if (!despacho) return;
 
@@ -279,32 +264,29 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 		// Cuando hay procesos escritos, estas categorías se acumulan con ellos.
 		await db.registroCalificacion.updateMany({
 			where: { despachoId, periodo, categoria: { in: categoriasConstitucional } },
-			data: { clase: 'escrito' }
+			data: { clase: 'escrito' },
 		});
 
 		const categoriaPenalEscrito = [
 			'segunda Instancia Ejecución de penas y medidas de seguridad ccto',
-			'Segunda Instancia Acciones Constitucionales'
+			'Segunda Instancia Acciones Constitucionales',
 		];
-		if (
-			despacho.tipoDespacho?.especialidad.startsWith('Penal') &&
-			despacho.tipoDespacho.categoria === 'Circuito'
-		) {
+		if (despacho.tipoDespacho?.especialidad.startsWith('Penal') && despacho.tipoDespacho.categoria === 'Circuito') {
 			await db.registroCalificacion.updateMany({
 				where: { despachoId, periodo, categoria: { in: categoriaPenalEscrito } },
-				data: { clase: 'escrito' }
+				data: { clase: 'escrito' },
 			});
 		}
 	} else {
 		// Si el despacho es de control de garantías, las acciones constitucionales de primera instancia se asumen como "oral".
 		const despacho = await db.despacho.findFirst({
 			where: { id: despachoId },
-			include: { tipoDespacho: true }
+			include: { tipoDespacho: true },
 		});
 		if (despacho?.tipoDespacho?.especialidad === 'PenalGarantias')
 			await db.registroCalificacion.updateMany({
 				where: { despachoId, periodo, categoria: { in: categoriasConstitucional } },
-				data: { clase: 'oral' }
+				data: { clase: 'oral' },
 			});
 	}
 
@@ -314,19 +296,15 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 		'Movimiento de Tutelas',
 		'Procesos con sentencia y trámite posterior incidentes de Desacato',
 		'Consultas Incidentes de Desacato',
-		'Movimiento de Impugnaciones'
+		'Movimiento de Impugnaciones',
 	];
 	await db.registroCalificacion.updateMany({
 		where: { despachoId, periodo, categoria: { in: categoriasTutelas } },
-		data: { clase: 'tutelas' }
+		data: { clase: 'tutelas' },
 	});
 }
 
-export async function generarCalificacionFuncionario(
-	funcionarioId: string,
-	despachoId: string,
-	periodo: number
-): Promise<string> {
+export async function generarCalificacionFuncionario(funcionarioId: string, despachoId: string, periodo: number): Promise<string> {
 	const calificacionPeriodo = await findOrCreateCalificacionPeriodo(funcionarioId, periodo);
 	if (calificacionPeriodo.estado === 'aprobada') return calificacionPeriodo.id;
 
@@ -337,28 +315,23 @@ export async function generarCalificacionFuncionario(
 			novedades: {
 				where: {
 					despachoId,
-					OR: [
-						{ from: { lte: new Date(periodo, 11, 31) } },
-						{ to: { gte: new Date(periodo, 0, 1) } }
-					]
-				}
-			}
-		}
+					OR: [{ from: { lte: new Date(periodo, 11, 31) } }, { to: { gte: new Date(periodo, 0, 1) } }],
+				},
+			},
+		},
 	});
 	if (!funcionario) throw new Error('Funcionario no encontrado');
 
 	const despacho = await db.despacho.findFirst({
 		where: { id: despachoId },
-		include: { tipoDespacho: { include: { capacidadesMaximas: true } } }
+		include: { tipoDespacho: { include: { capacidadesMaximas: true } } },
 	});
 	if (!despacho) throw new Error('Despacho no encontrado');
 	if (!despacho.tipoDespacho)
-		throw new Error(
-			`Se debe especificar el tipo de despacho para el ${despacho.nombre} antes de poder generar la calificación.`
-		);
+		throw new Error(`Se debe especificar el tipo de despacho para el ${despacho.nombre} antes de poder generar la calificación.`);
 
 	const capacidadMaxima = await db.capacidadMaximaRespuesta.findFirst({
-		where: { tipoDespachoId: despacho.tipoDespacho.id, periodo }
+		where: { tipoDespachoId: despacho.tipoDespacho.id, periodo },
 	});
 	if (!capacidadMaxima)
 		throw new Error(
@@ -366,7 +339,7 @@ export async function generarCalificacionFuncionario(
 		);
 
 	let audiencias = await db.registroAudiencias.findFirst({
-		where: { periodo, funcionarioId, despachoId }
+		where: { periodo, funcionarioId, despachoId },
 	});
 	if (!audiencias)
 		audiencias = await db.registroAudiencias.create({
@@ -378,21 +351,17 @@ export async function generarCalificacionFuncionario(
 				atendidas: 0,
 				aplazadasAjenas: 0,
 				aplazadasJustificadas: 0,
-				aplazadasNoJustificadas: 0
-			}
+				aplazadasNoJustificadas: 0,
+			},
 		});
 
 	await actualizarClaseRegistros(despachoId, periodo);
 
 	const diasNoHabiles = getDiasFestivosPorTipoDespacho(despacho.tipoDespacho);
-	const diasHabilesDespacho = contarDiasHabiles(
-		diasNoHabiles,
-		new Date(periodo, 0, 1),
-		new Date(periodo, 11, 31)
-	);
+	const diasHabilesDespacho = contarDiasHabiles(diasNoHabiles, new Date(periodo, 0, 1), new Date(periodo, 11, 31));
 
 	const registros = await db.registroCalificacion.findMany({
-		where: { despachoId, periodo, categoria: { not: 'Consolidado' } }
+		where: { despachoId, periodo, categoria: { not: 'Consolidado' } },
 	});
 
 	const registrosTutelas = registros.filter((registro) => registro.clase === 'tutelas');
@@ -403,9 +372,7 @@ export async function generarCalificacionFuncionario(
 		.map((registro) => registro.dias)
 		.reduce((a, b) => a + b, 0);
 
-	const diasDescontados = funcionario.novedades
-		? funcionario.novedades.reduce((dias, novedad) => dias + novedad.days, 0)
-		: 0;
+	const diasDescontados = funcionario.novedades ? funcionario.novedades.reduce((dias, novedad) => dias + novedad.days, 0) : 0;
 
 	// Dias de las novedades que se encuentran dentro de los rangos de tiempo efectivamente laborado.
 	const diasDescontables = funcionario.novedades
@@ -441,10 +408,8 @@ export async function generarCalificacionFuncionario(
 	const tutelasEscrito = cuentaProcesosEscritos > 0 ? registrosTutelas : [];
 	const escrito = generarResultadosSubfactor(registrosEscrito, tutelasEscrito, 45, 'escrito');
 
-	const sumaAudiencias =
-		audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas;
-	const calificacionAudiencias =
-		audiencias.programadas === 0 ? 0 : (sumaAudiencias / audiencias.programadas) * 5;
+	const sumaAudiencias = audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas;
+	const calificacionAudiencias = audiencias.programadas === 0 ? 0 : (sumaAudiencias / audiencias.programadas) * 5;
 
 	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 
@@ -457,20 +422,10 @@ export async function generarCalificacionFuncionario(
 	const egresoGarantias = getEgresoTotal(registrosGarantias);
 	const egresoEscrito = getEgresoTotal(registrosEscrito);
 
-	const totalesParaPromedio = [
-		factorOralMasAudiencias,
-		garantias.totalSubfactor,
-		escrito.totalSubfactor
-	].filter(Boolean);
-	const calificacionTotalFactorEficiencia =
-		totalesParaPromedio.reduce((sum, val) => sum + val, 0) / totalesParaPromedio.length;
+	const totalesParaPromedio = [factorOralMasAudiencias, garantias.totalSubfactor, escrito.totalSubfactor].filter(Boolean);
+	const calificacionTotalFactorEficiencia = totalesParaPromedio.reduce((sum, val) => sum + val, 0) / totalesParaPromedio.length;
 
-	const consolidados = [
-		...consolidadoOral,
-		...consolidadoTutelas,
-		...consolidadoGarantias,
-		...consolidadoEscrito
-	];
+	const consolidados = [...consolidadoOral, ...consolidadoTutelas, ...consolidadoGarantias, ...consolidadoEscrito];
 
 	const data = {
 		calificacionId: calificacionPeriodo.id,
@@ -485,19 +440,19 @@ export async function generarCalificacionFuncionario(
 		registroAudienciasId: audiencias.id,
 		calificacionAudiencias,
 		factorOralMasAudiencias,
-		calificacionTotalFactorEficiencia
+		calificacionTotalFactorEficiencia,
 	};
 
 	const calificacion = await db.calificacionDespacho.findFirst({
-		where: { calificacionId: calificacionPeriodo.id, despachoId: despacho.id }
+		where: { calificacionId: calificacionPeriodo.id, despachoId: despacho.id },
 	});
 
 	if (calificacion) {
 		await db.registroCalificacion.deleteMany({
-			where: { calificacionId: calificacion.id, categoria: 'Consolidado' }
+			where: { calificacionId: calificacion.id, categoria: 'Consolidado' },
 		});
 		await db.calificacionSubfactor.deleteMany({
-			where: { calificacionId: calificacion.id }
+			where: { calificacionId: calificacion.id },
 		});
 		await db.calificacionDespacho.update({ where: { id: calificacion.id }, data });
 	} else {
