@@ -18,14 +18,14 @@
 		revision: 'Para revisar',
 		aprobada: 'Aprobada',
 		devuelta: 'Devuelta',
-		eliminada: 'Eliminada'
+		eliminada: 'Eliminada',
 	};
 
 	function actualizarFiltro(filter: string, value: string) {
 		fetch('?/actualizarFiltro', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-			body: new URLSearchParams({ filter, value })
+			body: new URLSearchParams({ filter, value }),
 		}).then(() => {
 			goto('/calificaciones', { replaceState: true, invalidateAll: true });
 		});
@@ -69,11 +69,8 @@
 
 					<Label for="despachoId">Despacho Calificador</Label>
 					<Select.Root
-						onSelectedChange={(selected) =>
-							actualizarFiltro('despachoSeccionalId', selected?.value || '')}
-						selected={data.opcionesFiltros.despachosCalificadores.find(
-							(d) => data.filtros.despachoSeccionalId === d.value
-						)}
+						onSelectedChange={(selected) => actualizarFiltro('despachoSeccionalId', selected?.value || '')}
+						selected={data.opcionesFiltros.despachosCalificadores.find((d) => data.filtros.despachoSeccionalId === d.value)}
 					>
 						<Select.Trigger class="w-full">
 							<Select.Value />
@@ -90,11 +87,8 @@
 
 					<Label for="tipoDespachoId">Tipo de despacho</Label>
 					<Select.Root
-						onSelectedChange={(selected) =>
-							actualizarFiltro('tipoDespachoId', selected?.value || '')}
-						selected={data.opcionesFiltros.tiposDespacho.find(
-							(d) => data.filtros.tipoDespachoId === d.value
-						)}
+						onSelectedChange={(selected) => actualizarFiltro('tipoDespachoId', selected?.value || '')}
+						selected={data.opcionesFiltros.tiposDespacho.find((d) => data.filtros.tipoDespachoId === d.value)}
 					>
 						<Select.Trigger class="w-full">
 							<Select.Value />
@@ -130,9 +124,7 @@
 					<Label for="municipio">Municipio</Label>
 					<Select.Root
 						onSelectedChange={(selected) => actualizarFiltro('municipio', selected?.value || '')}
-						selected={data.opcionesFiltros.municipios.find(
-							(d) => data.filtros.municipio === d.value
-						)}
+						selected={data.opcionesFiltros.municipios.find((d) => data.filtros.municipio === d.value)}
 					>
 						<Select.Trigger class="w-full">
 							<Select.Value />
@@ -152,17 +144,12 @@
 
 		<CargaXlsxEstadisticasForm {form} />
 
-		<SeleccionFuncionario bind:funcionarioId funcionarios={data.funcionarios}
-		></SeleccionFuncionario>
+		<SeleccionFuncionario bind:funcionarioId funcionarios={data.funcionarios}></SeleccionFuncionario>
 	</div>
 {/snippet}
 
 <PageLayout {header} {sidebar} username={data.user}>
-	<Tabs.Root
-		value={data.estado}
-		class="w-full"
-		onValueChange={(e) => actualizarFiltro('estado', e as string)}
-	>
+	<Tabs.Root value={data.estado} class="w-full" onValueChange={(e) => actualizarFiltro('estado', e as string)}>
 		<Tabs.List class="flex w-full justify-between">
 			{#each data.estados as e}
 				<Tabs.Trigger value={e} class="flex w-full gap-2 ">
@@ -173,7 +160,7 @@
 		<Tabs.Content value={data.estado}>
 			{#each data.calificaciones as calificacion}
 				<a
-					href="/calificacion/{calificacion.id}"
+					href="/calificacion/{calificacion.id}?despacho={calificacion.calificaciones[0].despachoId}"
 					class="grid grid-cols-[160px_1fr] items-center justify-start gap-2 p-2 hover:bg-slate-100"
 				>
 					<div class="flex flex-col items-start gap-2">
@@ -198,9 +185,7 @@
 					</div>
 				</a>
 			{:else}
-				<div class="text-slate-600">
-					No hay calificaciones que coincidan con los criterios de búsqueda.
-				</div>
+				<div class="text-slate-600">No hay calificaciones que coincidan con los criterios de búsqueda.</div>
 			{/each}
 		</Tabs.Content>
 	</Tabs.Root>

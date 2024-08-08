@@ -11,14 +11,14 @@ export const load = (async ({ params }) => {
 	const registrosPeriodos = await db.registroCalificacion.findMany({
 		where: { funcionarioId: params.funcionarioId },
 		select: { periodo: true },
-		distinct: ['periodo']
+		distinct: ['periodo'],
 	});
 	const periodos = _.map(registrosPeriodos, 'periodo');
 
 	const despachosPeriodos = await db.registroCalificacion.findMany({
 		where: { funcionarioId: params.funcionarioId },
 		select: { despacho: true, periodo: true },
-		distinct: ['despachoId']
+		distinct: ['despachoId'],
 	});
 
 	return { funcionario, periodos, despachosPeriodos };
@@ -34,8 +34,7 @@ export const actions = {
 		const despachoId = form.get('despachoId') as string;
 		const periodo = parseInt(form.get('periodo') as string);
 
-		if (!despachoId || !periodo || Number.isNaN(periodo))
-			return fail(400, { error: 'Datos incompletos.' });
+		if (!despachoId || !periodo || Number.isNaN(periodo)) return fail(400, { error: 'Datos incompletos.' });
 
 		let calificacionId: string;
 		try {
@@ -43,6 +42,6 @@ export const actions = {
 		} catch (error) {
 			return fail(400, { error: error instanceof Error ? error.message : '' });
 		}
-		return redirect(302, `/calificacion/${calificacionId}`);
-	}
+		return redirect(302, `/calificacion/${calificacionId}?despacho=${despachoId}`);
+	},
 };
