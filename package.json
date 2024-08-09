@@ -39,6 +39,7 @@
     "eslint-plugin-svelte": "^2.36.0-next.4",
     "file-saver": "^2.0.5",
     "git-format-staged": "^3.1.1",
+    "husky": "^9.1.4",
     "lodash": "^4.17.21",
     "lucia": "^3.2.0",
     "mongodb": "^6.6.2",
