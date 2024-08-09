@@ -191,6 +191,8 @@ model RegistroCalificacion {
   conciliaciones    Int
   inventarioFinal   Int
   restan            Int
+  // Campo agregado al formato consolidado de estadísticas. No se incluyó en los primeros registros de la base de datos.
+  cargaBruta        Int?                      @default(0)
   // Solo para registros con categoria "Consolidado"
   calificacionId    String?                   @db.ObjectId
   calificacion      CalificacionDespacho?     @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
