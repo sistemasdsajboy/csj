@@ -31,14 +31,15 @@ const getIngresoEfectivoUltimoPeriodo = (data: RegistroCalificacion[]) => {
 		.sumBy('ingresoEfectivo');
 };
 
-const getInventarioFinal = (data: RegistroCalificacion[], funcionarioId: string) => {
+const getInventarioFinal = (data: RegistroCalificacion[], funcionarioId?: string) => {
 	const maxDesde = _.maxBy(data, 'desde')?.desde;
 	if (!maxDesde) return 0;
-	// El inventario final de acciones de tutela solo se descuenta si se encuentra en el último trimestre.
-	if (getISODate(maxDesde).getMonth() < 9) return 0;
+
+	// El inventario final de acciones de tutela del funcionario solo se descuenta si se encuentra en el último trimestre.
+	if (funcionarioId && getISODate(maxDesde).getMonth() < 9) return 0;
 
 	return _(data)
-		.filter((d) => d.funcionarioId === funcionarioId && dayjs(d.desde).isSame(maxDesde))
+		.filter((d) => (!funcionarioId || d.funcionarioId === funcionarioId) && dayjs(d.desde).isSame(maxDesde))
 		.sumBy('inventarioFinal');
 };
 
@@ -126,7 +127,7 @@ const generadorResultadosSubfactor =
 				egresoFuncionario += getEgresoFuncionario(dataTutelas, funcionarioId);
 				egresoOtrosFuncionarios += getEgresoOtrosFuncionarios(dataFuncTutelas, funcionarioId);
 				const cargaBaseTutelas = getCargaBaseCalificacion(dataTutelas);
-				const inventarioFinalTutelas = getInventarioFinal(dataTutelas, funcionarioId);
+				const inventarioFinalTutelas = getInventarioFinal(dataTutelas);
 				cargaBaseCalificacionDespacho += cargaBaseTutelas - inventarioFinalTutelas;
 				cargaBaseCalificacionFuncionario += getCargaBaseCalificacion(dataFuncTutelas) - getInventarioFinal(dataFuncTutelas, funcionarioId);
 			}
