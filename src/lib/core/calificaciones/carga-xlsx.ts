@@ -113,7 +113,7 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 				hasta: d.hasta,
 				periodo: d.periodo,
 				clase: d.clase,
-				categoria: d.categoria,
+				categoria: d.categoria.replaceAll('.', ''),
 				despachoId: d.despachoId,
 				funcionarioId: d.funcionarioId,
 			})),
