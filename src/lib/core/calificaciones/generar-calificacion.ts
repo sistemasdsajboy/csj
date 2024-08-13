@@ -114,13 +114,13 @@ const generadorResultadosSubfactor =
 		let cargaBaseCalificacionFuncionario = getCargaBaseCalificacion(dataFuncionario);
 
 		if (subfactor === 'oral' || subfactor === 'escrito') {
-			// No restar el ingreso del último periodo cuando el despacho es un Juzgado de Ejecución de Penas.
-			if (especialidad !== 'EjecucionPenas') {
-				const ingresoEfectivoUltimoPeriodo = getIngresoEfectivoUltimoPeriodo(data);
-				cargaBaseCalificacionDespacho -= ingresoEfectivoUltimoPeriodo;
-				const ingresoEfectivoUltimoPeriodoFunc = getIngresoEfectivoUltimoPeriodo(dataFuncionario);
-				cargaBaseCalificacionFuncionario -= ingresoEfectivoUltimoPeriodoFunc;
-			}
+			// Anteriormente se tenían en cuenta los procesos del cuarto trimestre para los juzgados de ejecución de penas,
+			// Ahora se excluyen los procesos de cuarto trimestre para todos los juzgados de conformidad con el criterio de la Unidad de Carrera Judicial.
+			const ingresoEfectivoUltimoPeriodo = getIngresoEfectivoUltimoPeriodo(data);
+			cargaBaseCalificacionDespacho -= ingresoEfectivoUltimoPeriodo;
+			const ingresoEfectivoUltimoPeriodoFunc = getIngresoEfectivoUltimoPeriodo(dataFuncionario);
+			cargaBaseCalificacionFuncionario -= ingresoEfectivoUltimoPeriodoFunc;
+
 			if ((!hayEscritos && subfactor === 'oral') || (hayEscritos && subfactor === 'escrito')) {
 				totalInventarioInicial += getInventarioInicial(dataTutelas);
 				egresoFuncionario += getEgresoFuncionario(dataTutelas, funcionarioId);
