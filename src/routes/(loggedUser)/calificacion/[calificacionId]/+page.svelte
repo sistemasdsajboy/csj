@@ -35,6 +35,10 @@
 
 	const calificacionTotal = $derived(calificacion.calificacionTotalFactorEficiencia.toFixed(2));
 	const calificacionPonderada = $derived(calificacion.calificacion.calificacionPonderada.toFixed(2) || 0);
+
+	const mostrarTablaTutelas = $derived(consolidadoTutelas.length > 0 && consolidadoTutelas.some((c) => c.cargaEfectiva > 0));
+	const mostrarTablaOral = $derived(consolidadoOrdinario.length > 0 && consolidadoOrdinario.some((c) => c.cargaEfectiva > 0));
+	const mostrarTablaEscrito = $derived(consolidadoEscrito.length > 0 && consolidadoEscrito.some((c) => c.cargaEfectiva > 0));
 </script>
 
 {#snippet header()}
@@ -174,15 +178,15 @@
 			<NovedadesList {novedades} />
 		</div>
 
-		{#if consolidadoTutelas.length > 0 && consolidadoTutelas.some((c) => c.cargaEfectiva > 0)}
+		{#if mostrarTablaTutelas}
 			{@render tablaConsolidado('Tutelas e incidentes', consolidadoTutelas)}
 		{/if}
 
-		{#if consolidadoOrdinario.length > 0 && consolidadoOrdinario.some((c) => c.cargaEfectiva > 0)}
+		{#if mostrarTablaOral}
 			{@render tablaConsolidado('Oral', consolidadoOrdinario)}
 		{/if}
 
-		{#if (consolidadoTutelas.length > 0 && consolidadoTutelas.some((c) => c.cargaEfectiva > 0)) || (consolidadoOrdinario.length > 0 && consolidadoOrdinario.some((c) => c.cargaEfectiva > 0))}
+		{#if mostrarTablaOral || (mostrarTablaTutelas && !mostrarTablaEscrito)}
 			<div class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 print:grid-cols-7">
 				{@render tarjetaValor('Total inventario inicial', oral?.totalInventarioInicial)}
 				{@render tarjetaValor('Carga base del despacho modificada', oral?.cargaBaseCalificacionDespacho)}
@@ -207,7 +211,7 @@
 			</div>
 		{/if}
 
-		{#if consolidadoEscrito.length > 0 && consolidadoEscrito.some((c) => c.cargaEfectiva > 0)}
+		{#if mostrarTablaEscrito}
 			{@render tablaConsolidado('Escrito', consolidadoEscrito)}
 
 			<div class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">
