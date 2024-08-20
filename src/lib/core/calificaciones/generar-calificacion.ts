@@ -8,7 +8,7 @@ import {
 	unirFechasNoHabiles,
 	vacanciaJudicial,
 } from '$lib/utils/dates';
-import type { ClaseRegistroCalificacion, EspecialidadDespacho, RegistroCalificacion, TipoDespacho } from '@prisma/client';
+import type { ClaseRegistroCalificacion, RegistroCalificacion, TipoDespacho } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 
@@ -64,14 +64,7 @@ const getCargaBaseCalificacion = (data: RegistroCalificacion[]) => {
 };
 
 const generadorResultadosSubfactor =
-	(
-		funcionarioId: string,
-		diasHabilesDespacho: number,
-		diasHabilesFuncionario: number,
-		hayEscritos: boolean,
-		capacidadMaxima: number,
-		especialidad: EspecialidadDespacho
-	) =>
+	(funcionarioId: string, diasHabilesDespacho: number, diasHabilesFuncionario: number, hayEscritos: boolean, capacidadMaxima: number) =>
 	(data: RegistroCalificacion[], dataTutelas: RegistroCalificacion[], maxResultado: number, subfactor: ClaseRegistroCalificacion) => {
 		if (!data.length)
 			return {
@@ -198,7 +191,8 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 	if (
 		categoria === 'Municipal' &&
 		(especialidad === 'Penal' ||
-			especialidad === 'PenalAdolescentes' ||
+			especialidad === 'PenalAdolescentesConocimiento' ||
+			especialidad === 'PenalAdolescentesGarantias' ||
 			especialidad === 'PenalGarantias' ||
 			especialidad === 'PenalConocimiento' ||
 			especialidad === 'PenalMixto')
@@ -254,6 +248,8 @@ async function getCuentaProcesosEscritos(despachoId: string, periodo: number) {
 
 async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
+	const hayEscritos = cuentaProcesosEscritos > 0;
+
 	const despacho = await db.despacho.findFirst({
 		where: { id: despachoId },
 		include: { tipoDespacho: true },
@@ -261,7 +257,7 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	if (!despacho) return;
 
 	const categoriasConstitucional = ['Primera Instancia Acciones Constitucionales'];
-	if (cuentaProcesosEscritos > 0) {
+	if (hayEscritos) {
 		// Cuando hay procesos escritos, estas categorías se acumulan con ellos.
 		await db.registroCalificacion.updateMany({
 			where: { despachoId, periodo, categoria: { in: categoriasConstitucional } },
@@ -385,20 +381,22 @@ export async function generarCalificacionFuncionario(funcionarioId: string, desp
 	const diasHabilesLaborados = diasHabilesVinculacion - diasDescontables;
 
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
+	const hayEscritos = cuentaProcesosEscritos > 0;
 
 	const generarResultadosSubfactor = generadorResultadosSubfactor(
 		funcionario.id,
 		diasHabilesDespacho,
 		diasHabilesLaborados,
-		cuentaProcesosEscritos > 0,
-		capacidadMaxima.cantidad,
-		despacho.tipoDespacho.especialidad
+		hayEscritos,
+		capacidadMaxima.cantidad
 	);
 
 	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
 	const consolidadoOral = generarConsolidado({ diasNoHabiles, registros: registrosOral });
-	const tutelasOral = cuentaProcesosEscritos > 0 ? [] : registrosTutelas;
-	const oral = generarResultadosSubfactor(registrosOral, tutelasOral, 40, 'oral');
+
+	const esDespachoGarantias = ['PenalAdolescentesGarantias', 'PenalGarantias'].includes(despacho.tipoDespacho.especialidad);
+	const maximoOral = esDespachoGarantias ? 45 : 40;
+	const oral = generarResultadosSubfactor(registrosOral, hayEscritos ? [] : registrosTutelas, maximoOral, 'oral');
 
 	const registrosGarantias = registros.filter((registro) => registro.clase === 'garantias');
 	const consolidadoGarantias = generarConsolidado({ diasNoHabiles, registros: registrosGarantias });
@@ -406,11 +404,10 @@ export async function generarCalificacionFuncionario(funcionarioId: string, desp
 
 	const registrosEscrito = registros.filter((registro) => registro.clase === 'escrito');
 	const consolidadoEscrito = generarConsolidado({ diasNoHabiles, registros: registrosEscrito });
-	const tutelasEscrito = cuentaProcesosEscritos > 0 ? registrosTutelas : [];
-	const escrito = generarResultadosSubfactor(registrosEscrito, tutelasEscrito, 45, 'escrito');
+	const escrito = generarResultadosSubfactor(registrosEscrito, hayEscritos ? registrosTutelas : [], 45, 'escrito');
 
 	const sumaAudiencias = audiencias.atendidas + audiencias.aplazadasAjenas + audiencias.aplazadasJustificadas;
-	const calificacionAudiencias = audiencias.programadas === 0 ? 0 : (sumaAudiencias / audiencias.programadas) * 5;
+	const calificacionAudiencias = audiencias.programadas === 0 || esDespachoGarantias ? 0 : (sumaAudiencias / audiencias.programadas) * 5;
 
 	const factorOralMasAudiencias = oral.totalSubfactor + calificacionAudiencias;
 

@@ -61,7 +61,8 @@ model Preferencias {
 enum EspecialidadDespacho {
   Promiscuo
   Penal
-  PenalAdolescentes
+  PenalAdolescentesConocimiento
+  PenalAdolescentesGarantias
   PenalConocimiento
   PenalGarantias
   PenalMixto
