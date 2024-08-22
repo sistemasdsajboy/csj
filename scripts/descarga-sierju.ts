@@ -1,11 +1,18 @@
 import playwright from 'playwright';
 import _ from 'lodash';
 
-const USERNAME = '';
-const PASSWORD = '';
+const USERNAME = '7181680';
+const PASSWORD = 'Aw@VCTExQk%2vRSq';
 const URL = 'https://sistemaestadistico.ramajudicial.gov.co/Sierju-Web/app/login';
 // "http://190.217.24.71:7003/Sierju-Web/app/login";
 // "http://190.217.24.72:7003/Sierju-Web/app/login";
+
+// Configuración de backoff exponencial para reintentos.
+const BASE = 1.5;
+const MULTIPLICADOR = 3;
+const MAX_REINTENTOS = 3;
+const PERIODO = 2023;
+const CODIGOS_DESPACHO = ['851624089001'];
 
 async function iniciarSesion(page) {
 	await page.goto(URL);
@@ -136,12 +143,7 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 	return true;
 }
 
-// Configuración de backoff exponencial para reintentos.
-const BASE = 1.5;
-const MULTIPLICADOR = 3;
-const MAX_REINTENTOS = 3;
-const PERIODO = 2023;
-const CODIGOS_DESPACHO = [''];
+
 
 async function iniciar() {
 	for await (const codigoDespacho of CODIGOS_DESPACHO) {

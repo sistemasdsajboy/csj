@@ -87,7 +87,7 @@
 							{fila.funcionario.nombre}
 						</td>
 						<td class="px-2 text-center text-gray-900">
-							<Badge variant="secondary">{formatDate(fila.desde)}-{formatDate(fila.hasta)}</Badge>
+							<Badge variant="secondary" class="whitespace-nowrap">{formatDate(fila.desde)} - {formatDate(fila.hasta)}</Badge>
 						</td>
 						<td class="px-2 text-center text-sky-800">{fila.dias}</td>
 						<td class="px-2 text-center text-gray-900">{fila.inventarioInicial}</td>
@@ -170,6 +170,9 @@
 		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
 		<div class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">
 			{@render tarjetaValor('Días habiles del despacho', calificacion.diasHabilesDespacho)}
+			{#if calificacion.diasLaborables && calificacion.diasHabilesDespacho !== calificacion.diasLaborables && calificacion.diasLaborados !== calificacion.diasLaborables}
+				{@render tarjetaValor('Días laborables', calificacion.diasLaborables)}
+			{/if}
 			{@render tarjetaValor('Días descontados', calificacion.diasDescontados)}
 			{@render tarjetaValor('Días laborados', calificacion.diasLaborados)}
 		</div>

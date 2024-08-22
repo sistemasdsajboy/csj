@@ -35,20 +35,9 @@
 
 <Popover.Root bind:open let:ids>
 	<Popover.Trigger asChild let:builder>
-		<Button
-			builders={[builder]}
-			variant="outline"
-			role="combobox"
-			aria-expanded={open}
-			class="w-full flex-1 justify-between"
-		>
+		<Button builders={[builder]} variant="outline" role="combobox" aria-expanded={open} class="w-full flex-1 justify-between">
 			<div class="flex w-full justify-between">
-				<span
-					class={cn(
-						'truncate font-normal',
-						selectedLabel === placeholder ? 'text-muted-foreground' : ''
-					)}>{selectedLabel}</span
-				>
+				<span class={cn('truncate font-normal', selectedLabel === placeholder ? 'text-muted-foreground' : '')}>{selectedLabel}</span>
 				<CaretSort class="ml-2 h-4 w-4 shrink-0 opacity-50" />
 			</div>
 		</Button>
@@ -65,18 +54,12 @@
 							aria-label={option.label}
 							class="aria-selected:bg-primary aria-selected:text-primary-foreground"
 							onSelect={(selectedLabel) => {
-								console.log(selectedLabel);
 								label = selectedLabel;
 								closeAndFocusTrigger(ids.trigger);
 							}}
 						>
 							{option.label}
-							<Check
-								class={cn(
-									'ml-auto h-4 w-4 shrink-0',
-									label === option.label ? 'opacity-100' : 'opacity-0'
-								)}
-							/>
+							<Check class={cn('ml-auto h-4 w-4 shrink-0', label === option.label ? 'opacity-100' : 'opacity-0')} />
 						</Command.Item>
 					{/each}
 				</Command.Group>

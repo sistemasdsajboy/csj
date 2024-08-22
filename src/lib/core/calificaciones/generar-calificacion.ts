@@ -63,6 +63,14 @@ const getCargaBaseCalificacion = (data: RegistroCalificacion[]) => {
 	return totalInventarioInicial + ingresoEfectivo;
 };
 
+const getRangoFechasFuncionario = (data: RegistroCalificacion[], funcionarioId: string) => {
+	const dataFuncionario = _(data).filter((d) => d.funcionarioId === funcionarioId);
+	const desde = dataFuncionario.minBy('desde')?.desde;
+	const hasta = dataFuncionario.maxBy('desde')?.hasta;
+
+	return { desde, hasta };
+};
+
 const generadorResultadosSubfactor =
 	(funcionarioId: string, diasHabilesDespacho: number, diasHabilesFuncionario: number, hayEscritos: boolean, capacidadMaxima: number) =>
 	(data: RegistroCalificacion[], dataTutelas: RegistroCalificacion[], maxResultado: number, subfactor: ClaseRegistroCalificacion) => {
@@ -82,12 +90,7 @@ const generadorResultadosSubfactor =
 			// funcionario al despacho hasta su salida, descartando los periodos al inicio o al final
 			// del año que no correspondan al funcionario calificable.
 
-			const desdeFuncionario = _(data)
-				.filter((d) => d.funcionarioId === funcionarioId)
-				.minBy('desde')?.desde;
-			const hastaFuncionario = _(data)
-				.filter((d) => d.funcionarioId === funcionarioId)
-				.maxBy('desde')?.hasta;
+			const { desde: desdeFuncionario, hasta: hastaFuncionario } = getRangoFechasFuncionario(data, funcionarioId);
 
 			if (!desdeFuncionario || !hastaFuncionario) return [];
 
@@ -202,47 +205,83 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 	return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
-async function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[]) {
+function calcularPonderada(calificaciones: { diasLaborables: number; calificacionTotalFactorEficiencia: number }[] = []) {
 	if (calificaciones.length === 0) return 0;
 	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
 
-	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborados');
+	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborables');
 	return _(calificaciones)
-		.map(({ diasLaborados, calificacionTotalFactorEficiencia }) => (calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborados)
+		.map(({ diasLaborables, calificacionTotalFactorEficiencia }) => {
+			return (calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborables;
+		})
 		.sum();
 }
 
-async function generarCalificacionPonderada(calificacionId: string) {
+async function actualizarDiasLaborables(calificacionId: string) {
 	const calificacion = await db.calificacionPeriodo.findFirst({
 		where: { id: calificacionId },
-		include: { calificaciones: true },
+		include: { calificaciones: { include: { registrosConsolidados: true, despacho: { include: { tipoDespacho: true } } } } },
 	});
 	if (!calificacion) throw new Error('Calificación no encontrada');
 
-	const calificacionPonderada = await calcularPonderada(calificacion.calificaciones ?? []);
-	await db.calificacionPeriodo.update({
-		where: { id: calificacionId },
-		data: { calificacionPonderada },
+	const registros = _(calificacion.calificaciones)
+		.flatMap((calificacionDespacho) => calificacionDespacho.registrosConsolidados)
+		.filter((registro) => registro.funcionarioId === calificacion.funcionarioId)
+		.uniqBy('desde')
+		.sortBy('desde')
+		.value();
+
+	// Determinar los periodos de tiempo en los cuales el funcionario ha trabajado en los despachos
+	// De esta manera, periodos no laborados por incapacidades, licencias no remuneradas o similares se incluyen dentro del periodo del despacho correspondientes,
+	// pero los periodos no laborados por trabajo en otro despacho se cuentan en un periodo por separado.
+	type Periodo = { desde: Date; hasta: Date; despachoId: string };
+	const periodos: Periodo[] = [];
+	let despachoActual: string | null = null;
+	for (const registro of registros) {
+		if (despachoActual !== registro.despachoId) {
+			// Si el despacho cambia o no se ha definido, se agrega un nuevo periodo
+			despachoActual = registro.despachoId;
+			periodos.push({ desde: registro.desde, hasta: registro.hasta, despachoId: registro.despachoId });
+		} else {
+			// Si el despacho no cambia, se actualiza el último periodo para extenderlo
+			periodos[periodos.length - 1].hasta = registro.hasta;
+		}
+	}
+
+	// Contar los días laborados por cada correspondientes para cada calificación y actualizar la base de datos.
+	const diasLaborablesPorCalificacion = calificacion.calificaciones.map((calificacionDespacho) => {
+		const periodosCalificacion = periodos.filter((periodo) => calificacionDespacho.despachoId === periodo.despachoId);
+		const diasLaborables = periodosCalificacion.reduce((diasHabiles, periodo) => {
+			const diasNoHabiles = getDiasFestivosPorTipoDespacho(calificacionDespacho.despacho.tipoDespacho);
+			return diasHabiles + contarDiasHabiles(diasNoHabiles, periodo.desde, periodo.hasta);
+		}, 0);
+		return { calificacionId: calificacionDespacho.id, diasLaborables };
 	});
+
+	await db.$transaction(
+		diasLaborablesPorCalificacion.map(({ calificacionId, diasLaborables }) =>
+			db.calificacionDespacho.update({ where: { id: calificacionId }, data: { diasLaborables } })
+		)
+	);
+}
+
+async function generarCalificacionPonderada(calificacionId: string) {
+	const calificacion = await db.calificacionPeriodo.findFirst({ where: { id: calificacionId }, include: { calificaciones: true } });
+	if (!calificacion) throw new Error('Calificación no encontrada');
+
+	const calificacionPonderada = calcularPonderada(calificacion.calificaciones);
+	await db.calificacionPeriodo.update({ where: { id: calificacionId }, data: { calificacionPonderada } });
 }
 
 async function findOrCreateCalificacionPeriodo(funcionarioId: string, periodo: number) {
-	const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
-		where: { funcionarioId, periodo },
-	});
+	const calificacionPeriodo = await db.calificacionPeriodo.findFirst({ where: { funcionarioId, periodo } });
 	if (calificacionPeriodo) return calificacionPeriodo;
 	return db.calificacionPeriodo.create({ data: { estado: 'borrador', funcionarioId, periodo } });
 }
 
 async function getCuentaProcesosEscritos(despachoId: string, periodo: number) {
 	return db.registroCalificacion.count({
-		where: {
-			despachoId,
-			periodo,
-			clase: 'escrito',
-			categoria: { not: 'Consolidado' },
-			cargaEfectiva: { gt: 0 },
-		},
+		where: { despachoId, periodo, clase: 'escrito', categoria: { not: 'Consolidado' }, cargaEfectiva: { gt: 0 } },
 	});
 }
 
@@ -250,10 +289,7 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
 	const hayEscritos = cuentaProcesosEscritos > 0;
 
-	const despacho = await db.despacho.findFirst({
-		where: { id: despachoId },
-		include: { tipoDespacho: true },
-	});
+	const despacho = await db.despacho.findFirst({ where: { id: despachoId }, include: { tipoDespacho: true } });
 	if (!despacho) return;
 
 	const categoriasConstitucional = ['Primera Instancia Acciones Constitucionales'];
@@ -357,9 +393,7 @@ export async function generarCalificacionFuncionario(funcionarioId: string, desp
 	const diasNoHabiles = getDiasFestivosPorTipoDespacho(despacho.tipoDespacho);
 	const diasHabilesDespacho = contarDiasHabiles(diasNoHabiles, new Date(periodo, 0, 1), new Date(periodo, 11, 31));
 
-	const registros = await db.registroCalificacion.findMany({
-		where: { despachoId, periodo, categoria: { not: 'Consolidado' } },
-	});
+	const registros = await db.registroCalificacion.findMany({ where: { despachoId, periodo, categoria: { not: 'Consolidado' } } });
 
 	const registrosTutelas = registros.filter((registro) => registro.clase === 'tutelas');
 	const consolidadoTutelas = generarConsolidado({ diasNoHabiles, registros: registrosTutelas });
@@ -446,16 +480,14 @@ export async function generarCalificacionFuncionario(funcionarioId: string, desp
 	});
 
 	if (calificacion) {
-		await db.registroCalificacion.deleteMany({
-			where: { calificacionId: calificacion.id, categoria: 'Consolidado' },
-		});
-		await db.calificacionSubfactor.deleteMany({
-			where: { calificacionId: calificacion.id },
-		});
+		await db.registroCalificacion.deleteMany({ where: { calificacionId: calificacion.id, categoria: 'Consolidado' } });
+		await db.calificacionSubfactor.deleteMany({ where: { calificacionId: calificacion.id } });
 		await db.calificacionDespacho.update({ where: { id: calificacion.id }, data });
 	} else {
 		await db.calificacionDespacho.create({ data });
 	}
+
+	await actualizarDiasLaborables(calificacionPeriodo.id);
 
 	await generarCalificacionPonderada(calificacionPeriodo.id);
 

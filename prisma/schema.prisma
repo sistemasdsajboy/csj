@@ -266,7 +266,10 @@ model CalificacionDespacho {
   diasHabilesDespacho               Int
   diasDescontados                   Int
   diasLaborados                     Int
-  registrosConsolidados             RegistroCalificacion[] // registros con categoria "Consolidado"
+  // Los días laborables son útiles para el cálculo de la calificación ponderada.
+  diasLaborables                    Int                     @default(0)
+  // Registros con categoria "Consolidado"
+  registrosConsolidados             RegistroCalificacion[]
   subfactores                       CalificacionSubfactor[]
   registroAudienciasId              String                  @db.ObjectId
   registroAudiencias                RegistroAudiencias      @relation(fields: [registroAudienciasId], references: [id])
