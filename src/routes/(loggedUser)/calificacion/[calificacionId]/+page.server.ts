@@ -466,10 +466,10 @@ export const actions = {
 			include: { calificaciones: { select: { despachoId: true } } },
 		});
 		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
-		if (calificacionPeriodo.estado !== 'revision')
+		if (calificacionPeriodo.estado !== 'revision' && calificacionPeriodo.estado !== 'aprobada')
 			return {
 				success: false,
-				error: `La calificación ya no se encuentra en revisión. El estado actual es ${calificacionPeriodo.estado}.`,
+				error: `Solo se pueden devolver calificaciones en revisión o aprobadas. El estado actual es ${calificacionPeriodo.estado}.`,
 			};
 
 		const formData = await request.formData();
