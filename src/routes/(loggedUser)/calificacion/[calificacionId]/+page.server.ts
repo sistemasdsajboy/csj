@@ -188,80 +188,83 @@ export const load = (async ({ params, locals, url }) => {
 
 export const actions = {
 	addNovedad: async ({ request, params, locals }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
+			where: { id: params.calificacionId },
+			include: { calificaciones: { select: { despachoId: true } } },
+		});
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada.' };
+
+		const data = Object.fromEntries(await request.formData());
+		const despachoId = data.despachoId.toString();
+		if (!despachoId)
+			return {
+				success: false,
+				error: 'Se debe especificar el despacho al cual corresponde la novedad.',
+			};
+
+		const calificacion = await db.calificacionDespacho.findFirst({
+			where: { calificacionId: params.calificacionId, despachoId },
+		});
+		if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
+
+		if (calificacionPeriodo.estado === 'aprobada')
+			return {
+				success: false,
+				error: 'No es posible agregar una novedad a una calificación que ya ha sido aprobada.',
+			};
+
+		// TODO: Validar que la novedad está totalmente dentro de los rangos de tiempo
+		// en los que el funcionario trabajó en el despacho de la calificación.
+		// Si una novedad abarca más de un periodo laborado, se debe dividir y registrar con la calificación correspondiente.
+
+		const nuevaNovedadSchema = z.object({
+			funcionarioId: z.string(),
+			despachoId: z.string(),
+			type: z
+				.string()
+				.min(1)
+				// TODO: Validación requerida porque con select de shadui-svelte, si no se selecciona un valor, formData.get('type') devuelve un string 'undefined'.
+				.refine((v) => v !== 'undefined'),
+			from: z.date(),
+			to: z.date(),
+			days: z.coerce.number(),
+			diasDescontables: z.coerce.number(),
+			notes: z.string(),
+		});
+
+		const despacho = await db.despacho.findFirst({ where: { id: calificacion.despachoId } });
+		if (!despacho) return { success: false, error: 'Despacho no encontrado.' };
+
+		const { success, data: newNovedad } = nuevaNovedadSchema.safeParse({
+			funcionarioId: calificacionPeriodo.funcionarioId,
+			despachoId: calificacion.despachoId,
+			type: data.type,
+			from: new Date(data.from.toString()),
+			to: new Date(data.to.toString()),
+			days: data.dias.toString(),
+			diasDescontables: data.diasDescontables.toString(),
+			notes: data.notes.toString(),
+		});
+
+		if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
+
+		// TODO: Calcular el número de días descontables de la novedad en lugar de solicitar el dato al usuario.
+
+		await db.novedadFuncionario.create({ data: newNovedad });
+
 		try {
-			if (!locals.user) return { success: false, error: 'No autorizado' };
-
-			const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
-				where: { id: params.calificacionId },
-				include: { calificaciones: { select: { despachoId: true } } },
-			});
-			if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada.' };
-
-			const data = Object.fromEntries(await request.formData());
-			const despachoId = data.despachoId.toString();
-			if (!despachoId)
-				return {
-					success: false,
-					error: 'Se debe especificar el despacho al cual corresponde la novedad.',
-				};
-
-			const calificacion = await db.calificacionDespacho.findFirst({
-				where: { calificacionId: params.calificacionId, despachoId },
-			});
-			if (!calificacion) return { success: false, error: 'Calificación no encontrada.' };
-
-			if (calificacionPeriodo.estado === 'aprobada')
-				return {
-					success: false,
-					error: 'No es posible agregar una novedad a una calificación que ya ha sido aprobada.',
-				};
-
-			// TODO: Validar que la novedad está totalmente dentro de los rangos de tiempo
-			// en los que el funcionario trabajó en el despacho de la calificación.
-			// Si una novedad abarca más de un periodo laborado, se debe dividir y registrar con la calificación correspondiente.
-
-			const nuevaNovedadSchema = z.object({
-				funcionarioId: z.string(),
-				despachoId: z.string(),
-				type: z
-					.string()
-					.min(1)
-					// TODO: Validación requerida porque con select de shadui-svelte, si no se selecciona un valor, formData.get('type') devuelve un string 'undefined'.
-					.refine((v) => v !== 'undefined'),
-				from: z.date(),
-				to: z.date(),
-				days: z.coerce.number(),
-				diasDescontables: z.coerce.number(),
-				notes: z.string(),
-			});
-
-			const despacho = await db.despacho.findFirst({ where: { id: calificacion.despachoId } });
-			if (!despacho) return { success: false, error: 'Despacho no encontrado.' };
-
-			const { success, data: newNovedad } = nuevaNovedadSchema.safeParse({
-				funcionarioId: calificacionPeriodo.funcionarioId,
-				despachoId: calificacion.despachoId,
-				type: data.type,
-				from: new Date(data.from.toString()),
-				to: new Date(data.to.toString()),
-				days: data.dias.toString(),
-				diasDescontables: data.diasDescontables.toString(),
-				notes: data.notes.toString(),
-			});
-
-			if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
-
-			// TODO: Calcular el número de días descontables de la novedad en lugar de solicitar el dato al usuario.
-
-			await db.novedadFuncionario.create({ data: newNovedad });
-
 			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacion.despachoId, calificacionPeriodo.periodo);
-
-			return { success: true };
 		} catch (error) {
 			if (error instanceof Error) return { success: false, error: error.message };
-			return { success: false, error: 'Ha ocurrido un error inesperado' };
+			return {
+				success: false,
+				error: 'Se agregó la novedad, pero no se pudo generar la calificación. Es necesario recalcular la calificación.',
+			};
 		}
+
+		redirect(302, `/calificacion/${params.calificacionId}?despacho=${calificacion.despachoId}`);
 	},
 
 	deleteNovedad: async ({ request, params, locals }) => {
@@ -292,9 +295,17 @@ export const actions = {
 
 		await db.novedadFuncionario.delete({ where: { id: novedadId } });
 
-		await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, novedad.despachoId, calificacionPeriodo.periodo);
+		try {
+			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, novedad.despachoId, calificacionPeriodo.periodo);
+		} catch (error) {
+			if (error instanceof Error) return { success: false, error: error.message };
+			return {
+				success: false,
+				error: 'Se eliminó la novedad, pero no se pudo generar la calificación. Es necesario recalcular la calificación.',
+			};
+		}
 
-		return { success: true };
+		redirect(302, `/calificacion/${params.calificacionId}?despacho=${novedad.despachoId}`);
 	},
 
 	addRegistroAudiencias: async ({ request, params, locals }) => {
@@ -346,7 +357,7 @@ export const actions = {
 				}
 			);
 
-		const { success, data, error } = registroAudienciaSchema.safeParse({
+		const { success, data } = registroAudienciaSchema.safeParse({
 			despachoId: calificacion.despachoId,
 			funcionarioId: calificacionPeriodo.funcionarioId,
 			periodo: calificacionPeriodo.periodo,
@@ -366,9 +377,17 @@ export const actions = {
 		if (existente) await db.registroAudiencias.update({ where: { id: existente.id }, data });
 		else await db.registroAudiencias.create({ data });
 
-		await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacion.despachoId, calificacionPeriodo.periodo);
+		try {
+			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacion.despachoId, calificacionPeriodo.periodo);
+		} catch (error) {
+			if (error instanceof Error) return { success: false, error: error.message };
+			return {
+				success: false,
+				error: 'Se agregó el registro de audiencias, pero no se pudo generar la calificación. Es necesario recalcular la calificación.',
+			};
+		}
 
-		return { success: true };
+		redirect(302, `/calificacion/${params.calificacionId}?despacho=${calificacion.despachoId}`);
 	},
 
 	solicitarAprobacion: async ({ request, params, locals, url }) => {
@@ -424,7 +443,7 @@ export const actions = {
 			},
 		});
 
-		return { success: true };
+		redirect(303, '/calificaciones');
 	},
 
 	aprobar: async ({ params, locals }) => {
@@ -452,10 +471,10 @@ export const actions = {
 			data: { estado: 'aprobada' },
 		});
 
-		return { success: true };
+		redirect(303, '/calificaciones');
 	},
 
-	devolver: async ({ params, locals, request, url }) => {
+	devolver: async ({ params, locals, request }) => {
 		if (!locals.user) return { success: false, error: 'No autorizado' };
 
 		const user = await db.user.findFirst({ where: { id: locals.user.id } });
@@ -492,7 +511,7 @@ export const actions = {
 			},
 		});
 
-		return { success: true };
+		redirect(303, '/calificaciones');
 	},
 
 	eliminarCalificacion: async ({ params, locals, request }) => {
@@ -530,7 +549,7 @@ export const actions = {
 			},
 		});
 
-		throw redirect(303, '/calificaciones');
+		redirect(303, '/calificaciones');
 	},
 
 	restaurarCalificacion: async ({ params, locals, request }) => {
