@@ -455,7 +455,7 @@ export async function generarCalificacionFuncionario(funcionarioId: string, desp
 	const egresoEscrito = getEgresoTotal(registrosEscrito);
 
 	const totalesParaPromedio = [factorOralMasAudiencias, garantias.totalSubfactor, escrito.totalSubfactor].filter(Boolean);
-	const calificacionTotalFactorEficiencia = totalesParaPromedio.reduce((sum, val) => sum + val, 0) / totalesParaPromedio.length;
+	const calificacionTotalFactorEficiencia = totalesParaPromedio.reduce((sum, val) => sum + val, 0) / (totalesParaPromedio.length || 1);
 
 	const consolidados = [...consolidadoOral, ...consolidadoTutelas, ...consolidadoGarantias, ...consolidadoEscrito];
 
