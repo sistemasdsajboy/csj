@@ -1,4 +1,4 @@
-import playwright from 'playwright';
+import playwright, { type Page } from 'playwright';
 import _ from 'lodash';
 
 const USERNAME = '7181680';
@@ -12,9 +12,8 @@ const BASE = 1.5;
 const MULTIPLICADOR = 3;
 const MAX_REINTENTOS = 3;
 const PERIODO = 2023;
-const CODIGOS_DESPACHO = ['851624089001'];
 
-async function iniciarSesion(page) {
+async function iniciarSesion(page: Page) {
 	await page.goto(URL);
 
 	await page.fill("[name='j_username']", USERNAME);
@@ -23,7 +22,7 @@ async function iniciarSesion(page) {
 	await wait(5000);
 }
 
-async function irAPaginaDescarga(page) {
+async function irAPaginaDescarga(page: Page) {
 	const linkVisible = await page.getByText('Reporte Actividad Diligenciamiento').isVisible();
 	if (!linkVisible) {
 		await page.getByText('Gestión Reportes').click();
@@ -34,16 +33,16 @@ async function irAPaginaDescarga(page) {
 	await wait(1000);
 }
 
-function wait(ms) {
+function wait(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const browser = await playwright.chromium.launch({
 	headless: true,
-	slowMo: 50
+	slowMo: 50,
 });
 const context = await browser.newContext({
-	viewport: { width: 1920, height: 1200 }
+	viewport: { width: 1920, height: 1200 },
 });
 
 async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
@@ -81,7 +80,7 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 		'idFormulario',
 		'codigoFormulario',
 		'nombre', //contiene enlace hacia página de descarga.
-		'estado'
+		'estado',
 	];
 
 	const datosFilas: Array<_.Dictionary<string>> = [];
@@ -113,18 +112,13 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 	for await (const fila of datosFilasParaExportar) {
 		await page.click(`[id='${fila.enlace}']`);
 		await page.waitForResponse((resp) => resp.status() === 200);
-		await page.waitForResponse(
-			(resp) => resp.request().method() === 'POST' && resp.status() === 200
-		);
+		await page.waitForResponse((resp) => resp.request().method() === 'POST' && resp.status() === 200);
 
 		const enlaceDescarga = await page.$("[id='formFormulariosRecuperar:j_idt102']");
 
 		if (enlaceDescarga) {
 			// Descargar archivo xls
-			const [download] = await Promise.all([
-				page.waitForEvent('download', { timeout: 60000 }),
-				enlaceDescarga.click()
-			]);
+			const [download] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), enlaceDescarga.click()]);
 
 			await download.saveAs(`./${codigoDespacho}/${fila.periodoReportado}.xls`);
 			console.log('Descargado:', `${fila.periodoReportado}.xls`);
@@ -132,7 +126,7 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 
 		// Guardar la captura de pantalla de la página de detalle del reporte descargado.
 		await page.screenshot({
-			path: `./${codigoDespacho}/imgs/${fila.periodoReportado}.png`
+			path: `./${codigoDespacho}/imgs/${fila.periodoReportado}.png`,
 		});
 
 		await page.getByText('Reporte Actividad Diligenciamiento').click();
@@ -143,10 +137,8 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 	return true;
 }
 
-
-
-async function iniciar() {
-	for await (const codigoDespacho of CODIGOS_DESPACHO) {
+async function iniciar(periodo: number, codigosDespacho: string[] = []) {
+	for await (const codigoDespacho of codigosDespacho) {
 		let resultado = false;
 		let intentos = 0;
 
@@ -154,7 +146,7 @@ async function iniciar() {
 			try {
 				if (intentos === 0) console.log(`Descargando ${codigoDespacho} ...`);
 				else console.log(`Reintento ${intentos} ...`);
-				resultado = await descargarDatosDespachoSierju(PERIODO, codigoDespacho);
+				resultado = await descargarDatosDespachoSierju(periodo, codigoDespacho);
 			} catch (error) {
 				console.log(error);
 				// Ignorar errores y reintentar ...
@@ -163,16 +155,14 @@ async function iniciar() {
 			if (!resultado) {
 				intentos++;
 				const tiempoReintento = Math.round(BASE * MULTIPLICADOR ** intentos);
-				console.error(
-					`Error en la descarga del despacho ${codigoDespacho}. Reintento ${intentos} en ${tiempoReintento} segundos`
-				);
+				console.error(`Error en la descarga del despacho ${codigoDespacho}. Reintento ${intentos} en ${tiempoReintento} segundos`);
 				await wait(tiempoReintento * 1000);
 			}
 		} while (!resultado && intentos <= MAX_REINTENTOS);
 	}
 }
 
-iniciar()
+iniciar(2021, ['155164089001', '156933187001'])
 	.catch((error) => {
 		console.error(error);
 		process.exit(1);
