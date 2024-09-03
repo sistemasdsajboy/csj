@@ -1,4 +1,4 @@
-import { db } from '$lib/db/client';
+import { db } from '$lib/server/db-client';
 import { lucia } from '$lib/server/auth';
 import { sendEmail } from '$lib/server/email.js';
 import { hash, verify } from '@node-rs/argon2';

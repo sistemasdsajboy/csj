@@ -1,5 +1,5 @@
 import { createRegistrosCalificacionFromXlsx } from '$lib/core/calificaciones/carga-xlsx';
-import { db } from '$lib/db/client';
+import { db } from '$lib/server/db-client';
 import { EstadoCalificacion } from '@prisma/client';
 import { error, fail } from '@sveltejs/kit';
 import _ from 'lodash';

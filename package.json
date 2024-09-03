@@ -2,11 +2,13 @@
 	"name": "calificaciones",
 	"version": "0.0.1",
 	"private": true,
+	"packageManager": "pnpm@9.2.0",
 	"scripts": {
 		"dev": "vite dev",
 		"pre-build": "pnpm prisma db push",
 		"build": "pnpm run pre-build && vite build",
 		"preview": "vite preview",
+		"start": "node ./build/index.js",
 		"test": "pnpm run test:integration && pnpm run test:unit",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -18,11 +20,8 @@
 		"prepare": "husky"
 	},
 	"devDependencies": {
-		"@lucia-auth/adapter-prisma": "^4.0.1",
-		"@node-rs/argon2": "^1.8.3",
 		"@playwright/test": "^1.46.1",
-		"@prisma/client": "^5.19.1",
-		"@sveltejs/adapter-vercel": "^5.4.3",
+		"@sveltejs/adapter-node": "^5.2.2",
 		"@sveltejs/kit": "^2.5.25",
 		"@sveltejs/vite-plugin-svelte": "^4.0.0-next.6",
 		"@tailwindcss/typography": "^0.5.15",
@@ -42,14 +41,12 @@
 		"husky": "^9.1.5",
 		"lodash": "^4.17.21",
 		"lucia": "^3.2.0",
-		"mongodb": "^6.8.0",
 		"node-xlsx": "^0.24.0",
 		"playwright": "^1.46.1",
 		"postcss": "^8.4.44",
 		"prettier": "^3.3.3",
 		"prettier-plugin-svelte": "^3.2.6",
 		"prettier-plugin-tailwindcss": "^0.6.6",
-		"prisma": "^5.19.1",
 		"resend": "^4.0.0",
 		"svelte": "^5.0.0-next.243",
 		"svelte-check": "^4.0.0",
@@ -58,20 +55,25 @@
 		"typescript": "^5.5.4",
 		"vite": "^5.4.3",
 		"vitest": "^2.0.5",
-		"xlsx": "^0.18.5",
-		"zod": "^3.23.8"
+		"xlsx": "^0.18.5"
 	},
 	"type": "module",
 	"dependencies": {
 		"@internationalized/date": "^3.5.5",
+		"@lucia-auth/adapter-prisma": "^4.0.1",
+		"@node-rs/argon2": "^1.8.3",
+		"@prisma/client": "^5.19.1",
 		"bits-ui": "^0.21.13",
 		"clsx": "^2.1.1",
 		"cmdk-sv": "^0.0.18",
 		"formsnap": "^1.0.1",
 		"lucide-svelte": "^0.438.0",
+		"mongodb": "^6.8.0",
+		"prisma": "^5.19.1",
 		"svelte-radix": "^1.1.1",
 		"sveltekit-superforms": "^2.17.0",
 		"tailwind-merge": "^2.5.2",
-		"tailwind-variants": "^0.2.1"
+		"tailwind-variants": "^0.2.1",
+		"zod": "^3.23.8"
 	}
 }

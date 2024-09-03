@@ -1,4 +1,4 @@
-import { db } from '$lib/db/client';
+import { db } from '$lib/server/db-client';
 import {
 	contarDiasHabiles,
 	diaJusticia,

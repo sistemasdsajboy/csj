@@ -1,4 +1,4 @@
-import { db } from '$lib/db/client';
+import { db } from '$lib/server/db-client';
 import { error, fail } from '@sveltejs/kit';
 import { superValidate } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';

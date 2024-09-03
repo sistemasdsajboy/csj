@@ -1,5 +1,5 @@
 import { generarCalificacionFuncionario, getDiasFestivosPorTipoDespacho } from '$lib/core/calificaciones/generar-calificacion';
-import { db } from '$lib/db/client';
+import { db } from '$lib/server/db-client';
 import { error, redirect } from '@sveltejs/kit';
 import _ from 'lodash';
 import { z } from 'zod';

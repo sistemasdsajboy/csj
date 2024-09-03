@@ -1,5 +1,5 @@
 import { generarCalificacionFuncionario } from '$lib/core/calificaciones/generar-calificacion';
-import { db } from '$lib/db/client';
+import { db } from '$lib/server/db-client';
 import { error, fail, redirect } from '@sveltejs/kit';
 import _ from 'lodash';
 import type { PageServerLoad } from './$types';

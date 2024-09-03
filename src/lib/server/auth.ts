@@ -1,5 +1,5 @@
 import { dev } from '$app/environment';
-import { db } from '$lib/db/client';
+import { db } from '$lib/server/db-client';
 import { PrismaAdapter } from '@lucia-auth/adapter-prisma';
 import { Lucia } from 'lucia';
 
