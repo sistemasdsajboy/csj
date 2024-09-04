@@ -1,9 +1,8 @@
 <script lang="ts">
 	import * as Select from '$lib/components/ui/select';
-	import { Edit2Icon, PlusIcon } from 'lucide-svelte';
+	import { PencilIcon, PlusIcon } from 'lucide-svelte';
 	import CapacidadMaximaForm from './capacidad-maxima-form.svelte';
 	import TipoDespachoForm from './tipo-despacho-form.svelte';
-	import { Label } from '$lib/components/ui/label';
 
 	const { data, form } = $props();
 	const { tiposDespacho, especialidades, categorias } = data;
@@ -14,6 +13,9 @@
 
 	$effect(() => {
 		tipoDespacho = tiposDespacho.find((td) => td.id === tipoDespachoId) || null;
+	});
+
+	$effect(() => {
 		capacidadesMaximas = tipoDespacho?.capacidadesMaximas || [];
 	});
 </script>
@@ -24,7 +26,10 @@
 	<div class="flex flex-row gap-4">
 		<Select.Root
 			portal={null}
-			onSelectedChange={(selected) => (tipoDespachoId = selected?.value?.toString() || '')}
+			onSelectedChange={(selected) => {
+				console.log({ selected });
+				tipoDespachoId = selected?.value?.toString() || '';
+			}}
 		>
 			<Select.Trigger class="w-full">
 				<Select.Value placeholder="Seleccione el tipo de despacho" />
@@ -45,7 +50,7 @@
 
 		{#if tipoDespacho}
 			<TipoDespachoForm {tipoDespacho} {especialidades} {categorias} {form}>
-				<Edit2Icon class=" mt-1 h-4 w-4" />
+				<PencilIcon class=" mt-1 h-4 w-4" />
 			</TipoDespachoForm>
 		{/if}
 	</div>
@@ -63,9 +68,7 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="text-slate-600">
-			Sin registros de capacidad máxima registradas para el tipo de despacho.
-		</div>
+		<div class="text-slate-600">Sin registros de capacidad máxima registradas para el tipo de despacho.</div>
 	{/if}
 
 	<CapacidadMaximaForm {tipoDespachoId}>Agregar capacidad máxima</CapacidadMaximaForm>
