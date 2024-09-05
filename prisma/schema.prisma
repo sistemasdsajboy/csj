@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,39 +14,39 @@ enum UserRoles {
 }
 
 model DespachoSeccional {
-  id             String                @id @default(auto()) @map("_id") @db.ObjectId
+  id             String                @id @default(cuid())
   seccional      String
   nombre         String
   numero         Int
-  usuariosIds    String[]              @db.ObjectId
-  usuarios       User[]                @relation(fields: [usuariosIds], references: [id])
+  usuariosIds    String[]
+  usuarios       User[]
   calificaciones CalificacionPeriodo[]
 }
 
 model User {
-  id                        String                    @id @default(auto()) @map("_id") @db.ObjectId
+  id                        String                    @id @default(cuid())
   username                  String
   password                  String
   passwordExpiresAt         DateTime
   sessions                  Session[]
   roles                     UserRoles[]
-  despachosSeccionalIds     String[]                  @db.ObjectId
-  despachosSeccional        DespachoSeccional[]       @relation(fields: [despachosSeccionalIds], references: [id])
+  despachosSeccionalIds     String[]
+  despachosSeccional        DespachoSeccional[]
   observacionesCalificacion ObservacionCalificacion[]
   preferencias              Preferencias?
 }
 
 model Session {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
+  id        String   @id @default(cuid())
+  userId    String
   user      User     @relation(references: [id], fields: [userId], onDelete: Cascade)
   expiresAt DateTime
   username  String
 }
 
 model Preferencias {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @unique @db.ObjectId
+  id     String @id @default(cuid())
+  userId String @unique
   user   User   @relation(references: [id], fields: [userId], onDelete: Cascade)
 
   // Filtros de calificaciones
@@ -90,7 +90,7 @@ enum CategoriaDespacho {
 }
 
 model TipoDespacho {
-  id                 String                     @id @default(auto()) @map("_id") @db.ObjectId
+  id                 String                     @id @default(cuid())
   nombre             String
   especialidad       EspecialidadDespacho
   categoria          CategoriaDespacho
@@ -102,19 +102,19 @@ model TipoDespacho {
 }
 
 model CapacidadMaximaRespuesta {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  tipoDespachoId String       @db.ObjectId
+  id             String       @id @default(cuid())
+  tipoDespachoId String
   tipoDespacho   TipoDespacho @relation(fields: [tipoDespachoId], references: [id])
   periodo        Int
   cantidad       Int
 }
 
 model Despacho {
-  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  id                    String                 @id @default(cuid())
   codigo                String
   nombre                String
   numero                Int?
-  tipoDespachoId        String?                @db.ObjectId
+  tipoDespachoId        String?
   tipoDespacho          TipoDespacho?          @relation(fields: [tipoDespachoId], references: [id])
   municipio             String?
   distrito              String?
@@ -125,7 +125,7 @@ model Despacho {
 }
 
 model Funcionario {
-  id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
+  id                    String                 @id @default(cuid())
   documento             String
   nombre                String
   novedades             NovedadFuncionario[]
@@ -135,16 +135,16 @@ model Funcionario {
 }
 
 model NovedadFuncionario {
-  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  id               String       @id @default(cuid())
   type             String
   from             DateTime     @db.Date
   to               DateTime     @db.Date
   days             Int
   diasDescontables Int          @default(0)
   notes            String
-  despachoId       String       @db.ObjectId
+  despachoId       String
   despacho         Despacho     @relation(fields: [despachoId], references: [id])
-  funcionarioId    String?      @db.ObjectId
+  funcionarioId    String?
   funcionario      Funcionario? @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
 }
 
@@ -157,11 +157,11 @@ enum ClaseRegistroCalificacion {
 }
 
 model RegistroAudiencias {
-  id                      String                 @id @default(auto()) @map("_id") @db.ObjectId
+  id                      String                 @id @default(cuid())
   periodo                 Int // Año del registro
-  despachoId              String                 @db.ObjectId
+  despachoId              String
   despacho                Despacho               @relation(fields: [despachoId], references: [id])
-  funcionarioId           String                 @db.ObjectId
+  funcionarioId           String
   funcionario             Funcionario            @relation(fields: [funcionarioId], references: [id])
   programadas             Int
   atendidas               Int
@@ -174,11 +174,11 @@ model RegistroAudiencias {
 }
 
 model RegistroCalificacion {
-  id                String                    @id @default(auto()) @map("_id") @db.ObjectId
+  id                String                    @id @default(cuid())
   periodo           Int // Año del registro
-  despachoId        String                    @db.ObjectId
+  despachoId        String
   despacho          Despacho                  @relation(fields: [despachoId], references: [id])
-  funcionarioId     String                    @db.ObjectId
+  funcionarioId     String
   funcionario       Funcionario               @relation(fields: [funcionarioId], references: [id])
   clase             ClaseRegistroCalificacion
   categoria         String
@@ -195,7 +195,7 @@ model RegistroCalificacion {
   // Campo agregado al formato consolidado de estadísticas. No se incluyó en los primeros registros de la base de datos.
   cargaBruta        Int?                      @default(0)
   // Solo para registros con categoria "Consolidado"
-  calificacionId    String?                   @db.ObjectId
+  calificacionId    String?
   calificacion      CalificacionDespacho?     @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
 
   // Se incluye el campo calificacionId porque el mismo consolidado puede aparecer en más de una calificación cuando dos o 
@@ -205,7 +205,7 @@ model RegistroCalificacion {
 }
 
 model CalificacionSubfactor {
-  id                               String                    @id @default(auto()) @map("_id") @db.ObjectId
+  id                               String                    @id @default(cuid())
   subfactor                        ClaseRegistroCalificacion
   totalInventarioInicial           Int
   cargaBaseCalificacionDespacho    Float
@@ -213,7 +213,7 @@ model CalificacionSubfactor {
   egresoFuncionario                Int
   cargaProporcional                Float
   totalSubfactor                   Float
-  calificacionId                   String?                   @db.ObjectId
+  calificacionId                   String?
   calificacion                     CalificacionDespacho?     @relation(fields: [calificacionId], references: [id], onDelete: Cascade)
 
   @@unique([calificacionId, subfactor])
@@ -228,26 +228,26 @@ enum EstadoCalificacion {
 }
 
 model ObservacionCalificacion {
-  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  id             String              @id @default(cuid())
   fecha          DateTime            @default(now()) @db.Date
-  autorId        String              @db.ObjectId
+  autorId        String
   autor          User                @relation(fields: [autorId], references: [id])
   estado         EstadoCalificacion
   observaciones  String
-  calificacionId String              @db.ObjectId
+  calificacionId String
   calificacion   CalificacionPeriodo @relation(fields: [calificacionId], references: [id])
 }
 
 model CalificacionPeriodo {
-  id                    String                    @id @default(auto()) @map("_id") @db.ObjectId
+  id                    String                    @id @default(cuid())
   estado                EstadoCalificacion
   observaciones         ObservacionCalificacion[]
   // Año de la calificacion
   periodo               Int
-  funcionarioId         String                    @db.ObjectId
+  funcionarioId         String
   funcionario           Funcionario               @relation(fields: [funcionarioId], references: [id])
   // Despacho que aprueba la calificación
-  despachoSeccionalId   String?                   @db.ObjectId
+  despachoSeccionalId   String?
   despachoSeccional     DespachoSeccional?        @relation(fields: [despachoSeccionalId], references: [id])
   calificaciones        CalificacionDespacho[]
   calificacionPonderada Float                     @default(0)
@@ -256,10 +256,10 @@ model CalificacionPeriodo {
 }
 
 model CalificacionDespacho {
-  id                                String                  @id @default(auto()) @map("_id") @db.ObjectId
-  calificacionId                    String                  @db.ObjectId
+  id                                String                  @id @default(cuid())
+  calificacionId                    String
   calificacion                      CalificacionPeriodo     @relation(fields: [calificacionId], references: [id])
-  despachoId                        String                  @db.ObjectId
+  despachoId                        String
   despacho                          Despacho                @relation(fields: [despachoId], references: [id])
   cargaEfectivaTotal                Int                     @default(0)
   egresoEfectivoTotal               Int                     @default(0)
@@ -271,7 +271,7 @@ model CalificacionDespacho {
   // Registros con categoria "Consolidado"
   registrosConsolidados             RegistroCalificacion[]
   subfactores                       CalificacionSubfactor[]
-  registroAudienciasId              String                  @db.ObjectId
+  registroAudienciasId              String
   registroAudiencias                RegistroAudiencias      @relation(fields: [registroAudienciasId], references: [id])
   calificacionAudiencias            Float
   factorOralMasAudiencias           Float
