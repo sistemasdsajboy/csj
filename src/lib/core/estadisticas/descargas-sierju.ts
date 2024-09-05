@@ -1,23 +1,19 @@
 import playwright, { type Page } from 'playwright';
 import _ from 'lodash';
 
-const USERNAME = '7181680';
-const PASSWORD = 'Aw@VCTExQk%2vRSq';
-const URL = 'https://sistemaestadistico.ramajudicial.gov.co/Sierju-Web/app/login';
-// "http://190.217.24.71:7003/Sierju-Web/app/login";
-// "http://190.217.24.72:7003/Sierju-Web/app/login";
+import { SIERJU_USERNAME, SIERJU_PASSWORD, SIERJU_URL } from '$env/static/private';
 
 // Configuración de backoff exponencial para reintentos.
 const BASE = 1.5;
 const MULTIPLICADOR = 3;
 const MAX_REINTENTOS = 3;
-const PERIODO = 2023;
 
 async function iniciarSesion(page: Page) {
-	await page.goto(URL);
+	console.log({ SIERJU_URL });
+	await page.goto(SIERJU_URL);
 
-	await page.fill("[name='j_username']", USERNAME);
-	await page.fill("[name='j_password']", PASSWORD);
+	await page.fill("[name='j_username']", SIERJU_USERNAME);
+	await page.fill("[name='j_password']", SIERJU_PASSWORD);
 	await page.click("[type='submit']");
 	await wait(5000);
 }
@@ -37,17 +33,7 @@ function wait(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const browser = await playwright.chromium.launch({
-	headless: true,
-	slowMo: 50,
-});
-const context = await browser.newContext({
-	viewport: { width: 1920, height: 1200 },
-});
-
-async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
-	const page = await context.newPage();
-
+async function descargarDatosDespachoSierju(page: playwright.Page, periodo: number, codigoDespacho: string) {
 	await iniciarSesion(page);
 	await irAPaginaDescarga(page);
 
@@ -69,7 +55,7 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 	}
 
 	// Captura de pantalla del listado de reportes del despacho en el periodo
-	await page.screenshot({ path: `./${codigoDespacho}/imgs/listado.png` });
+	await page.screenshot({ path: `./static/${codigoDespacho}/imgs/listado.png` });
 
 	const columnas = [
 		'despacho',
@@ -91,7 +77,7 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 		const celdas = await fila.$$('td');
 		const textoCeldas = await Promise.all(celdas.map((c) => c.innerText()));
 		const datosFila = _.zipObject(columnas, textoCeldas);
-		datosFila.enlace = await (await celdas[7].$('a'))?.getAttribute('id');
+		datosFila.enlace = (await (await celdas[7].$('a'))?.getAttribute('id')) || '';
 
 		datosFilas.push(datosFila);
 	}
@@ -120,13 +106,13 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 			// Descargar archivo xls
 			const [download] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), enlaceDescarga.click()]);
 
-			await download.saveAs(`./${codigoDespacho}/${fila.periodoReportado}.xls`);
+			await download.saveAs(`./static/${codigoDespacho}/${fila.periodoReportado}.xls`);
 			console.log('Descargado:', `${fila.periodoReportado}.xls`);
 		}
 
 		// Guardar la captura de pantalla de la página de detalle del reporte descargado.
 		await page.screenshot({
-			path: `./${codigoDespacho}/imgs/${fila.periodoReportado}.png`,
+			path: `./static/${codigoDespacho}/imgs/${fila.periodoReportado}.png`,
 		});
 
 		await page.getByText('Reporte Actividad Diligenciamiento').click();
@@ -137,7 +123,11 @@ async function descargarDatosDespachoSierju(periodo, codigoDespacho) {
 	return true;
 }
 
-async function iniciar(periodo: number, codigosDespacho: string[] = []) {
+export async function descargarDatosSierju(periodo: number, codigosDespacho: string[] = []) {
+	const browser = await playwright.chromium.launch({ headless: true, slowMo: 50 });
+	const context = await browser.newContext({ viewport: { width: 1920, height: 1200 } });
+	const page = await context.newPage();
+
 	for await (const codigoDespacho of codigosDespacho) {
 		let resultado = false;
 		let intentos = 0;
@@ -146,7 +136,7 @@ async function iniciar(periodo: number, codigosDespacho: string[] = []) {
 			try {
 				if (intentos === 0) console.log(`Descargando ${codigoDespacho} ...`);
 				else console.log(`Reintento ${intentos} ...`);
-				resultado = await descargarDatosDespachoSierju(periodo, codigoDespacho);
+				resultado = await descargarDatosDespachoSierju(page, periodo, codigoDespacho);
 			} catch (error) {
 				console.log(error);
 				// Ignorar errores y reintentar ...
@@ -160,15 +150,8 @@ async function iniciar(periodo: number, codigosDespacho: string[] = []) {
 			}
 		} while (!resultado && intentos <= MAX_REINTENTOS);
 	}
-}
 
-iniciar(2021, ['155164089001', '156933187001'])
-	.catch((error) => {
-		console.error(error);
-		process.exit(1);
-	})
-	.finally(async () => {
-		await context.clearCookies();
-		await context.close();
-		await browser.close();
-	});
+	await context.clearCookies();
+	await context.close();
+	await browser.close();
+}

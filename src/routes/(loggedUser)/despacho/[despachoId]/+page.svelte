@@ -13,16 +13,13 @@
 <PageLayout username={data.user}>
 	<h1 class="text-2xl font-bold">{despacho.nombre} - {despacho.codigo}</h1>
 
-	<form method="post" class="max-w-xs">
+	<form method="post" class="max-w-xs" action="?/actualizar">
 		<div class="grid items-center gap-2 sm:grid-cols-[1fr_2fr]">
 			<Label for="numero">Número</Label>
 			<Input type="number" name="numero" value={despacho.numero} required />
 
 			<Label for="tipoDespachoId">Tipo de despacho</Label>
-			<Select.Root
-				portal={null}
-				selected={opcionesTipoDespacho.find(({ value }) => value === despacho.tipoDespachoId)}
-			>
+			<Select.Root portal={null} selected={opcionesTipoDespacho.find(({ value }) => value === despacho.tipoDespachoId)}>
 				<Select.Trigger class="w-full">
 					<Select.Value />
 				</Select.Trigger>
@@ -44,5 +41,9 @@
 
 			<Button type="submit">Guardar</Button>
 		</div>
+	</form>
+
+	<form method="post" action="?/descargarEstadisticas">
+		<Button type="submit">Descargar estadísticas</Button>
 	</form>
 </PageLayout>
