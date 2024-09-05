@@ -255,7 +255,7 @@ export const actions = {
 		await db.novedadFuncionario.create({ data: newNovedad });
 
 		try {
-			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacion.despachoId, calificacionPeriodo.periodo);
+			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacionPeriodo.periodo);
 		} catch (error) {
 			if (error instanceof Error) return { success: false, error: error.message };
 			return {
@@ -296,7 +296,7 @@ export const actions = {
 		await db.novedadFuncionario.delete({ where: { id: novedadId } });
 
 		try {
-			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, novedad.despachoId, calificacionPeriodo.periodo);
+			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacionPeriodo.periodo);
 		} catch (error) {
 			if (error instanceof Error) return { success: false, error: error.message };
 			return {
@@ -378,7 +378,7 @@ export const actions = {
 		else await db.registroAudiencias.create({ data });
 
 		try {
-			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacion.despachoId, calificacionPeriodo.periodo);
+			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacionPeriodo.periodo);
 		} catch (error) {
 			if (error instanceof Error) return { success: false, error: error.message };
 			return {

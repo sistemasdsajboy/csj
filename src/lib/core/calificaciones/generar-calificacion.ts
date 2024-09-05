@@ -8,7 +8,7 @@ import {
 	unirFechasNoHabiles,
 	vacanciaJudicial,
 } from '$lib/utils/dates';
-import type { ClaseRegistroCalificacion, RegistroCalificacion, TipoDespacho } from '@prisma/client';
+import type { CalificacionPeriodo, ClaseRegistroCalificacion, RegistroCalificacion, TipoDespacho } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
 
@@ -337,9 +337,18 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	});
 }
 
-export async function generarCalificacionFuncionario(funcionarioId: string, despachoId: string, periodo: number): Promise<string> {
-	const calificacionPeriodo = await findOrCreateCalificacionPeriodo(funcionarioId, periodo);
-	if (calificacionPeriodo.estado === 'aprobada') return calificacionPeriodo.id;
+export async function consultarDespachosPorFuncionario(funcionarioId: string, periodo: number) {
+	return (
+		await db.registroCalificacion.findMany({
+			where: { funcionarioId, periodo },
+			select: { despacho: { select: { id: true, codigo: true, nombre: true, tipoDespachoId: true } } },
+			distinct: ['despachoId'],
+		})
+	).map(({ despacho }) => despacho);
+}
+
+async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeriodo, despachoId: string) {
+	const { funcionarioId, periodo } = calificacionPeriodo;
 
 	const funcionario = await db.funcionario.findFirst({
 		where: { id: funcionarioId },
@@ -372,7 +381,7 @@ export async function generarCalificacionFuncionario(funcionarioId: string, desp
 		);
 
 	let audiencias = await db.registroAudiencias.findFirst({
-		where: { periodo, funcionarioId, despachoId },
+		where: { periodo, funcionarioId, despachoId: despacho.id },
 	});
 	if (!audiencias)
 		audiencias = await db.registroAudiencias.create({
@@ -485,6 +494,17 @@ export async function generarCalificacionFuncionario(funcionarioId: string, desp
 		await db.calificacionDespacho.update({ where: { id: calificacion.id }, data });
 	} else {
 		await db.calificacionDespacho.create({ data });
+	}
+}
+
+export async function generarCalificacionFuncionario(funcionarioId: string, periodo: number): Promise<string> {
+	const calificacionPeriodo = await findOrCreateCalificacionPeriodo(funcionarioId, periodo);
+	if (calificacionPeriodo.estado === 'aprobada') return calificacionPeriodo.id;
+
+	const despachos = await consultarDespachosPorFuncionario(funcionarioId, periodo);
+
+	for await (const despacho of despachos) {
+		await generarCalificacionDespacho(calificacionPeriodo, despacho.id);
 	}
 
 	await actualizarDiasLaborables(calificacionPeriodo.id);
