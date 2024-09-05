@@ -185,7 +185,7 @@ function generarConsolidado({
 }
 
 export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null) {
-	if (tipoDespacho === null) return festivosPorMes;
+	if (!tipoDespacho) return festivosPorMes;
 
 	const { especialidad, categoria } = tipoDespacho;
 

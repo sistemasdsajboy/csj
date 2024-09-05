@@ -177,6 +177,9 @@ export const actions = {
 			if (!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx'))
 				return fail(400, { error: 'El archivo seleccionado debe tener extensión .xls o .xlsx' });
 
+			const maxSize = 1024 * 100; // 100KB in bytes
+			if (file.size > maxSize) return fail(400, { error: 'El archivo es demasiado grande. El tamaño máximo permitido es 100KB.' });
+
 			const registrosCargados = await createRegistrosCalificacionFromXlsx(file);
 			return { success: true, message: `Archivo cargado. ${registrosCargados} registros creados.` };
 		} catch (error) {
