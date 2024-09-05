@@ -12,8 +12,8 @@ export const load = (async ({ params }) => {
 			id: true,
 			username: true,
 			roles: true,
-			despachosSeccionalIds: true
-		}
+			despachosSeccionalIds: true,
+		},
 	});
 
 	if (!user) throw fail(404, { message: 'Usuario no encontrado' });
@@ -23,11 +23,11 @@ export const load = (async ({ params }) => {
 	const roles: { value: 'admin' | 'editor' | 'reviewer'; label: string }[] = [
 		{ value: 'admin', label: 'Administrador' },
 		{ value: 'editor', label: 'Edición' },
-		{ value: 'reviewer', label: 'Aprobación' }
+		{ value: 'reviewer', label: 'Aprobación' },
 	];
 
 	const dbDespachos = await db.despachoSeccional.findMany({
-		select: { id: true, nombre: true }
+		select: { id: true, nombre: true },
 	});
 	const despachos = dbDespachos.map((d) => ({ value: d.id, label: d.nombre }));
 
@@ -38,7 +38,8 @@ export const actions = {
 	default: async ({ request, locals }) => {
 		const user = await db.user.findFirst({ where: { id: locals.user?.id } });
 		if (!user) throw fail(404, { message: 'Usuario no encontrado' });
-		if (!user.roles.includes('admin')) error(403, 'No autorizado');
+		const adminsCount = await db.user.count({ where: { roles: { has: 'admin' } } });
+		if (!user.roles.includes('admin') && adminsCount > 1) error(403, 'No autorizado');
 
 		// TODO: Crear página de gestión de despachos en /configuracion y eliminar esta creación
 		const despachosSeccional = await db.despachoSeccional.findMany({});
@@ -48,14 +49,14 @@ export const actions = {
 					{
 						seccional: 'Tunja',
 						nombre: 'Despacho 1 - Consejo Seccional de la Judicatura - Tunja',
-						numero: 1
+						numero: 1,
 					},
 					{
 						seccional: 'Tunja',
 						nombre: 'Despacho 2 - Consejo Seccional de la Judicatura - Tunja',
-						numero: 2
-					}
-				]
+						numero: 2,
+					},
+				],
 			});
 		}
 		// END TODO
@@ -75,10 +76,10 @@ export const actions = {
 			where: { id: form.data.id },
 			data: {
 				roles: form.data.roles,
-				despachosSeccionalIds: form.data.despachosSeccionalIds
-			}
+				despachosSeccionalIds: form.data.despachosSeccionalIds,
+			},
 		});
 
 		return { form };
-	}
+	},
 };
