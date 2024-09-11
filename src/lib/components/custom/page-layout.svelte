@@ -45,18 +45,9 @@
 	</div>
 
 	<div class="flex grow space-x-2 sm:justify-end">
-		<a
-			href="/calificaciones"
-			class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/calificaciones') })}
-		>
-			Calificaciones
-		</a>
-		<a
-			href="/configuracion"
-			class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/configuracion') })}
-		>
-			Configuración
-		</a>
+		<a href="/calificaciones" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/calificaciones') })}> Calificaciones </a>
+		<a href="/turnos" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/turnos') })}> Turnos </a>
+		<a href="/configuracion" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/configuracion') })}> Configuración </a>
 		{@render userInfo()}
 	</div>
 </div>
