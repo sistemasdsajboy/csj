@@ -7,6 +7,34 @@ type TipoAsignacion = 'compensada' | 'no-compensada';
 type Asignaciones = Record<string, { funcionario: string; tipo: TipoAsignacion }>;
 type Exclusiones = Record<string, string[]>;
 
+const getTurnosDataForXlsxExport = (
+	funcionarios: string[],
+	turnos: Record<string, string>,
+	asignaciones: Asignaciones,
+	exclusiones: Exclusiones
+) => {
+	const encabezadoPagina = [
+		['Asignación de turnos'],
+		[],
+		['Mes', ...Object.keys(turnos).map((fecha) => fecha.slice(5, 7))],
+		['Día', ...Object.keys(turnos).map((fecha) => fecha.slice(8))],
+	];
+
+	const filas = funcionarios.map((funcionario) => [
+		funcionario,
+		...Object.entries(turnos).map(([fecha, funcionarioTurno]) => {
+			if (asignaciones[fecha]?.funcionario === funcionario)
+				if (asignaciones[fecha]?.tipo === 'compensada') return '•C';
+				else return '•N';
+			else if (exclusiones[fecha]?.includes(funcionario)) return 'E';
+			else if (funcionarioTurno === funcionario) return '•';
+			return '';
+		}),
+	]);
+
+	return [{ name: 'Turnos', data: [...encabezadoPagina, ...filas], options: {} }];
+};
+
 export const load = (async ({}) => {
 	const añoSiguiente = new Date().getFullYear() + 1;
 
@@ -167,6 +195,8 @@ export const actions = {
 			fecha = new Date(fecha.setDate(fecha.getDate() + 1));
 		}
 
-		return { success: true, form, turnos, conteoPeriodos, conteoFestivos, conteoPuentes, conteoNoPuentes };
+		const turnosXlsxData = getTurnosDataForXlsxExport(funcionarios, turnos, asignaciones, exclusiones);
+
+		return { success: true, form, turnos, conteoPeriodos, conteoFestivos, conteoPuentes, conteoNoPuentes, turnosXlsxData };
 	},
 } satisfies Actions;

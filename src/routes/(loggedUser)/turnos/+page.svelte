@@ -16,7 +16,8 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 	import { Label } from '$lib/components/ui/label';
 	import { dateIsHoliday, dateIsWeekend, festivosPorMes } from '$lib/utils/dates';
 	import { cn } from '$lib/utils/shadcn';
-	import { PinIcon, XIcon } from 'lucide-svelte';
+	import { exportToSpreadsheet } from '$lib/utils/xlsx.js';
+	import { FileSpreadsheetIcon, PinIcon, XIcon } from 'lucide-svelte';
 
 	const { form, data } = $props();
 	const valores = $state(form?.form || data.form);
@@ -74,19 +75,25 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 			<Button type="submit" class="col-span-2">Generar turnos</Button>
 		</form>
 
-		<Button
-			onclick={() => (herramientaClick = herramientaClick === 'asignacion' ? 'exclusion' : 'asignacion')}
-			variant="outline"
-			class="self-end"
-		>
-			{#if herramientaClick === 'asignacion'}
-				<PinIcon class="h-6 w-6" />
-				Asignar
-			{:else}
-				<XIcon class="h-6 w-6" />
-				Excluir
+		<div class="flex w-full flex-row justify-end gap-2">
+			<Button
+				onclick={() => (herramientaClick = herramientaClick === 'asignacion' ? 'exclusion' : 'asignacion')}
+				variant="outline"
+				class="self-end"
+			>
+				{#if herramientaClick === 'asignacion'}
+					<PinIcon class="h-6 w-6" /><span> Asignar</span>
+				{:else}
+					<XIcon class="h-6 w-6" /><span>Excluir</span>
+				{/if}
+			</Button>
+
+			{#if form?.turnosXlsxData}
+				<Button variant="outline" onclick={() => exportToSpreadsheet(form.turnosXlsxData, 'Turnos')}>
+					<FileSpreadsheetIcon class="h-6 w-6" /><span> Descargar</span>
+				</Button>
 			{/if}
-		</Button>
+		</div>
 
 		{#if form && !form.success}
 			<p>{form?.message}</p>
