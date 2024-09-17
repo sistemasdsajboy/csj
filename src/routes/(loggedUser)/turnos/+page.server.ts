@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db-client';
-import { dateIsHoliday, dateIsWeekend, festivosPorMes } from '$lib/utils/dates';
+import { dateIsHoliday, dateIsWeekend, festivosPorMes, utcDate } from '$lib/utils/dates';
 import type { Actions, PageServerLoad } from './$types';
 
 // "no-compensada": Periodos designados que no se compensan en el reparto de días: semana santa y periodos de vacaciones
@@ -45,7 +45,7 @@ export const load = (async ({}) => {
 
 	return {
 		form: {
-			fechaInicial: `${añoSiguiente}-01-10`,
+			fechaInicial: `${añoSiguiente}-01-11`,
 			fechaFinal: `${añoSiguiente}-12-19`,
 			funcionarios,
 			funcionarioPrimerTurno: '',
@@ -58,7 +58,7 @@ export const load = (async ({}) => {
 
 function verificarDia(fecha: string) {
 	let fechaDate = new Date(fecha);
-	fechaDate = new Date(fechaDate.getUTCFullYear(), fechaDate.getUTCMonth(), fechaDate.getUTCDate());
+	fechaDate = utcDate(fechaDate);
 	const esFestivo = dateIsHoliday(festivosPorMes, fechaDate);
 	const esFinDeSemana = dateIsWeekend(fechaDate);
 	if (esFinDeSemana || !esFestivo) return null;
@@ -107,7 +107,7 @@ export const actions = {
 		const fechaInicial = formData.get('fechaInicial')?.toString();
 		const fechaFinal = formData.get('fechaFinal')?.toString();
 		const funcionariosTexto = formData.get('funcionarios')?.toString();
-		const funcionarioPrimerTurno = formData.get('funcionarioPrimerTurno')?.toString();
+		let funcionarioPrimerTurno = formData.get('funcionarioPrimerTurno')?.toString();
 		const duracionPeriodo = formData.get('duracionPeriodo')?.toString();
 		const asignaciones = JSON.parse(formData.get('asignaciones')?.toString() || '{}') as Asignaciones;
 		const exclusiones = JSON.parse(formData.get('exclusiones')?.toString() || '{}') as Exclusiones;
@@ -122,18 +122,27 @@ export const actions = {
 			exclusiones,
 		};
 
-		if (!fechaInicial || !fechaFinal || !funcionariosTexto || !funcionarioPrimerTurno || !duracionPeriodo)
-			return { success: false, message: 'Todos los campos son requeridos', form };
+		if (!funcionariosTexto) return { success: false, message: 'Debe especificar la lista de funcionarios', form };
 
 		const funcionarios = funcionariosTexto
-			.split('\r\n')
+			?.split('\r\n')
+			.map((funcionario) => funcionario.trim())
 			.sort()
-			.filter((funcionario) => funcionario.trim() !== '');
+			.filter(Boolean);
+
+		if (funcionarios.length !== new Set(funcionarios).size)
+			return { success: false, message: 'La lista de funcionarios contiene duplicados', form };
+
+		if (!funcionarioPrimerTurno) funcionarioPrimerTurno = funcionarios[0];
+
+		if (!fechaInicial || !fechaFinal || !funcionariosTexto || !funcionarioPrimerTurno || !duracionPeriodo)
+			return { success: false, message: 'Debe diligenciar todos los campos requeridos', form };
+
 		if (!funcionarios.includes(funcionarioPrimerTurno))
 			return { success: false, message: 'El funcionario del primer turno no se encuentra en la lista de funcionarios', form };
 
-		let fecha = new Date(fechaInicial);
-		const fechaFinalDate = new Date(fechaFinal);
+		let fecha = utcDate(new Date(fechaInicial));
+		const fechaFinalDate = utcDate(new Date(fechaFinal));
 
 		if (fecha >= fechaFinalDate) return { success: false, message: 'La fecha inicial debe ser anterior a la fecha final', form };
 
@@ -152,7 +161,7 @@ export const actions = {
 			const fechaStr = fecha.toISOString().split('T')[0];
 			const tipoDia = verificarDia(fechaStr);
 			const asignacionManual = asignaciones[fechaStr];
-			const esFinDePeriodo = duracionPeriodo === 'diario' || (duracionPeriodo === 'semanal' && fecha.getDay() === 6);
+			const esFinDePeriodo = duracionPeriodo === 'diario' || (duracionPeriodo === 'semanal' && fecha.getDay() === 0);
 			// Ignorar exclusiones de días en los que se excluye a todos los funcionarios
 			const exclusionesEnFecha = exclusiones[fechaStr]?.length === funcionarios.length ? [] : exclusiones[fechaStr];
 			const compensacionEstaExcluida = exclusionesEnFecha?.includes(exclusionesPorCompensar[exclusionesPorCompensar.length - 1]);

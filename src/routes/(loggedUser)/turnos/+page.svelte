@@ -14,7 +14,7 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { dateIsHoliday, dateIsWeekend, festivosPorMes } from '$lib/utils/dates';
+	import { dateIsHoliday, dateIsWeekend, festivosPorMes, nombresMeses } from '$lib/utils/dates';
 	import { cn } from '$lib/utils/shadcn';
 	import { exportToSpreadsheet } from '$lib/utils/xlsx.js';
 	import { FileSpreadsheetIcon, PinIcon, XIcon } from 'lucide-svelte';
@@ -48,6 +48,17 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 			if (valores.asignaciones[fecha].funcionario === funcionario) delete valores.asignaciones[fecha];
 		}
 	}
+
+	const diasPorMes = $derived(
+		Object.entries(form?.turnos || {}).reduce(
+			(acc, [fecha]) => {
+				const [_, mes] = fecha.split('-').map(Number);
+				acc[mes] = (acc[mes] || 0) + 1;
+				return acc;
+			},
+			{} as Record<number, number>
+		)
+	);
 </script>
 
 {#snippet header()}
@@ -64,7 +75,7 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 			<Label for="funcionarios">Nombres</Label>
 			<textarea name="funcionarios" id="funcionarios" rows={5} required value={valores.funcionarios}></textarea>
 			<Label for="funcionarioPrimerTurno">Primer turno</Label>
-			<Input name="funcionarioPrimerTurno" id="funcionarioPrimerTurno" required value={valores.funcionarioPrimerTurno} />
+			<Input name="funcionarioPrimerTurno" id="funcionarioPrimerTurno" value={valores.funcionarioPrimerTurno} />
 			<Label for="duracionPeriodo">Periodocidad</Label>
 			<select name="duracionPeriodo" id="duracionPeriodo" required value={valores.duracionPeriodo}>
 				<option value="diario">Diario</option>
@@ -104,6 +115,14 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 				<table>
 					<thead>
 						<tr>
+							<th colspan="5"></th>
+							{#each Object.entries(diasPorMes) as [mes, dias]}
+								<th class="odd:bg-slate-50 even:bg-slate-200" colspan={dias}>{nombresMeses[mes]}</th>
+							{/each}
+						</tr>
+					</thead>
+					<thead>
+						<tr>
 							<th>Funcionario / Fecha</th>
 							<th>Total días</th>
 							<th>Días festivos</th>
@@ -114,7 +133,7 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 									class={cn({
 										'bg-amber-500 text-red-800': dateIsHoliday(festivosPorMes, new Date(fecha)),
 										'bg-amber-300 text-amber-800 ': dateIsWeekend(new Date(fecha)),
-									})}>{fecha.slice(5, 10)}</th
+									})}>{fecha.slice(8, 10)}</th
 								>
 							{/each}
 						</tr>

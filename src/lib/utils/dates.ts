@@ -82,18 +82,35 @@ export const vacanciaJudicial = {
 	'2025-12': [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
 };
 
+export const nombresMeses: Record<string, string> = {
+	'1': 'Enero',
+	'2': 'Febrero',
+	'3': 'Marzo',
+	'4': 'Abril',
+	'5': 'Mayo',
+	'6': 'Junio',
+	'7': 'Julio',
+	'8': 'Agosto',
+	'9': 'Septiembre',
+	'10': 'Octubre',
+	'11': 'Noviembre',
+	'12': 'Diciembre',
+};
+
 export const unirFechasNoHabiles = (...excludedDates: Array<Record<string, Array<number>>>): Record<string, Array<number>> => {
 	const mergeArrays = (obj: Array<number> = [], src: Array<number> = []) => [...new Set([...obj, ...src])];
 	return excludedDates.reduce((prev, curr) => _.mergeWith(prev, curr, mergeArrays), {});
 };
 
+export const utcDate = (date: Date) => new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+
 export const dateIsWeekend = (date: Date) => {
-	date = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+	date = utcDate(date);
 	return date.getDay() === 0 || date.getDay() === 6;
 };
 
 export const dateIsHoliday = (excludedDates: Record<string, Array<number>>, date: Date) => {
-	date = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+	date = utcDate(date);
 	const dayjsDate = dayjs(date.toString());
 	const holiday = Boolean(excludedDates[`${dayjsDate.year()}-${dayjsDate.month() + 1}`]?.includes(dayjsDate.date()));
 	return holiday;
