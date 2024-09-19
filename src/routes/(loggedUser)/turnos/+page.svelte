@@ -14,7 +14,7 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { dateIsHoliday, dateIsWeekend, festivosPorMes, nombresMeses } from '$lib/utils/dates';
+	import { abreviacionesDias, dateIsHoliday, dateIsWeekend, festivosPorMes, nombresMeses, utcDate } from '$lib/utils/dates';
 	import { cn } from '$lib/utils/shadcn';
 	import { exportToSpreadsheet } from '$lib/utils/xlsx.js';
 	import { FileSpreadsheetIcon, PinIcon, XIcon } from 'lucide-svelte';
@@ -76,9 +76,10 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 			<textarea name="funcionarios" id="funcionarios" rows={5} required value={valores.funcionarios}></textarea>
 			<Label for="funcionarioPrimerTurno">Primer turno</Label>
 			<Input name="funcionarioPrimerTurno" id="funcionarioPrimerTurno" value={valores.funcionarioPrimerTurno} />
-			<Label for="duracionPeriodo">Periodocidad</Label>
+			<Label for="duracionPeriodo">Periodicidad</Label>
 			<select name="duracionPeriodo" id="duracionPeriodo" required value={valores.duracionPeriodo}>
 				<option value="diario">Diario</option>
+				<option value="diario-festivos">Solo festivos</option>
 				<option value="semanal">Semanal</option>
 			</select>
 			<Input type="hidden" name="asignaciones" value={asignaciones} />
@@ -86,36 +87,38 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 			<Button type="submit" class="col-span-2">Generar turnos</Button>
 		</form>
 
-		<div class="flex w-full flex-row justify-end gap-2">
-			<Button
-				onclick={() => (herramientaClick = herramientaClick === 'asignacion' ? 'exclusion' : 'asignacion')}
-				variant="outline"
-				class="self-end"
-			>
-				{#if herramientaClick === 'asignacion'}
-					<PinIcon class="h-6 w-6" /><span> Asignar</span>
-				{:else}
-					<XIcon class="h-6 w-6" /><span>Excluir</span>
-				{/if}
-			</Button>
-
-			{#if form?.turnosXlsxData}
-				<Button variant="outline" onclick={() => exportToSpreadsheet(form.turnosXlsxData, 'Turnos')}>
-					<FileSpreadsheetIcon class="h-6 w-6" /><span> Descargar</span>
+		{#if form && form.success && form.turnos}
+			<div class="flex w-full flex-row justify-end gap-2">
+				<Button
+					onclick={() => (herramientaClick = herramientaClick === 'asignacion' ? 'exclusion' : 'asignacion')}
+					variant="outline"
+					class="self-end"
+				>
+					{#if herramientaClick === 'asignacion'}
+						<PinIcon class="h-6 w-6" /><span> Asignar</span>
+					{:else}
+						<XIcon class="h-6 w-6" /><span>Excluir</span>
+					{/if}
 				</Button>
-			{/if}
-		</div>
+
+				{#if form?.turnosXlsxData}
+					<Button variant="outline" onclick={() => exportToSpreadsheet(form.turnosXlsxData, 'Turnos')}>
+						<FileSpreadsheetIcon class="h-6 w-6" /><span> Descargar</span>
+					</Button>
+				{/if}
+			</div>
+		{/if}
 
 		{#if form && !form.success}
 			<p>{form?.message}</p>
 		{/if}
 
 		{#if funcionarios && form && form.success && form.turnos}
-			<div class="w-full overflow-auto border border-slate-300">
+			<div class="w-full overflow-auto border border-slate-300 leading-tight">
 				<table>
 					<thead>
 						<tr>
-							<th colspan="5"></th>
+							<th colspan="3"></th>
 							{#each Object.entries(diasPorMes) as [mes, dias]}
 								<th class="odd:bg-slate-50 even:bg-slate-200" colspan={dias}>{nombresMeses[mes]}</th>
 							{/each}
@@ -123,11 +126,22 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 					</thead>
 					<thead>
 						<tr>
+							<th colspan="3"></th>
+							{#each Object.entries(form.turnos) as [fecha]}
+								<th
+									class={cn({
+										'bg-amber-500 text-red-800': dateIsHoliday(festivosPorMes, new Date(fecha)),
+										'bg-amber-300 text-amber-800 ': dateIsWeekend(new Date(fecha)),
+									})}>{abreviacionesDias[utcDate(new Date(fecha)).getDay()]}</th
+								>
+							{/each}
+						</tr>
+					</thead>
+					<thead class="border-b border-slate-400">
+						<tr>
 							<th>Funcionario / Fecha</th>
 							<th>Total días</th>
 							<th>Días festivos</th>
-							<th>Puentes</th>
-							<th>No puentes</th>
 							{#each Object.entries(form.turnos) as [fecha]}
 								<th
 									class={cn({
@@ -138,21 +152,20 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 							{/each}
 						</tr>
 					</thead>
+
 					<tbody>
 						{#each funcionarios as funcionario}
-							<tr>
+							<tr class="transition-colors hover:bg-slate-300">
 								<td class="whitespace-nowrap">{funcionario}</td>
-								<td>{form.conteoPeriodos[funcionario]}</td>
-								<td>{form.conteoFestivos[funcionario]}</td>
-								<td>{form.conteoPuentes[funcionario]}</td>
-								<td>{form.conteoNoPuentes[funcionario]}</td>
+								<td class="text-center">{form.conteoPeriodos[funcionario]}</td>
+								<td class="text-center">{form.conteoFestivos[funcionario]}</td>
 								{#each Object.entries(form.turnos) as [fecha, funcTurno]}
 									<td
 										class={cn(
 											{
-												'bg-amber-500': dateIsHoliday(festivosPorMes, new Date(fecha)),
-												'bg-amber-300': dateIsWeekend(new Date(fecha)),
-												'rounded-sm bg-green-500': funcTurno === funcionario,
+												'bg-amber-500 bg-opacity-50': dateIsHoliday(festivosPorMes, new Date(fecha)),
+												'bg-amber-300 bg-opacity-50': dateIsWeekend(new Date(fecha)),
+												'rounded-sm bg-green-500 bg-opacity-80': funcTurno === funcionario,
 											},
 											'text-center hover:bg-sky-500'
 										)}

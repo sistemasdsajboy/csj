@@ -1,5 +1,13 @@
 import { db } from '$lib/server/db-client';
-import { dateIsHoliday, dateIsWeekend, festivosPorMes, utcDate } from '$lib/utils/dates';
+import {
+	dateIsHoliday,
+	dateIsWeekend,
+	diaJusticia,
+	festivosPorMes,
+	semanaSantaCompleta,
+	unirFechasNoHabiles,
+	utcDate,
+} from '$lib/utils/dates';
 import type { Actions, PageServerLoad } from './$types';
 
 // "no-compensada": Periodos designados que no se compensan en el reparto de días: semana santa y periodos de vacaciones
@@ -56,10 +64,13 @@ export const load = (async ({}) => {
 	};
 }) satisfies PageServerLoad;
 
-function verificarDia(fecha: string) {
+function verificarDia(fecha: string, soloFestivos: boolean = false) {
 	let fechaDate = new Date(fecha);
 	fechaDate = utcDate(fechaDate);
-	const esFestivo = dateIsHoliday(festivosPorMes, fechaDate);
+	const diasFestivos = soloFestivos
+		? unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta)
+		: unirFechasNoHabiles(festivosPorMes, diaJusticia);
+	const esFestivo = dateIsHoliday(diasFestivos, fechaDate);
 	const esFinDeSemana = dateIsWeekend(fechaDate);
 	if (esFinDeSemana || !esFestivo) return null;
 	const esPuente = fechaDate.getDay() === 1 || fechaDate.getDay() === 5;
@@ -159,9 +170,11 @@ export const actions = {
 
 		while (fecha <= fechaFinalDate) {
 			const fechaStr = fecha.toISOString().split('T')[0];
-			const tipoDia = verificarDia(fechaStr);
+			const tipoDia = verificarDia(fechaStr, duracionPeriodo === 'diario-festivos');
 			const asignacionManual = asignaciones[fechaStr];
-			const esFinDePeriodo = duracionPeriodo === 'diario' || (duracionPeriodo === 'semanal' && fecha.getDay() === 0);
+			const esFinDeSemana = dateIsWeekend(fecha);
+			const esFinDePeriodo =
+				duracionPeriodo === 'diario' || duracionPeriodo === 'diario-festivos' || (duracionPeriodo === 'semanal' && fecha.getDay() === 0);
 			// Ignorar exclusiones de días en los que se excluye a todos los funcionarios
 			const exclusionesEnFecha = exclusiones[fechaStr]?.length === funcionarios.length ? [] : exclusiones[fechaStr];
 			const compensacionEstaExcluida = exclusionesEnFecha?.includes(exclusionesPorCompensar[exclusionesPorCompensar.length - 1]);
@@ -179,15 +192,18 @@ export const actions = {
 					if (siguiente !== funcionarios[indiceTurno]) exclusionesPorCompensar.push(funcionarios[indiceTurno]);
 
 					turnos[fechaStr] = siguiente;
-				} else {
+
+					if (esFinDePeriodo) indiceTurno = (indiceTurno + 1) % funcionarios.length;
+				} else if (duracionPeriodo !== 'diario-festivos' || esFinDeSemana) {
 					while (exclusionesEnFecha?.includes(funcionarios[indiceTurno]) || asignacionesPorCompensar.includes(funcionarios[indiceTurno])) {
 						if (asignacionesPorCompensar.includes(funcionarios[indiceTurno])) asignacionesPorCompensar.pop();
 						else exclusionesPorCompensar.push(funcionarios[indiceTurno]);
 						indiceTurno = (indiceTurno + 1) % funcionarios.length;
 					}
 					turnos[fechaStr] = funcionarios[indiceTurno];
+
+					if (esFinDePeriodo) indiceTurno = (indiceTurno + 1) % funcionarios.length;
 				}
-				if (esFinDePeriodo) indiceTurno = (indiceTurno + 1) % funcionarios.length;
 			}
 
 			// Registrar conteo de dias/semanas asignadas para cada funcionario para controlar el reparto equitativo de los días

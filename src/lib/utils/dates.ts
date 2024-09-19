@@ -97,6 +97,16 @@ export const nombresMeses: Record<string, string> = {
 	'12': 'Diciembre',
 };
 
+export const abreviacionesDias: Record<string, string> = {
+	'0': 'D',
+	'1': 'L',
+	'2': 'M',
+	'3': 'I',
+	'4': 'J',
+	'5': 'V',
+	'6': 'S',
+};
+
 export const unirFechasNoHabiles = (...excludedDates: Array<Record<string, Array<number>>>): Record<string, Array<number>> => {
 	const mergeArrays = (obj: Array<number> = [], src: Array<number> = []) => [...new Set([...obj, ...src])];
 	return excludedDates.reduce((prev, curr) => _.mergeWith(prev, curr, mergeArrays), {});
