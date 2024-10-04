@@ -468,7 +468,10 @@ export const actions = {
 
 		await db.calificacionPeriodo.update({
 			where: { id: params.calificacionId },
-			data: { estado: 'aprobada' },
+			data: {
+				estado: 'aprobada',
+				observaciones: { create: { observaciones: 'Calificación aprobada.', autorId: user.id, estado: 'aprobada' } },
+			},
 		});
 
 		redirect(303, '/calificaciones');
@@ -581,6 +584,29 @@ export const actions = {
 				estado: 'borrador',
 				observaciones: { create: { observaciones, autorId: user.id, estado: 'borrador' } },
 			},
+		});
+	},
+
+	archivar: async ({ params, locals, request }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user) return { success: false, error: 'No autorizado' };
+
+		const isReviewer = user.roles.includes('reviewer');
+		if (!isReviewer) return { success: false, error: 'No tiene permiso para archivar una calificación.' };
+
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({ where: { id: params.calificacionId } });
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
+		if (calificacionPeriodo.estado !== 'aprobada')
+			return { success: false, error: 'No es posible archivar una calificación que no haya sido aprobada.' };
+
+		const formData = await request.formData();
+		const observaciones = formData.get('observaciones')?.toString() || 'Calificación archivada. Sin observaciones.';
+
+		await db.calificacionPeriodo.update({
+			where: { id: params.calificacionId },
+			data: { estado: 'archivada', observaciones: { create: { observaciones, autorId: user.id, estado: 'archivada' } } },
 		});
 	},
 };

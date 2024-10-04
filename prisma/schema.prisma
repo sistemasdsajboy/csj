@@ -225,6 +225,7 @@ enum EstadoCalificacion {
   aprobada
   devuelta
   eliminada
+  archivada
 }
 
 model ObservacionCalificacion {

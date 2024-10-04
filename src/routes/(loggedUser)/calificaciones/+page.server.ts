@@ -7,9 +7,9 @@ import type { PageServerLoad } from './$types';
 import { filtroCalificacionesSchema } from './validation';
 
 const estadosVisiblesPorRol: Record<string, EstadoCalificacion[]> = {
-	admin: ['borrador', 'devuelta', 'revision', 'aprobada', 'eliminada'],
-	editor: ['borrador', 'devuelta', 'revision', 'aprobada'],
-	reviewer: ['devuelta', 'revision', 'aprobada'],
+	admin: ['borrador', 'devuelta', 'revision', 'aprobada', 'eliminada', 'archivada'],
+	editor: ['borrador', 'devuelta', 'revision', 'aprobada', 'archivada'],
+	reviewer: ['devuelta', 'revision', 'aprobada', 'archivada'],
 };
 
 export const load = (async ({ locals }) => {
@@ -30,7 +30,7 @@ export const load = (async ({ locals }) => {
 
 	const periodo = prefs?.periodo ? prefs.periodo : '';
 
-	const calificaciones = await db.calificacionPeriodo.findMany({
+	const calificaciones = db.calificacionPeriodo.findMany({
 		where: {
 			estado,
 			periodo: periodo ? parseInt(periodo) : undefined,
@@ -120,6 +120,7 @@ export const load = (async ({ locals }) => {
 	).map((f) => ({ label: f.nombre, value: f.id }));
 
 	return {
+		calificaciones,
 		estado,
 		periodo,
 		estados,
@@ -136,7 +137,6 @@ export const load = (async ({ locals }) => {
 			distrito: prefs?.distrito || '',
 			municipio: prefs?.municipio || '',
 		},
-		calificaciones,
 		funcionarios,
 	};
 }) satisfies PageServerLoad;

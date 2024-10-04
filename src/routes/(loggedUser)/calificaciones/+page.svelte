@@ -18,6 +18,7 @@
 		revision: 'Para revisar',
 		aprobada: 'Aprobada',
 		devuelta: 'Devuelta',
+		archivada: 'Archivada',
 		eliminada: 'Eliminada',
 	};
 
@@ -158,35 +159,41 @@
 			{/each}
 		</Tabs.List>
 		<Tabs.Content value={data.estado}>
-			{#each data.calificaciones as calificacion}
-				<a
-					href="/calificacion/{calificacion.id}?despacho={calificacion.calificaciones[0].despachoId}"
-					class="grid grid-cols-[160px_1fr] items-center justify-start gap-2 p-2 hover:bg-slate-100"
-				>
-					<div class="flex flex-col items-start gap-2">
-						<Badge variant={calificacion.despachoSeccional?.nombre ? 'default' : 'secondary'}>
-							{calificacion.despachoSeccional?.nombre.slice(0, 10) || 'Sin despacho asignado'}
-						</Badge>
-					</div>
-					<div>
-						<div class="flex items-center gap-4">
-							{calificacion.funcionario.nombre}
-							{#if calificacion.estado === 'revision' && calificacion.observaciones?.length > 0}
-								<Badge class="bg-amber-700">
-									{`${calificacion.observaciones.length} ${calificacion.observaciones.length === 1 ? 'devolución' : 'devoluciones'}`}
-								</Badge>
-							{/if}
+			{#await data.calificaciones}
+				<div class="text-slate-600">Cargando...</div>
+			{:then calificaciones}
+				{#each calificaciones as calificacion}
+					<a
+						href="/calificacion/{calificacion.id}?despacho={calificacion.calificaciones[0].despachoId}"
+						class="grid grid-cols-[160px_1fr] items-center justify-start gap-2 p-2 hover:bg-slate-100"
+					>
+						<div class="flex flex-col items-start gap-2">
+							<Badge variant={calificacion.despachoSeccional?.nombre ? 'default' : 'secondary'}>
+								{calificacion.despachoSeccional?.nombre.slice(0, 10) || 'Sin despacho asignado'}
+							</Badge>
 						</div>
-						{#each calificacion.calificaciones as califDespacho}
-							<div class="text-sm text-slate-500">
-								{califDespacho.despacho.nombre}
+						<div>
+							<div class="flex items-center gap-4">
+								{calificacion.funcionario.nombre}
+								{#if calificacion.estado === 'revision' && calificacion.observaciones?.length > 0}
+									<Badge class="bg-amber-700">
+										{`${calificacion.observaciones.length} ${calificacion.observaciones.length === 1 ? 'devolución' : 'devoluciones'}`}
+									</Badge>
+								{/if}
 							</div>
-						{/each}
-					</div>
-				</a>
-			{:else}
-				<div class="text-slate-600">No hay calificaciones que coincidan con los criterios de búsqueda.</div>
-			{/each}
+							{#each calificacion.calificaciones as califDespacho}
+								<div class="text-sm text-slate-500">
+									{califDespacho.despacho.nombre}
+								</div>
+							{/each}
+						</div>
+					</a>
+				{:else}
+					<div class="text-slate-600">No hay calificaciones que coincidan con los criterios de búsqueda.</div>
+				{/each}
+			{:catch _}
+				<div class="text-slate-600">Ha ocurrido un error durante la carga del listado de calificaciones.</div>
+			{/await}
 		</Tabs.Content>
 	</Tabs.Root>
 </PageLayout>
