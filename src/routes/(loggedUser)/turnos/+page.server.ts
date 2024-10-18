@@ -1,5 +1,6 @@
 import { db } from '$lib/server/db-client';
 import {
+	abreviacionesDias,
 	dateIsHoliday,
 	dateIsWeekend,
 	diaJusticia,
@@ -25,7 +26,8 @@ const getTurnosDataForXlsxExport = (
 		['Asignación de turnos'],
 		[],
 		['Mes', ...Object.keys(turnos).map((fecha) => fecha.slice(5, 7))],
-		['Día', ...Object.keys(turnos).map((fecha) => fecha.slice(8))],
+		['Dia', ...Object.keys(turnos).map((fecha) => abreviacionesDias[utcDate(new Date(fecha)).getDay()])],
+		['', ...Object.keys(turnos).map((fecha) => fecha.slice(8))],
 	];
 
 	const filas = funcionarios.map((funcionario) => [
