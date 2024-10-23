@@ -21,7 +21,7 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 
 	const { form, data } = $props();
 	const valores = $state(form?.form || data.form);
-	const funcionarios = $derived(valores.funcionarios?.split('\n').map((funcionario) => funcionario.trim()));
+	const funcionarios = $derived(valores.funcionarios?.split('\n').map((funcionario = '') => funcionario.trim()));
 	const asignaciones = $derived(JSON.stringify(valores.asignaciones));
 	const exclusiones = $derived(JSON.stringify(valores.exclusiones));
 	let herramientaClick = $state<'asignacion' | 'exclusion'>('exclusion');

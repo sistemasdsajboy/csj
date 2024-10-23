@@ -9,7 +9,6 @@ const MULTIPLICADOR = 3;
 const MAX_REINTENTOS = 3;
 
 async function iniciarSesion(page: Page) {
-	console.log({ SIERJU_URL });
 	await page.goto(SIERJU_URL);
 
 	await page.fill("[name='j_username']", SIERJU_USERNAME);

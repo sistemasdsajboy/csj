@@ -121,6 +121,7 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 
 		return count;
 	} catch (error) {
+		// TODO: Revisar. Los mensajes de error generados dentro de try se están omitiendo.
 		throw new Error('Ha ocurrido un error inesperado durante la carga del archivo.');
 	}
 };
