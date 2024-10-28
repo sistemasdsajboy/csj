@@ -1,7 +1,7 @@
-import playwright, { type Page } from 'playwright';
 import _ from 'lodash';
+import playwright, { type Page } from 'playwright';
 
-import { SIERJU_USERNAME, SIERJU_PASSWORD, SIERJU_URL } from '$env/static/private';
+import { SIERJU_PASSWORD, SIERJU_URL, SIERJU_USERNAME, PLAYWRIGHT_ENDPOINT } from '$env/static/private';
 
 // Configuración de backoff exponencial para reintentos.
 const BASE = 1.5;
@@ -123,7 +123,7 @@ async function descargarDatosDespachoSierju(page: playwright.Page, periodo: numb
 }
 
 export async function descargarDatosSierju(periodo: number, codigosDespacho: string[] = []) {
-	const browser = await playwright.chromium.launch({ headless: true, slowMo: 50 });
+	const browser = await playwright.chromium.connect(PLAYWRIGHT_ENDPOINT, { slowMo: 50 });
 	const context = await browser.newContext({ viewport: { width: 1920, height: 1200 } });
 	const page = await context.newPage();
 
