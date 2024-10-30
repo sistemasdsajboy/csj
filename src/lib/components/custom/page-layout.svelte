@@ -34,7 +34,7 @@
 	class="container flex flex-col items-start justify-between space-y-2 border border-b-slate-300 py-4 sm:flex-row sm:items-center sm:space-y-0 md:h-16 print:hidden"
 >
 	<div class="flex grow items-center gap-2 text-lg font-bold uppercase">
-		{#if url.pathname !== '/'}
+		{#if url.pathname !== '/' && username}
 			<Button variant="link" href={backHref || previousPage}>
 				<ArrowLeft class="h-6 w-6" />
 			</Button>
@@ -44,12 +44,21 @@
 		{/if}
 	</div>
 
-	<div class="flex grow space-x-2 sm:justify-end">
-		<a href="/calificaciones" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/calificaciones') })}> Calificaciones </a>
-		<a href="/turnos" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/turnos') })}> Turnos </a>
-		<a href="/configuracion" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/configuracion') })}> Configuración </a>
-		{@render userInfo()}
-	</div>
+	{#if username}
+		<div class="flex grow space-x-2 sm:justify-end">
+			<a href="/calificaciones" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/calificaciones') })}> Calificaciones </a>
+			<a
+				href="/turnos"
+				class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/turnos') })}
+				target="_blank"
+				rel="noreferrer noopener"
+			>
+				Turnos
+			</a>
+			<a href="/configuracion" class={cn({ 'text-sky-800 underline': !url.pathname.startsWith('/configuracion') })}> Configuración </a>
+			{@render userInfo()}
+		</div>
+	{/if}
 </div>
 
 <div class="container h-full py-6">

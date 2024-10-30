@@ -1,4 +1,3 @@
-import { db } from '$lib/server/db-client';
 import {
 	abreviacionesDias,
 	dateIsHoliday,
@@ -48,10 +47,13 @@ const getTurnosDataForXlsxExport = (
 export const load = (async ({}) => {
 	const añoSiguiente = new Date().getFullYear() + 1;
 
-	const funcionarios = (await db.funcionario.findMany({ select: { nombre: true }, take: 15 }))
-		.map((f) => f.nombre)
-		.sort()
-		.join('\n');
+	const funcionarios = [
+		'Funcionario o Despacho 1',
+		'Funcionario o Despacho 2',
+		'Funcionario o Despacho 3',
+		'Funcionario o Despacho 4',
+		'Funcionario o Despacho 5',
+	].join('\n');
 
 	return {
 		form: {
