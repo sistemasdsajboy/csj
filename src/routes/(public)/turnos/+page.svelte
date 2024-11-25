@@ -65,7 +65,7 @@ GENERACIÓN DE TURNOS DE HABEAS CORPUS
 	<div class="text-2xl font-bold">Asignación de turnos</div>
 {/snippet}
 
-<PageLayout {header} username={data.user}>
+<PageLayout {header} username={data.user || ''}>
 	<div class="flex flex-col items-start gap-2">
 		<form method="post" class="grid w-1/3 grid-cols-[120px_1fr] items-center gap-2">
 			<Label for="fechaInicial">Fecha inicial</Label>
