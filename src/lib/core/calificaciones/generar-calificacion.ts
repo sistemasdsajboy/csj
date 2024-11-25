@@ -357,7 +357,7 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 			novedades: {
 				where: {
 					despachoId,
-					OR: [{ from: { lte: new Date(periodo, 11, 31) } }, { to: { gte: new Date(periodo, 0, 1) } }],
+					AND: [{ from: { lte: new Date(periodo, 11, 31) } }, { to: { gte: new Date(periodo, 0, 1) } }],
 				},
 			},
 		},

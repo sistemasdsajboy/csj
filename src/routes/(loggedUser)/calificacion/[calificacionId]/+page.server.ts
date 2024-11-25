@@ -134,7 +134,7 @@ export const load = (async ({ params, locals, url }) => {
 		where: {
 			despachoId,
 			funcionarioId: calificacionPeriodo.funcionarioId,
-			OR: [{ from: { lte: new Date(calificacionPeriodo.periodo, 11, 31) } }, { to: { gte: new Date(calificacionPeriodo.periodo, 0, 1) } }],
+			AND: [{ from: { lte: new Date(calificacionPeriodo.periodo, 11, 31) } }, { to: { gte: new Date(calificacionPeriodo.periodo, 0, 1) } }],
 		},
 	});
 
