@@ -400,9 +400,12 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 	await actualizarClaseRegistros(despachoId, periodo);
 
 	const diasNoHabiles = getDiasFestivosPorTipoDespacho(despacho.tipoDespacho);
-	const diasHabilesDespacho = contarDiasHabiles(diasNoHabiles, new Date(periodo, 0, 1), new Date(periodo, 11, 31));
 
-	const registros = await db.registroCalificacion.findMany({ where: { despachoId, periodo, categoria: { not: 'Consolidado' } } });
+	const registros = await db.registroCalificacion.findMany({
+		where: { despachoId, periodo, categoria: { not: 'Consolidado' } },
+		orderBy: { desde: 'asc' },
+	});
+	const diasHabilesDespacho = contarDiasHabiles(diasNoHabiles, registros[0].desde, registros[registros.length - 1].hasta);
 
 	const registrosTutelas = registros.filter((registro) => registro.clase === 'tutelas');
 	const consolidadoTutelas = generarConsolidado({ diasNoHabiles, registros: registrosTutelas });
