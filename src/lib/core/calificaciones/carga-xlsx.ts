@@ -66,40 +66,19 @@ type WorkbookPage = { name: string; data: unknown[][] };
 type Workbook = Array<WorkbookPage>;
 
 export const createRegistrosCalificacionFromXlsx = async (file: File) => {
+	const { woorkbook, despacho } = await workbookFromXlsxFile(file);
+	const fileData = await fileDataFromWorkbook(woorkbook, despacho);
+
 	try {
-		const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
-		const despachoString = woorkbook[0].data[0][0] as string;
-
-		const despacho = await getDespachoFromXlsxFileString(despachoString);
-		if (!despacho) throw new Error('Información de despacho no válida en el archivo de calificación.');
-
-		const rows = woorkbook.flatMap((workbookPage) => extractWorkbookPageRows(workbookPage));
-
-		const funcionariosByWorkbookString: Array<{ funcionarioStr: string; funcionario: Funcionario }> = await Promise.all(
-			_(rows)
-				.uniqBy('funcionario')
-				.value()
-				.map(async (row) => {
-					return {
-						funcionarioStr: row.funcionario,
-						funcionario: await getFuncionarioFromXlsxFileString(row.funcionario),
-					};
-				}, {})
-		);
-
-		const fileData = woorkbook.flatMap(extractWorkbookPageData(despacho, funcionariosByWorkbookString));
-		if (!fileData.length) throw new Error('El archivo no contiene información para cargar o no se reconoce el formato del contenido.');
-
-		const registro = await db.registroCalificacion.findFirst({
+		const { count: countEliminados } = await db.registroCalificacion.deleteMany({
 			where: {
 				despachoId: despacho.id,
 				periodo: fileData[0].periodo,
 				categoria: { not: 'Consolidado' },
 			},
 		});
-		if (registro) throw new Error(`Ya existen registros de calificaciones para este despacho en el periodo ${fileData[0].periodo} .`);
 
-		const { count } = await db.registroCalificacion.createMany({
+		const { count: countCreados } = await db.registroCalificacion.createMany({
 			data: fileData.map((d) => ({
 				cargaEfectiva: d.cargaEfectiva,
 				egresoEfectivo: d.egresoEfectivo,
@@ -119,12 +98,53 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 			})),
 		});
 
-		return count;
+		return { countCreados, countEliminados, despacho: despacho.nombre, periodo: fileData[0].periodo };
 	} catch (error) {
-		// TODO: Revisar. Los mensajes de error generados dentro de try se están omitiendo.
-		throw new Error('Ha ocurrido un error inesperado durante la carga del archivo.');
+		throw new Error(
+			'Ocurrió un error durante la actualización de los registros en la base de datos. Por favor vuelva a cargar el archivo consolidado.'
+		);
 	}
 };
+
+async function workbookFromXlsxFile(file: File): Promise<{ woorkbook: Workbook; despacho: Despacho }> {
+	try {
+		const woorkbook: Workbook = xlsx.parse(await file.arrayBuffer());
+		const despachoString = woorkbook[0].data[0][0] as string;
+
+		const despacho: Despacho | null = await getDespachoFromXlsxFileString(despachoString);
+		if (!despacho) throw new Error();
+		return { woorkbook, despacho };
+	} catch (error) {
+		throw new Error('Información de despacho no válida en el archivo de calificación.');
+	}
+}
+
+async function fileDataFromWorkbook(
+	woorkbook: Workbook,
+	despacho: Despacho
+): Promise<Omit<RegistroCalificacion, 'id' | 'dias' | 'calificacionId'>[]> {
+	try {
+		const rows = woorkbook.flatMap((workbookPage) => extractWorkbookPageRows(workbookPage));
+
+		const funcionariosByWorkbookString: Array<{ funcionarioStr: string; funcionario: Funcionario }> = await Promise.all(
+			_(rows)
+				.uniqBy('funcionario')
+				.value()
+				.map(async (row) => {
+					return {
+						funcionarioStr: row.funcionario,
+						funcionario: await getFuncionarioFromXlsxFileString(row.funcionario),
+					};
+				}, {})
+		);
+		const fileData = woorkbook.flatMap(extractWorkbookPageData(despacho, funcionariosByWorkbookString));
+		if (!fileData.length) throw new Error();
+
+		return fileData;
+	} catch (error) {
+		throw new Error('El archivo no contiene información para cargar o no se reconoce el formato del contenido.');
+	}
+}
 
 async function getDespachoFromXlsxFileString(despachoString: string): Promise<Despacho | null> {
 	// Eliminar espacios múltiples
