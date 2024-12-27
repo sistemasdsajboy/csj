@@ -1,7 +1,6 @@
+import { PLAYWRIGHT_ENDPOINT, SIERJU_PASSWORD, SIERJU_URL, SIERJU_USERNAME } from '$env/static/private';
 import _ from 'lodash';
 import playwright, { type Page } from 'playwright';
-
-import { SIERJU_PASSWORD, SIERJU_URL, SIERJU_USERNAME, PLAYWRIGHT_ENDPOINT } from '$env/static/private';
 
 // Configuración de backoff exponencial para reintentos.
 const BASE = 1.5;
@@ -122,10 +121,26 @@ async function descargarDatosDespachoSierju(page: playwright.Page, periodo: numb
 	return true;
 }
 
+async function playwrightBrowser(endpoint: string = '') {
+	let browser: playwright.Browser = await (endpoint
+		? playwright.chromium.connect(endpoint, { slowMo: 50 })
+		: playwright.chromium.launch({ headless: true, slowMo: 50 }));
+	let context: playwright.BrowserContext = await browser.newContext({ viewport: { width: 1920, height: 1200 } });
+	let page: playwright.Page = await context.newPage();
+
+	return {
+		getPage: () => page,
+		shutdown: async () => {
+			await context.clearCookies();
+			await context.close();
+			await browser.close();
+		},
+	};
+}
+
 export async function descargarDatosSierju(periodo: number, codigosDespacho: string[] = []) {
-	const browser = await playwright.chromium.connect(PLAYWRIGHT_ENDPOINT, { slowMo: 50 });
-	const context = await browser.newContext({ viewport: { width: 1920, height: 1200 } });
-	const page = await context.newPage();
+	const browser = await playwrightBrowser(PLAYWRIGHT_ENDPOINT);
+	const page = browser.getPage();
 
 	for await (const codigoDespacho of codigosDespacho) {
 		let resultado = false;
@@ -150,7 +165,5 @@ export async function descargarDatosSierju(periodo: number, codigosDespacho: str
 		} while (!resultado && intentos <= MAX_REINTENTOS);
 	}
 
-	await context.clearCookies();
-	await context.close();
-	await browser.close();
+	await browser.shutdown();
 }
