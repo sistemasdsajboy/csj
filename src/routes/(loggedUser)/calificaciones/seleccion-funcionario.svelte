@@ -1,11 +1,22 @@
 <script lang="ts">
-	import SearchSelect from '$lib/components/custom/search-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import Input from '$lib/components/ui/input/input.svelte';
 	import { Label } from '$lib/components/ui/label';
 
-	export let funcionarios: { label: string; value: string }[] = [];
-	export let funcionarioId: string | null = null;
+	let {
+		funcionarios = [],
+		funcionarioId = $bindable(null),
+	}: { funcionarios: { label: string; value: string }[]; funcionarioId: string | null } = $props();
+
+	let nombreFuncionario = $state('');
+
+	$effect(() => {
+		if (nombreFuncionario) {
+			const funcionario = funcionarios.find((f) => f.label === nombreFuncionario);
+			if (funcionario) funcionarioId = funcionario.value;
+		}
+	});
 </script>
 
 <Card.Root>
@@ -14,11 +25,14 @@
 	</Card.Header>
 	<Card.Content>
 		<Label>Funcionario</Label>
-		<SearchSelect
-			options={funcionarios}
-			placeholder="Buscar funcionario..."
-			bind:value={funcionarioId}
-		></SearchSelect>
+		<div class="flex w-full flex-row">
+			<Input list="funcionarios" bind:value={nombreFuncionario} placeholder="Buscar funcionario por nombre..." />
+			<datalist id="funcionarios">
+				{#each funcionarios as funcionario}
+					<option value={funcionario.label}></option>
+				{/each}
+			</datalist>
+		</div>
 	</Card.Content>
 	<Card.Footer class="flex justify-between">
 		{#if funcionarioId}
