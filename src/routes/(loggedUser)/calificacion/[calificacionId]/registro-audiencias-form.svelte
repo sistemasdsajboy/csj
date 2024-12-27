@@ -9,7 +9,7 @@
 </script>
 
 <Dialog.Root>
-	<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>Audiencias</Dialog.Trigger>
+	<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}>Registrar información de audiencias</Dialog.Trigger>
 	<Dialog.Content class="sm:max-w-[425px]">
 		<Dialog.Header>
 			<Dialog.Title>Información de audiencias</Dialog.Title>
@@ -21,23 +21,11 @@
 				<input type="hidden" name="despachoId" value={registroAudiencias.despachoId} />
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="programadas">Programadas</Label>
-					<Input
-						type="number"
-						name="programadas"
-						value={registroAudiencias.programadas}
-						required
-						class="text-center"
-					/>
+					<Input type="number" name="programadas" value={registroAudiencias.programadas} required class="text-center" />
 				</div>
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="atendidas">Atendidas</Label>
-					<Input
-						type="number"
-						name="atendidas"
-						value={registroAudiencias.atendidas}
-						required
-						class="text-center"
-					/>
+					<Input type="number" name="atendidas" value={registroAudiencias.atendidas} required class="text-center" />
 				</div>
 			</div>
 
@@ -45,23 +33,11 @@
 			<div class="grid grid-cols-3 gap-4 py-4">
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="aplazadasAjenas">Causas ajenas</Label>
-					<Input
-						type="number"
-						name="aplazadasAjenas"
-						value={registroAudiencias.aplazadasAjenas}
-						required
-						class="text-center"
-					/>
+					<Input type="number" name="aplazadasAjenas" value={registroAudiencias.aplazadasAjenas} required class="text-center" />
 				</div>
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="aplazadasJustificadas">Justificadas</Label>
-					<Input
-						type="number"
-						name="aplazadasJustificadas"
-						value={registroAudiencias.aplazadasJustificadas}
-						required
-						class="text-center"
-					/>
+					<Input type="number" name="aplazadasJustificadas" value={registroAudiencias.aplazadasJustificadas} required class="text-center" />
 				</div>
 				<div class="flex w-full max-w-sm flex-col gap-1.5">
 					<Label for="aplazadasNoJustificadas">No justificadas</Label>

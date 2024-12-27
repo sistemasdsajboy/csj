@@ -106,30 +106,29 @@
 <PageLayout {header} username={data.user}>
 	<div class="container mx-auto space-y-4 px-4">
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
-			<EstadoCalificacion estado={calificacion.calificacion.estado} />
 			<EditorEstadoCalificacion
 				estado={calificacion.calificacion.estado}
 				{despachos}
 				calificadorId={calificacion.calificacion.despachoSeccionalId}
 			/>
 			<Observaciones observaciones={calificacion.calificacion.observaciones} />
-			<div class="grow"></div>
-			{#if calificacion.calificacion.estado !== 'aprobada'}
-				<RegistroAudienciasForm {registroAudiencias} />
-				<NovedadForm {diasNoHabiles} despachoId={calificacion.despachoId} />
-			{/if}
 			<Button variant="outline" onclick={() => exportToSpreadsheet(consolidadoXlsxData, 'Consolidado')}>Descargar consolidado</Button>
+			<div class="grow"></div>
+			<EstadoCalificacion estado={calificacion.calificacion.estado} />
 		</div>
 
 		<div>
 			<div class="flex justify-between text-2xl font-bold">
-				<div class="text-3xl">
-					<a href="/funcionario/{funcionario.id}">
+				<div>
+					<a href="/funcionario/{funcionario.id}" class="text-3xl">
 						{funcionario.nombre}
 					</a>
-					<div>{funcionario.documento}</div>
+					<div class="text-2xl">{funcionario.documento}</div>
 				</div>
-				<span>Periodo: {calificacion.calificacion.periodo}</span>
+				<div>
+					<span>Periodo: </span>
+					<span class="text-sky-800">{calificacion.calificacion.periodo}</span>
+				</div>
 			</div>
 
 			<h3 class="bold pt-8 text-2xl font-bold text-slate-800">
@@ -167,7 +166,17 @@
 			{/if}
 		</div>
 
-		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
+		<div class="flex flex-row items-end justify-between">
+			<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Novedades</h3>
+			{#if calificacion.calificacion.estado !== 'aprobada'}
+				<NovedadForm {diasNoHabiles} despachoId={calificacion.despachoId} />
+			{/if}
+		</div>
+
+		<div>
+			<NovedadesList {novedades} />
+		</div>
+
 		<div class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">
 			{@render tarjetaValor('Días habiles del despacho', calificacion.diasHabilesDespacho)}
 			{#if calificacion.diasLaborables && calificacion.diasHabilesDespacho !== calificacion.diasLaborables && calificacion.diasLaborados !== calificacion.diasLaborables}
@@ -175,10 +184,6 @@
 			{/if}
 			{@render tarjetaValor('Días descontados', calificacion.diasDescontados)}
 			{@render tarjetaValor('Días laborados', calificacion.diasLaborados)}
-		</div>
-
-		<div>
-			<NovedadesList {novedades} />
 		</div>
 
 		{#if mostrarTablaTutelas}
@@ -227,7 +232,12 @@
 			</div>
 		{/if}
 
-		<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Audiencias</h3>
+		<div class="flex flex-row items-end justify-between">
+			<h3 class="bold pt-8 text-2xl font-bold text-slate-800">Audiencias</h3>
+			{#if calificacion.calificacion.estado !== 'aprobada'}
+				<RegistroAudienciasForm {registroAudiencias} />
+			{/if}
+		</div>
 		<div class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">
 			{@render tarjetaValor('Programadas', registroAudiencias.programadas)}
 			{@render tarjetaValor('Realizadas', registroAudiencias.atendidas)}
