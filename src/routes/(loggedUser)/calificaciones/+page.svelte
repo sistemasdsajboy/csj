@@ -40,8 +40,12 @@
 {#snippet sidebar()}
 	<div class="flex max-w-md flex-col gap-2 pt-10">
 		<Badge variant="secondary" class="m-auto text-center">
-			{data.calificaciones.length}
-			{data.calificaciones.length === 1 ? 'calificación' : 'calificaciones'}
+			{#await data.calificaciones}
+				Cargando...
+			{:then calificaciones}
+				{calificaciones.length}
+				{calificaciones.length === 1 ? 'calificación' : 'calificaciones'}
+			{/await}
 		</Badge>
 
 		{#if data.opcionesFiltros.despachosCalificadores.length > 1}
