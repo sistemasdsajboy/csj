@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { base } from '$app/paths';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils/shadcn';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
@@ -20,7 +20,7 @@
 		backHref?: string;
 	};
 	const { header, sidebar, children, username, backHref }: PageLayoutProps = $props();
-	const { url } = $page;
+	const { url } = page;
 </script>
 
 {#snippet userInfo()}

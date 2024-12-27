@@ -1,5 +1,5 @@
 import { lucia } from '$lib/server/auth';
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import type { Session } from 'lucia';
 import type { User } from 'lucia';
 
@@ -41,4 +41,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.user = user;
 	event.locals.session = session;
 	return resolve(event);
+};
+
+export const handleError: HandleServerError = ({ event, error }) => {
+	console.error(
+		{
+			clientAddress: event.getClientAddress(),
+			locals: event.locals,
+			params: event.params,
+			platform: event.platform,
+			request: event.request,
+			url: event.url,
+		},
+		error
+	);
+
+	return { message: 'Error al cargar la página solicitada.' };
 };
