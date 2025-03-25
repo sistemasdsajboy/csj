@@ -62,7 +62,6 @@
 		"@node-rs/argon2": "^1.8.3",
 		"@playwright/test": "^1.46.1",
 		"@prisma/client": "^5.19.1",
-		"@sveltejs/adapter-node": "^5.2.9",
 		"bits-ui": "^0.21.13",
 		"calificaciones": "file:",
 		"clsx": "^2.1.1",
