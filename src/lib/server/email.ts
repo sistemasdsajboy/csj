@@ -13,11 +13,11 @@ type SendEmailProps = {
 export async function sendEmail({ subject, to, html }: SendEmailProps) {
 	// Test adress for development only
 	if (dev) {
-		to = 'delivered@resend.dev';
+		to = 'onboarding@resend.dev';
 		console.log({ subject, to, html });
 	}
 
-	const from = 'Consejo Seccional de la Judicatura - Boyacá y Casanare <app@csj-dusky.vercel.app>';
+	const from = 'Consejo Seccional de la Judicatura - Boyacá y Casanare <onboarding@resend.dev>';
 	const { data } = await resend.emails.send({ from, to: [to], subject, html });
 
 	if (data?.id) return data.id;
