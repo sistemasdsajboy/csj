@@ -19,6 +19,8 @@ export async function sendEmail({ subject, to, html }: SendEmailProps) {
 	const from = 'Consejo Seccional de la Judicatura - Boyacá y Casanare <app@csbc.app>';
 	const { data } = await resend.emails.send({ from, to: [to], subject, html });
 
+	console.log('Respuesta de resend', data);
+
 	if (data?.id) return data.id;
 	return null;
 }
