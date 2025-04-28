@@ -13,7 +13,6 @@ type SendEmailProps = {
 export async function sendEmail({ subject, to, html }: SendEmailProps) {
 	// Test adress for development only
 	if (dev) {
-		to = 'onboarding@resend.dev';
 		console.log({ subject, to, html });
 	}
 
