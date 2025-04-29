@@ -16,7 +16,7 @@ export async function sendEmail({ subject, to, html }: SendEmailProps) {
 		console.log({ subject, to, html });
 	}
 
-	const from = 'Consejo Seccional de la Judicatura - Boyacá y Casanare <notificacion@jhonma.info>';
+	const from = 'Consejo Seccional de la Judicatura - Boyacá y Casanare <notificacion@calificacionesboycas.com>';
 	const { data } = await resend.emails.send({ from, to: [to], subject, html });
 
 	console.log('Respuesta de resend', data);
