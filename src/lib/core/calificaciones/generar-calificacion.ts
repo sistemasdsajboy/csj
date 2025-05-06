@@ -189,7 +189,7 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 
 	const { especialidad, categoria } = tipoDespacho;
 
-	if (especialidad === 'EjecucionPenas' || especialidad === 'FamiliaPromiscuo') return unirFechasNoHabiles(festivosPorMes, diaJusticia);
+	if (especialidad === 'EjecucionPenas') return unirFechasNoHabiles(festivosPorMes, diaJusticia);
 
 	if (
 		categoria === 'Municipal' &&
