@@ -205,14 +205,14 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 	return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
-function calcularPonderada(calificaciones: { diasLaborables: number; calificacionTotalFactorEficiencia: number }[] = []) {
+function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[] = []) {
 	if (calificaciones.length === 0) return 0;
 	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
 
-	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborables');
+	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborados');
 	return _(calificaciones)
-		.map(({ diasLaborables, calificacionTotalFactorEficiencia }) => {
-			return (calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborables;
+		.map(({ diasLaborados, calificacionTotalFactorEficiencia }) => {
+			return (calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborados;
 		})
 		.sum();
 }
