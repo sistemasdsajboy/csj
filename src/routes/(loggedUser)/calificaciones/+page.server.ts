@@ -180,11 +180,12 @@ export const actions = {
 			const maxSize = 1024 * 100; // 100KB in bytes
 			if (file.size > maxSize) return fail(400, { error: 'El archivo es demasiado grande. El tamaño máximo permitido es 100KB.' });
 
-			const { countCreados, countEliminados, despacho, periodo } = await createRegistrosCalificacionFromXlsx(file);
+			const { countCreados, countEliminados, despacho, periodo, avisos } = await createRegistrosCalificacionFromXlsx(file);
 			const mensajeEliminacion = countEliminados ? `${countEliminados} registros existentes eliminados y ` : '';
+			const mensajeAvisos = avisos.length ? ' ' + avisos.join(' ') : '';
 			return {
 				success: true,
-				message: `Se ha cargado el archivo del despacho ${despacho} para el periodo ${periodo}. ${mensajeEliminacion}${countCreados} registros creados.`,
+				message: `Se ha cargado el archivo del despacho ${despacho} para el periodo ${periodo}. ${mensajeEliminacion}${countCreados} registros creados.${mensajeAvisos}`,
 			};
 		} catch (error) {
 			return {
