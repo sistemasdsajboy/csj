@@ -18,7 +18,12 @@ export const load = (async ({ params, url }) => {
 
 	const periodo = url.searchParams.get('periodo') ?? periodos[0]?.toString();
 
-	const despachos = await consultarDespachosPorFuncionario(funcionario.id, parseInt(periodo));
+	// Un funcionario sin estadísticas cargadas no es un error: la página ya
+	// muestra un mensaje para ese caso. Sin este resguardo, parseInt(undefined)
+	// da NaN, Prisma rechaza la consulta y el usuario ve un 500 en vez de la
+	// página. Igual si llega un ?periodo= que no sea un número.
+	const anio = parseInt(periodo ?? '');
+	const despachos = Number.isNaN(anio) ? [] : await consultarDespachosPorFuncionario(funcionario.id, anio);
 
 	return { funcionario, periodos, periodo, despachos };
 }) satisfies PageServerLoad;
