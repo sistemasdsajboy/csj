@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 // funciones puras, que reciben los datos ya consultados.
 vi.mock('$lib/server/db-client', () => ({ db: {} }));
 
-import { candidatosDeDespacho, decidirDespacho, normalizarNombreDespacho } from './carga-xlsx';
+import { candidatosDeDespacho, decidirDespacho, decidirFuncionario, normalizarNombre } from './carga-xlsx';
 
 // Caso real documentado: 001 Civil Circuito Chiquinquirá cambió de código en
 // 2025 y quedó partido en dos registros de despacho.
@@ -22,15 +22,15 @@ const despacho = (over: Partial<Parametros> = {}): Parametros => ({
 });
 type Parametros = { id: string; codigo: string; nombre: string; ultimoRegistro: Date | null };
 
-describe('normalizarNombreDespacho', () => {
+describe('normalizarNombre', () => {
 	it('ignora tildes, signos, espacios de más y mayúsculas', () => {
-		expect(normalizarNombreDespacho('001 Civil Circuito Chiquinquirá')).toBe('001 CIVIL CIRCUITO CHIQUINQUIRA');
-		expect(normalizarNombreDespacho('  001   CIVIL-CIRCUITO  CHIQUINQUIRA ')).toBe('001 CIVIL CIRCUITO CHIQUINQUIRA');
+		expect(normalizarNombre('001 Civil Circuito Chiquinquirá')).toBe('001 CIVIL CIRCUITO CHIQUINQUIRA');
+		expect(normalizarNombre('  001   CIVIL-CIRCUITO  CHIQUINQUIRA ')).toBe('001 CIVIL CIRCUITO CHIQUINQUIRA');
 	});
 
 	it('distingue juzgados que solo se diferencian por el número o el municipio', () => {
-		expect(normalizarNombreDespacho('001 Civil Circuito Tunja')).not.toBe(normalizarNombreDespacho('003 Civil Circuito Tunja'));
-		expect(normalizarNombreDespacho('001 Civil Circuito Tunja')).not.toBe(normalizarNombreDespacho('001 Civil Circuito Chiquinquirá'));
+		expect(normalizarNombre('001 Civil Circuito Tunja')).not.toBe(normalizarNombre('003 Civil Circuito Tunja'));
+		expect(normalizarNombre('001 Civil Circuito Tunja')).not.toBe(normalizarNombre('001 Civil Circuito Chiquinquirá'));
 	});
 });
 
@@ -118,6 +118,65 @@ describe('decidirDespacho', () => {
 		it('nunca crea un tercer registro', () => {
 			const decision = decidirDespacho({ codigo: 'otrocodigo00', nombre: NOMBRE, fecha: new Date('2026-12-31') }, partido);
 			expect(decision.accion).not.toBe('crear');
+		});
+	});
+});
+
+describe('decidirFuncionario', () => {
+	const EVER = { id: 'ever', documento: '1049612345', nombre: 'EVER ALEXANDER PINTO VEGA' };
+
+	it('usa el registro cuyo documento coincide', () => {
+		const d = decidirFuncionario({ documento: '1049612345', nombre: 'EVER ALEXANDER PINTO VEGA' }, [EVER]);
+		expect(d).toEqual({ accion: 'usar', id: 'ever' });
+	});
+
+	it('ignora espacios alrededor del documento', () => {
+		const d = decidirFuncionario({ documento: ' 1049612345 ', nombre: 'EVER ALEXANDER PINTO VEGA' }, [EVER]);
+		expect(d.accion).toBe('usar');
+	});
+
+	it('crea un registro si el documento no corresponde a nadie', () => {
+		const d = decidirFuncionario({ documento: '9999999999', nombre: 'OTRA PERSONA DISTINTA' }, [EVER]);
+		expect(d).toEqual({ accion: 'crear' });
+	});
+
+	describe('cuando no se pudo leer el documento en el archivo', () => {
+		const sinDoc = { id: 'sindoc', documento: '', nombre: 'MARIA FERNANDA ROJAS' };
+
+		it('NO se lo atribuye a otra persona que tambien quedó sin documento', () => {
+			// Este es el caso que se estaba corrigiendo: antes bastaba con que
+			// ambos tuvieran el documento vacío para que se emparejaran, y las
+			// estadísticas de uno terminaban en el registro del otro.
+			const d = decidirFuncionario({ documento: '', nombre: 'EVER ALEXANDER PINTO VEGA' }, [sinDoc]);
+			expect(d.accion).toBe('crear');
+		});
+
+		it('sí reconoce a la misma persona si el nombre coincide', () => {
+			const d = decidirFuncionario({ documento: '', nombre: 'MARIA FERNANDA ROJAS' }, [sinDoc]);
+			expect(d.accion).toBe('usar');
+			if (d.accion === 'usar') expect(d.id).toBe('sindoc');
+		});
+
+		it('no elige entre dos registros sin documento que comparten nombre', () => {
+			const otro = { id: 'otro', documento: '', nombre: 'MARIA FERNANDA ROJAS' };
+			const d = decidirFuncionario({ documento: '', nombre: 'MARIA FERNANDA ROJAS' }, [sinDoc, otro]);
+			expect(d.accion).toBe('crear');
+		});
+
+		it('no se cuelga de alguien que sí tiene documento aunque el nombre coincida', () => {
+			const d = decidirFuncionario({ documento: '', nombre: 'EVER ALEXANDER PINTO VEGA' }, [EVER]);
+			expect(d.accion).toBe('crear');
+		});
+
+		it('avisa siempre, nombrando a la persona', () => {
+			const d = decidirFuncionario({ documento: '', nombre: 'EVER ALEXANDER PINTO VEGA' }, [sinDoc]);
+			expect(d.aviso).toContain('EVER ALEXANDER PINTO VEGA');
+			expect(d.aviso).toContain('No se pudo leer el documento');
+		});
+
+		it('nunca rechaza la fila: el archivo trae más funcionarios', () => {
+			const d = decidirFuncionario({ documento: '', nombre: '' }, []);
+			expect(['usar', 'crear']).toContain(d.accion);
 		});
 	});
 });

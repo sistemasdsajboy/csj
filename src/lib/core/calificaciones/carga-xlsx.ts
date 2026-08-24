@@ -87,7 +87,7 @@ type DecisionDespacho =
  * se editan a mano desde la interfaz y no conviene que una tilde o un espacio
  * de más vuelvan a partir un juzgado.
  */
-export const normalizarNombreDespacho = (nombre: string) =>
+export const normalizarNombre = (nombre: string) =>
 	nombre
 		.normalize('NFKD')
 		.replace(/[\u0300-\u036f]/g, '')
@@ -103,8 +103,8 @@ export const candidatosDeDespacho = <T extends { codigo: string; nombre: string 
 	archivo: { codigo: string; nombre: string },
 	despachos: T[]
 ): T[] => {
-	const nombre = normalizarNombreDespacho(archivo.nombre);
-	return despachos.filter((d) => d.codigo === archivo.codigo || (!!nombre && normalizarNombreDespacho(d.nombre) === nombre));
+	const nombre = normalizarNombre(archivo.nombre);
+	return despachos.filter((d) => d.codigo === archivo.codigo || (!!nombre && normalizarNombre(d.nombre) === nombre));
 };
 
 /**
@@ -121,8 +121,8 @@ export const decidirDespacho = (
 	archivo: { codigo: string; nombre: string; fecha: Date | null },
 	candidatos: DespachoCandidato[]
 ): DecisionDespacho => {
-	const nombre = normalizarNombreDespacho(archivo.nombre);
-	const porNombre = nombre ? candidatos.filter((d) => normalizarNombreDespacho(d.nombre) === nombre) : [];
+	const nombre = normalizarNombre(archivo.nombre);
+	const porNombre = nombre ? candidatos.filter((d) => normalizarNombre(d.nombre) === nombre) : [];
 
 	// Mientras un juzgado tenga más de un registro su historial sigue partido,
 	// aunque esta carga se adjunte al correcto. Se avisa en vez de rechazar el
@@ -152,9 +152,46 @@ export const decidirDespacho = (
 	return { accion: 'usar', id: elegido.id, aviso };
 };
 
+/**
+ * Decide con qué registro de funcionario se corresponde una fila del archivo.
+ * Función pura.
+ *
+ * Con documento legible manda el documento, como siempre. Sin él, NO se empareja
+ * con cualquier registro de documento vacío: eso juntaría a dos personas
+ * distintas, y a diferencia de un duplicado, mezclar a dos personas no se puede
+ * deshacer mirando los datos. Se exige además que coincida el nombre.
+ *
+ * Nunca rechaza la fila: un consolidado trae varios funcionarios y uno ilegible
+ * no puede dejar a los demás sin cargar. En su lugar avisa, para que alguien
+ * corrija el documento antes de la próxima carga.
+ */
+export const decidirFuncionario = (
+	archivo: { documento: string; nombre: string },
+	funcionarios: Array<{ id: string; documento: string; nombre: string }>
+): { accion: 'usar'; id: string; aviso?: string } | { accion: 'crear'; aviso?: string } => {
+	const documento = archivo.documento.trim();
+
+	if (documento) {
+		const porDocumento = funcionarios.find((f) => f.documento.trim() === documento);
+		return porDocumento ? { accion: 'usar', id: porDocumento.id } : { accion: 'crear' };
+	}
+
+	const aviso =
+		`No se pudo leer el documento de ${archivo.nombre || 'un funcionario'} en el archivo. ` +
+		`Sus estadísticas quedaron cargadas, pero hay que corregir el documento para que las próximas ` +
+		`cargas lo reconozcan y no le abran otro registro.`;
+
+	const nombre = normalizarNombre(archivo.nombre);
+	const mismosSinDocumento = nombre ? funcionarios.filter((f) => !f.documento.trim() && normalizarNombre(f.nombre) === nombre) : [];
+
+	// Con más de una coincidencia no hay forma de saber cuál es: se crea aparte
+	// antes que arriesgarse a acumularle a quien no es.
+	return mismosSinDocumento.length === 1 ? { accion: 'usar', id: mismosSinDocumento[0].id, aviso } : { accion: 'crear', aviso };
+};
 export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 	const { woorkbook, despacho, avisos } = await workbookFromXlsxFile(file);
-	const fileData = await fileDataFromWorkbook(woorkbook, despacho);
+	const { fileData, avisos: avisosFuncionarios } = await fileDataFromWorkbook(woorkbook, despacho);
+	const todosLosAvisos = [...avisos, ...avisosFuncionarios];
 
 	try {
 		const { count: countEliminados } = await db.registroCalificacion.deleteMany({
@@ -185,7 +222,7 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 			})),
 		});
 
-		return { countCreados, countEliminados, despacho: despacho.nombre, periodo: fileData[0].periodo, avisos };
+		return { countCreados, countEliminados, despacho: despacho.nombre, periodo: fileData[0].periodo, avisos: todosLosAvisos };
 	} catch (error) {
 		throw new Error(
 			'Ocurrió un error durante la actualización de los registros en la base de datos. Por favor vuelva a cargar el archivo consolidado.'
@@ -225,25 +262,28 @@ function fechaMasRecienteDelArchivo(woorkbook: Workbook): Date | null {
 async function fileDataFromWorkbook(
 	woorkbook: Workbook,
 	despacho: Despacho
-): Promise<Omit<RegistroCalificacion, 'id' | 'dias' | 'calificacionId'>[]> {
+): Promise<{ fileData: Omit<RegistroCalificacion, 'id' | 'dias' | 'calificacionId'>[]; avisos: string[] }> {
 	try {
 		const rows = woorkbook.flatMap((workbookPage) => extractWorkbookPageRows(workbookPage));
 
-		const funcionariosByWorkbookString: Array<{ funcionarioStr: string; funcionario: Funcionario }> = await Promise.all(
-			_(rows)
-				.uniqBy('funcionario')
-				.value()
-				.map(async (row) => {
-					return {
-						funcionarioStr: row.funcionario,
-						funcionario: await getFuncionarioFromXlsxFileString(row.funcionario),
-					};
-				}, {})
-		);
+		// Se consulta una vez y se resuelve uno por uno, no en paralelo: si dos
+		// filas describen a la misma persona, la segunda tiene que ver el
+		// registro que creó la primera en vez de abrir otro.
+		const funcionarios = await db.funcionario.findMany();
+		const funcionariosByWorkbookString: Array<{ funcionarioStr: string; funcionario: Funcionario }> = [];
+		const avisos: string[] = [];
+
+		for (const row of _(rows).uniqBy('funcionario').value()) {
+			const { funcionario, aviso } = await getFuncionarioFromXlsxFileString(row.funcionario, funcionarios);
+			if (!funcionarios.some((f) => f.id === funcionario.id)) funcionarios.push(funcionario);
+			if (aviso && !avisos.includes(aviso)) avisos.push(aviso);
+			funcionariosByWorkbookString.push({ funcionarioStr: row.funcionario, funcionario });
+		}
+
 		const fileData = woorkbook.flatMap(extractWorkbookPageData(despacho, funcionariosByWorkbookString));
 		if (!fileData.length) throw new Error();
 
-		return fileData;
+		return { fileData, avisos };
 	} catch (error) {
 		throw new Error('El archivo no contiene información para cargar o no se reconoce el formato del contenido.');
 	}
@@ -299,19 +339,23 @@ async function ultimoRegistroDe(despachoId: string): Promise<Date | null> {
 	return registro?.hasta ?? null;
 }
 
-async function getFuncionarioFromXlsxFileString(funcionarioString: string): Promise<Funcionario> {
+async function getFuncionarioFromXlsxFileString(
+	funcionarioString: string,
+	funcionarios: Funcionario[]
+): Promise<{ funcionario: Funcionario; aviso?: string }> {
 	// Eliminar espacios múltiples
 	const funcionarioStringMatch = funcionarioString
 		.replace(/\s{2,}/g, ' ')
 		.match(/Funcionario: ([A-Za-zñÑÁÉÍÓÚáéíóúÜü]+( [A-Za-zñÑÁÉÍÓÚáéíóúÜü]+)+) /);
 
-	const nombre = _.get(funcionarioStringMatch, 1) || '';
-	const documento = _.first(funcionarioString.match(/[0-9]+$/)) || '';
-	let funcionario = await db.funcionario.findFirst({ where: { documento } });
-	if (funcionario) return funcionario;
-	return db.funcionario.create({
-		data: { nombre: nombre.trim().toUpperCase(), documento: documento.trim() },
-	});
+	const nombre = (_.get(funcionarioStringMatch, 1) || '').trim().toUpperCase();
+	const documento = (_.first(funcionarioString.match(/[0-9]+$/)) || '').trim();
+
+	const decision = decidirFuncionario({ documento, nombre }, funcionarios);
+
+	if (decision.accion === 'usar') return { funcionario: funcionarios.find((f) => f.id === decision.id)!, aviso: decision.aviso };
+
+	return { funcionario: await db.funcionario.create({ data: { nombre, documento } }), aviso: decision.aviso };
 }
 
 function extractWorkbookPageRows(workbookPage: WorkbookPage) {
