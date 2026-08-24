@@ -39,7 +39,7 @@ export const actions = {
 <hr/>
 <p>Usuario: ${username}@cendoj.ramajudicial.gov.co</p>
 <p>Código: ${password}</p>`;
-		const sentEmailId = sendEmail({ subject: 'Inicio de sesión', to, html });
+		const sentEmailId = await sendEmail({ subject: 'Inicio de sesión', to, html });
 		if (!sentEmailId)
 			return fail(500, { message: 'Error al enviar correo electrónico con el código de acceso.' });
 
