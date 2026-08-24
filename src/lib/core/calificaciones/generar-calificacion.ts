@@ -205,11 +205,24 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 	return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
-function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[] = []) {
+export function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[] = []) {
 	if (calificaciones.length === 0) return 0;
 	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
 
 	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborados');
+
+	// Sin días laborados no hay con qué ponderar: la división daría NaN y la
+	// calificación quedaría en un número inventado. Se falla con un mensaje que
+	// dice qué revisar. Nunca se devuelve 0: un 0 pasaría por una calificación
+	// real y el error quedaría invisible en un acto administrativo.
+	if (!(totalDiasLaborados > 0))
+		throw new Error(
+			`No se puede ponderar la calificación: los ${calificaciones.length} despachos del periodo suman ` +
+				`${totalDiasLaborados} días laborados. Suele ocurrir cuando el historial de un juzgado quedó partido ` +
+				`entre dos registros y algún tramo se queda sin días hábiles. Revise los despachos del funcionario ` +
+				`en ese periodo antes de volver a generar la calificación.`
+		);
+
 	return _(calificaciones)
 		.map(({ diasLaborados, calificacionTotalFactorEficiencia }) => {
 			return (calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborados;

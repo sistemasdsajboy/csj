@@ -30,10 +30,15 @@ export const load = (async ({ locals }) => {
 
 	const periodo = prefs?.periodo ? prefs.periodo : '';
 
+	// Se ignora un periodo guardado que no sea numérico, en vez de pasárselo a
+	// Prisma: rechazaría la consulta y la lista quedaría en 500 para ese
+	// usuario, sin forma de cambiar el filtro porque la página ya no carga.
+	const anioFiltro = parseInt(periodo);
+
 	const calificaciones = db.calificacionPeriodo.findMany({
 		where: {
 			estado,
-			periodo: periodo ? parseInt(periodo) : undefined,
+			periodo: Number.isNaN(anioFiltro) ? undefined : anioFiltro,
 			despachoSeccionalId: prefs?.despachoSeccionalId || undefined,
 			calificaciones: {
 				some: {
