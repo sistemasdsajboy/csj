@@ -35,7 +35,14 @@ for (const linea of readFileSync('.env', 'utf8').split('\n')) {
 }
 
 const url = process.env.DATABASE_URL ?? '';
+
+// Entornos de prueba conocidos: MongoDB local y el clúster `csj-desarrollo`.
+// Es una lista de permitidos, no de prohibidos: cualquier otra base —incluida
+// producción— exige además --si-estoy-seguro.
 const esLocal = /^mongodb:\/\/(127\.0\.0\.1|localhost)[:/]/.test(url);
+const esDesarrolloAtlas = /@csj-desarrollo\.[a-z0-9]+\.mongodb\.net/.test(url) || /ac-wmgm4fk-shard-\d+-\d+\./.test(url);
+const esEntornoDePrueba = esLocal || esDesarrolloAtlas;
+
 const aplicar = process.argv.includes('--aplicar');
 const seguro = process.argv.includes('--si-estoy-seguro');
 
@@ -43,14 +50,14 @@ const oculta = url.replace(/:[^:@/]+@/, ':****@');
 
 console.log('');
 console.log('  Base de datos:', oculta);
-console.log('  Entorno:      ', esLocal ? 'LOCAL' : '*** NO LOCAL ***');
+console.log('  Entorno:      ', esEntornoDePrueba ? 'PRUEBAS' : '*** NO ES DE PRUEBAS ***');
 console.log('  Modo:         ', aplicar ? '*** APLICAR CAMBIOS ***' : 'simulación (no escribe nada)');
 console.log('');
 
-if (aplicar && !esLocal && !seguro) {
+if (aplicar && !esEntornoDePrueba && !seguro) {
 	console.error('╔═══════════════════════════════════════════════════════════════╗');
 	console.error('║  ABORTADO                                                     ║');
-	console.error('║  Se pidió --aplicar contra una base que NO es local.          ║');
+	console.error('║  Se pidió --aplicar contra una base que NO es de pruebas.     ║');
 	console.error('║  Para continuar hay que agregar también --si-estoy-seguro,    ║');
 	console.error('║  y haber tomado un respaldo antes.                            ║');
 	console.error('╚═══════════════════════════════════════════════════════════════╝');
@@ -63,7 +70,7 @@ async function ultimaFecha(despachoId) {
 	const r = await db.registroCalificacion.findFirst({
 		where: { despachoId },
 		orderBy: { hasta: 'desc' },
-		select: { hasta: true }
+		select: { hasta: true },
 	});
 	return r?.hasta ?? new Date(0);
 }
@@ -71,7 +78,7 @@ async function ultimaFecha(despachoId) {
 async function main() {
 	// 1. Encontrar juzgados con más de un registro de despacho.
 	const todos = await db.despacho.findMany({
-		select: { id: true, nombre: true, codigo: true }
+		select: { id: true, nombre: true, codigo: true },
 	});
 	const porNombre = new Map();
 	for (const d of todos) {
@@ -117,11 +124,11 @@ async function main() {
 			const audViejas = await db.registroAudiencias.findMany({ where: { despachoId: viejo.id } });
 			for (const a of audViejas) {
 				const choque = await db.registroAudiencias.findFirst({
-					where: { despachoId: vigente.id, funcionarioId: a.funcionarioId, periodo: a.periodo }
+					where: { despachoId: vigente.id, funcionarioId: a.funcionarioId, periodo: a.periodo },
 				});
 				const f = await db.funcionario.findFirst({
 					where: { id: a.funcionarioId },
-					select: { nombre: true }
+					select: { nombre: true },
 				});
 				if (choque) {
 					revisarAudiencias.push({
@@ -129,7 +136,7 @@ async function main() {
 						funcionario: f?.nombre ?? a.funcionarioId,
 						periodo: a.periodo,
 						seConserva: `${choque.programadas} programadas / ${choque.atendidas} atendidas`,
-						seDescarta: `${a.programadas} programadas / ${a.atendidas} atendidas`
+						seDescarta: `${a.programadas} programadas / ${a.atendidas} atendidas`,
 					});
 					console.log(`     · audiencias ${a.periodo} (${f?.nombre ?? ''}): HAY DOS REGISTROS → revisar`);
 				}
@@ -138,7 +145,7 @@ async function main() {
 			// Calificaciones que habrá que regenerar.
 			const cds = await db.calificacionDespacho.findMany({
 				where: { despachoId: { in: [viejo.id, vigente.id] } },
-				select: { calificacionId: true }
+				select: { calificacionId: true },
 			});
 			for (const c of cds) calificacionesAfectadas.add(c.calificacionId);
 
@@ -158,14 +165,14 @@ async function main() {
 				//    así que hay que soltarlo antes de tocar las audiencias.
 				const cdsBorrar = await tx.calificacionDespacho.findMany({
 					where: { despachoId: { in: [viejo.id, vigente.id] } },
-					select: { id: true }
+					select: { id: true },
 				});
 				const idsCd = cdsBorrar.map((c) => c.id);
 				if (idsCd.length) {
 					await tx.calificacionSubfactor.deleteMany({ where: { calificacionId: { in: idsCd } } });
 					// Los consolidados cuelgan de la calificación; se sueltan antes.
 					await tx.registroCalificacion.deleteMany({
-						where: { calificacionId: { in: idsCd }, categoria: 'Consolidado' }
+						where: { calificacionId: { in: idsCd }, categoria: 'Consolidado' },
 					});
 					await tx.calificacionDespacho.deleteMany({ where: { id: { in: idsCd } } });
 				}
@@ -179,14 +186,14 @@ async function main() {
 				//    descarta el otro; queda reportado para volver a digitarlo.
 				for (const a of audViejas) {
 					const choque = await tx.registroAudiencias.findFirst({
-						where: { despachoId: vigente.id, funcionarioId: a.funcionarioId, periodo: a.periodo }
+						where: { despachoId: vigente.id, funcionarioId: a.funcionarioId, periodo: a.periodo },
 					});
 					if (choque) {
 						await tx.registroAudiencias.delete({ where: { id: a.id } });
 					} else {
 						await tx.registroAudiencias.update({
 							where: { id: a.id },
-							data: { despachoId: vigente.id }
+							data: { despachoId: vigente.id },
 						});
 					}
 				}
@@ -194,11 +201,11 @@ async function main() {
 				// c) Registros de estadísticas y novedades: trasladar.
 				await tx.registroCalificacion.updateMany({
 					where: { despachoId: viejo.id },
-					data: { despachoId: vigente.id }
+					data: { despachoId: vigente.id },
 				});
 				await tx.novedadFuncionario.updateMany({
 					where: { despachoId: viejo.id },
-					data: { despachoId: vigente.id }
+					data: { despachoId: vigente.id },
 				});
 
 				// d) Eliminar el despacho vacío.
