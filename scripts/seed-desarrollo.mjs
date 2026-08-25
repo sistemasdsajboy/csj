@@ -34,21 +34,47 @@ try {
 }
 
 // --- SALVAGUARDA ------------------------------------------------------------
-// Este script ESCRIBE y BORRA. Solo puede correr contra una base local.
+// Este script ESCRIBE y BORRA. La comprobación es una lista de bases
+// PERMITIDAS, no de prohibidas: si mañana aparece otra cadena de conexión, se
+// rechaza por omisión en vez de colarse por no estar en una lista negra.
+//
+// Permitidas:
+//   - MongoDB local (el montaje del equipo de la oficina)
+//   - El clúster `csj-desarrollo` de Atlas, tanto en su forma `mongodb+srv://`
+//     como en la estándar, que usa los servidores `ac-wmgm4fk-shard-*`
 const url = process.env.DATABASE_URL ?? '';
 const esLocal = /^mongodb:\/\/(127\.0\.0\.1|localhost)[:/]/.test(url);
+const esDesarrolloAtlas = /@csj-desarrollo\.[a-z0-9]+\.mongodb\.net/.test(url) || /ac-wmgm4fk-shard-\d+-\d+\./.test(url);
 
-if (!esLocal) {
+if (!esLocal && !esDesarrolloAtlas) {
 	console.error('\n╔═══════════════════════════════════════════════════════════╗');
 	console.error('║  ABORTADO: este script escribe y borra datos de prueba.   ║');
-	console.error('║  Solo puede ejecutarse contra una base LOCAL.             ║');
+	console.error('║  Solo puede ejecutarse contra la base LOCAL o contra el   ║');
+	console.error('║  clúster de desarrollo `csj-desarrollo`.                  ║');
 	console.error('╚═══════════════════════════════════════════════════════════╝\n');
 	console.error('DATABASE_URL apunta a:', url.replace(/:[^:@/]+@/, ':****@') || '(vacío)');
-	console.error('\nSe esperaba algo como: mongodb://127.0.0.1:27018/...\n');
+	console.error('\nSe esperaba mongodb://127.0.0.1:27018/... o el clúster csj-desarrollo.\n');
 	process.exit(1);
 }
 
 const db = new PrismaClient();
+
+// Segunda salvaguarda, sobre los datos y no sobre la cadena: una base con
+// cientos de despachos no es un entorno de pruebas, por más que la cadena
+// pasara el filtro de arriba. Producción tiene cientos; desarrollo, un puñado.
+const LIMITE_DESPACHOS = 50;
+async function comprobarQueNoEsProduccion() {
+	const n = await db.despacho.count();
+	if (n <= LIMITE_DESPACHOS) return;
+	console.error('\n╔═══════════════════════════════════════════════════════════╗');
+	console.error('║  ABORTADO: esta base tiene demasiados datos para ser una  ║');
+	console.error('║  base de pruebas. Podría ser producción.                  ║');
+	console.error('╚═══════════════════════════════════════════════════════════╝\n');
+	console.error(`Despachos encontrados: ${n} (el límite de seguridad es ${LIMITE_DESPACHOS}).`);
+	console.error('No se modificó nada.\n');
+	await db.$disconnect();
+	process.exit(1);
+}
 
 // Caso real: JUZGADO 001 CIVIL MUNICIPAL DE CHIQUINQUIRA
 const NOMBRE = 'JUZGADO 001 CIVIL MUNICIPAL DE CHIQUINQUIRA';
@@ -58,24 +84,34 @@ const DOCUMENTO = '99999999';
 const PERIODO = 2025;
 
 async function limpiarDatosDePrueba() {
-	// Solo borra lo que este mismo script crea, identificado por código y documento.
+	// Se identifica por NOMBRE, no por código: el código de un despacho puede
+	// cambiar —es justo lo que reproduce este escenario— y buscar por él dejaba
+	// registros huérfanos que después impedían borrar al funcionario.
 	const despachos = await db.despacho.findMany({
-		where: { codigo: { in: [COD_ANTIGUO, COD_VIGENTE] } },
-		select: { id: true }
+		where: { OR: [{ nombre: NOMBRE }, { codigo: { in: [COD_ANTIGUO, COD_VIGENTE] } }] },
+		select: { id: true },
 	});
 	const ids = despachos.map((d) => d.id);
 	if (ids.length) {
 		await db.calificacionSubfactor.deleteMany({
-			where: { calificacion: { despachoId: { in: ids } } }
+			where: { calificacion: { despachoId: { in: ids } } },
 		});
 		await db.calificacionDespacho.deleteMany({ where: { despachoId: { in: ids } } });
 		await db.registroCalificacion.deleteMany({ where: { despachoId: { in: ids } } });
 		await db.registroAudiencias.deleteMany({ where: { despachoId: { in: ids } } });
 		await db.despacho.deleteMany({ where: { id: { in: ids } } });
 	}
+
+	// El funcionario puede tener rastros colgando de despachos que ya no existen.
 	const func = await db.funcionario.findFirst({ where: { documento: DOCUMENTO } });
 	if (func) {
+		await db.calificacionSubfactor.deleteMany({
+			where: { calificacion: { calificacion: { funcionarioId: func.id } } },
+		});
+		await db.calificacionDespacho.deleteMany({ where: { calificacion: { funcionarioId: func.id } } });
 		await db.calificacionPeriodo.deleteMany({ where: { funcionarioId: func.id } });
+		await db.registroCalificacion.deleteMany({ where: { funcionarioId: func.id } });
+		await db.registroAudiencias.deleteMany({ where: { funcionarioId: func.id } });
 		await db.funcionario.delete({ where: { id: func.id } });
 	}
 	return ids.length;
@@ -99,11 +135,13 @@ function registro({ despachoId, funcionarioId, desde, hasta, dias, clase, catego
 		conciliaciones: 5,
 		inventarioFinal: 140,
 		restan: 140,
-		cargaBruta: 330
+		cargaBruta: 330,
 	};
 }
 
 async function main() {
+	await comprobarQueNoEsProduccion();
+
 	console.log('Base de datos:', url.replace(/:[^:@/]+@/, ':****@'));
 
 	const borrados = await limpiarDatosDePrueba();
@@ -113,16 +151,16 @@ async function main() {
 	const tipo = await db.tipoDespacho.upsert({
 		where: { nombre: 'Juzgado Civil Municipal' },
 		update: {},
-		create: { nombre: 'Juzgado Civil Municipal', especialidad: 'Civil', categoria: 'Municipal' }
+		create: { nombre: 'Juzgado Civil Municipal', especialidad: 'Civil', categoria: 'Municipal' },
 	});
 
 	// La generación consulta la capacidad máxima por tipo y periodo.
 	const yaHayCapacidad = await db.capacidadMaximaRespuesta.findFirst({
-		where: { tipoDespachoId: tipo.id, periodo: PERIODO }
+		where: { tipoDespachoId: tipo.id, periodo: PERIODO },
 	});
 	if (!yaHayCapacidad) {
 		await db.capacidadMaximaRespuesta.create({
-			data: { tipoDespachoId: tipo.id, periodo: PERIODO, cantidad: 593 }
+			data: { tipoDespachoId: tipo.id, periodo: PERIODO, cantidad: 593 },
 		});
 	}
 
@@ -131,14 +169,14 @@ async function main() {
 		numero: 1,
 		tipoDespachoId: tipo.id,
 		municipio: 'Chiquinquirá',
-		distrito: 'Chiquinquirá'
+		distrito: 'Chiquinquirá',
 	};
 
 	const antiguo = await db.despacho.create({ data: { ...datosDespacho, codigo: COD_ANTIGUO } });
 	const vigente = await db.despacho.create({ data: { ...datosDespacho, codigo: COD_VIGENTE } });
 
 	const funcionario = await db.funcionario.create({
-		data: { documento: DOCUMENTO, nombre: 'WILSON PRUEBA ORTEGA' }
+		data: { documento: DOCUMENTO, nombre: 'WILSON PRUEBA ORTEGA' },
 	});
 
 	const base = { funcionarioId: funcionario.id };
@@ -153,8 +191,8 @@ async function main() {
 				hasta: '2025-06-30',
 				dias: 120,
 				clase,
-				categoria: clase === 'tutelas' ? 'Movimiento de Tutelas' : 'Procesos Ordinarios'
-			})
+				categoria: clase === 'tutelas' ? 'Movimiento de Tutelas' : 'Procesos Ordinarios',
+			}),
 		});
 	}
 
@@ -170,8 +208,8 @@ async function main() {
 				hasta: '2025-07-06',
 				dias: 0,
 				clase,
-				categoria: clase === 'tutelas' ? 'Movimiento de Tutelas' : 'Procesos Ordinarios'
-			})
+				categoria: clase === 'tutelas' ? 'Movimiento de Tutelas' : 'Procesos Ordinarios',
+			}),
 		});
 	}
 
@@ -186,8 +224,8 @@ async function main() {
 				atendidas: 74,
 				aplazadasAjenas: 6,
 				aplazadasJustificadas: 7,
-				aplazadasNoJustificadas: 3
-			}
+				aplazadasNoJustificadas: 3,
+			},
 		});
 	}
 
