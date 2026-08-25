@@ -71,7 +71,7 @@ const getRangoFechasFuncionario = (data: RegistroCalificacion[], funcionarioId: 
 	return { desde, hasta };
 };
 
-const generadorResultadosSubfactor =
+export const generadorResultadosSubfactor =
 	(funcionarioId: string, diasHabilesDespacho: number, diasHabilesFuncionario: number, hayEscritos: boolean, capacidadMaxima: number) =>
 	(data: RegistroCalificacion[], dataTutelas: RegistroCalificacion[], maxResultado: number, subfactor: ClaseRegistroCalificacion) => {
 		if (!data.length)
@@ -130,6 +130,23 @@ const generadorResultadosSubfactor =
 		}
 
 		cargaBaseCalificacionFuncionario -= egresoOtrosFuncionarios;
+
+		// Sin días hábiles del despacho no hay con qué repartir la carga. La
+		// división daría NaN, Prisma lo rechaza y el usuario recibe "Argument
+		// `cargaProporcional` is missing", que no le dice nada de lo que pasó.
+		// Se falla con un mensaje que apunta a la causa. Nunca se devuelve 0:
+		// un 0 aquí se convertiría en una calificación silenciosamente
+		// equivocada, que es peor que un error visible.
+		//
+		// El caso de `data` vacío ya salió arriba; si se llega hasta aquí es que
+		// hay estadísticas pero al tramo no le corresponde ningún día hábil.
+		if (!(diasHabilesDespacho > 0))
+			throw new Error(
+				`No se puede calcular el subfactor "${subfactor}": el despacho tiene ${diasHabilesDespacho} días hábiles ` +
+					`en el periodo, pero sí tiene estadísticas. Suele ocurrir cuando el historial de un juzgado quedó partido ` +
+					`entre dos registros y a uno de los tramos no le corresponde ningún día hábil. Revise los despachos del ` +
+					`funcionario en ese periodo antes de volver a generar la calificación.`
+			);
 
 		// La capacidad máxima solo aplica para el subfactor "oral", de modo que para los demás subfactores se usa el valor
 		// infinito para excluirlo del cálculo de la carga mínima.

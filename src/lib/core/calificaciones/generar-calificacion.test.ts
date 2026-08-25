@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 // pueda construirlo ni abrir una conexión.
 vi.mock('$lib/server/db-client', () => ({ db: {} }));
 
-import { calcularPonderada } from './generar-calificacion';
+import type { RegistroCalificacion } from '@prisma/client';
+import { calcularPonderada, generadorResultadosSubfactor } from './generar-calificacion';
 
 const c = (diasLaborados: number, calificacionTotalFactorEficiencia: number) => ({
 	diasLaborados,
@@ -81,5 +82,146 @@ describe('calcularPonderada — protección contra la división por cero', () =>
 
 	it('tampoco pondera con días laborados negativos', () => {
 		expect(() => calcularPonderada([c(-100, 10), c(100, 40)])).toThrowError(/días laborados/);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// generadorResultadosSubfactor — el corazón del cálculo por subfactor.
+//
+// Las pruebas de este bloque fijan el comportamiento ACTUAL, calculado a mano
+// a partir del código. No afirman que la norma exija estos números: afirman
+// que no cambiaron. Es la red de seguridad para tocar las líneas 136-137.
+// ---------------------------------------------------------------------------
+
+const FUNC = 'F1';
+const OTRO = 'F2';
+
+const reg = (over: Partial<RegistroCalificacion> = {}): RegistroCalificacion =>
+	({
+		id: 'r',
+		periodo: 2025,
+		despachoId: 'D1',
+		funcionarioId: FUNC,
+		clase: 'oral',
+		categoria: 'Sentencias',
+		desde: new Date('2025-01-01T00:00:00Z'),
+		hasta: new Date('2025-03-31T00:00:00Z'),
+		dias: null,
+		inventarioInicial: 0,
+		ingresoEfectivo: 0,
+		cargaEfectiva: 0,
+		egresoEfectivo: 0,
+		conciliaciones: 0,
+		inventarioFinal: 0,
+		restan: 0,
+		cargaBruta: 0,
+		calificacionId: null,
+		...over,
+	}) as RegistroCalificacion;
+
+/** Un trimestre corriente: inventario 100, ingreso 50, egreso 30. */
+const trimestreNormal = () => reg({ inventarioInicial: 100, ingresoEfectivo: 50, egresoEfectivo: 30 });
+
+describe('generadorResultadosSubfactor — comportamiento actual', () => {
+	it('sin registros devuelve todo en cero, sin dividir nada', () => {
+		const r = generadorResultadosSubfactor(FUNC, 0, 0, false, 600)([], [], 40, 'oral');
+		expect(r).toEqual({
+			subfactor: 'oral',
+			totalInventarioInicial: 0,
+			cargaBaseCalificacionDespacho: 0,
+			cargaBaseCalificacionFuncionario: 0,
+			egresoFuncionario: 0,
+			cargaProporcional: 0,
+			totalSubfactor: 0,
+		});
+	});
+
+	it('reparte la carga del despacho según los días del funcionario', () => {
+		// carga base = 100 inventario + 50 ingreso = 150
+		// proporcional = 150 * 100 / 200 = 75
+		// capacidad     = 600 * 100 / 200 = 300
+		// mínima        = min(75, 150, 300) = 75
+		// total         = min(30/75 * 40, 40) = 16
+		const r = generadorResultadosSubfactor(FUNC, 200, 100, false, 600)([trimestreNormal()], [], 40, 'oral');
+		expect(r.cargaBaseCalificacionDespacho).toBe(150);
+		expect(r.cargaProporcional).toBe(75);
+		expect(r.egresoFuncionario).toBe(30);
+		expect(r.totalSubfactor).toBe(16);
+	});
+
+	it('la capacidad máxima limita el subfactor oral', () => {
+		// capacidad = 100 * 100 / 200 = 50, menor que la proporcional de 75
+		// total = min(30/50 * 40, 40) = 24
+		const r = generadorResultadosSubfactor(FUNC, 200, 100, false, 100)([trimestreNormal()], [], 40, 'oral');
+		expect(r.totalSubfactor).toBe(24);
+	});
+
+	it('la capacidad máxima NO aplica a los demás subfactores', () => {
+		// Mismo caso que el anterior pero en "escrito": la capacidad se excluye
+		// usando Infinity, así que manda la proporcional de 75.
+		const r = generadorResultadosSubfactor(FUNC, 200, 100, false, 100)([trimestreNormal()], [], 40, 'escrito');
+		expect(r.totalSubfactor).toBe(16);
+	});
+
+	it('el resultado nunca supera el máximo del subfactor', () => {
+		const r = generadorResultadosSubfactor(
+			FUNC,
+			200,
+			100,
+			false,
+			600
+		)([reg({ inventarioInicial: 100, ingresoEfectivo: 50, egresoEfectivo: 1000 })], [], 40, 'oral');
+		expect(r.totalSubfactor).toBe(40);
+	});
+
+	it('con carga mínima en cero el subfactor es cero, sin dividir por cero', () => {
+		// Protección que el autor sí puso, en la línea 142.
+		const r = generadorResultadosSubfactor(FUNC, 200, 100, false, 600)([reg({ egresoEfectivo: 5 })], [], 40, 'oral');
+		expect(r.totalSubfactor).toBe(0);
+	});
+
+	it('descuenta el egreso de otros funcionarios de la carga del calificado', () => {
+		const r = generadorResultadosSubfactor(
+			FUNC,
+			200,
+			100,
+			false,
+			600
+		)([trimestreNormal(), reg({ funcionarioId: OTRO, egresoEfectivo: 20 })], [], 40, 'oral');
+		expect(r.cargaBaseCalificacionFuncionario).toBe(130); // 150 - 20
+	});
+});
+
+describe('generadorResultadosSubfactor — protección de la división por días hábiles', () => {
+	it('falla con mensaje claro si el despacho no tiene días hábiles pero sí estadísticas', () => {
+		expect(() => generadorResultadosSubfactor(FUNC, 0, 0, false, 600)([trimestreNormal()], [], 40, 'oral')).toThrowError(/0 días hábiles/);
+	});
+
+	it('el mensaje apunta a la causa probable: el historial partido', () => {
+		expect(() => generadorResultadosSubfactor(FUNC, 0, 0, false, 600)([trimestreNormal()], [], 40, 'oral')).toThrowError(/partido/);
+	});
+
+	it('nunca devuelve un resultado en ese caso', () => {
+		let r;
+		try {
+			r = generadorResultadosSubfactor(FUNC, 0, 0, false, 600)([trimestreNormal()], [], 40, 'oral');
+		} catch {
+			r = undefined;
+		}
+		expect(r).toBeUndefined();
+	});
+
+	it('sin estadísticas sigue devolviendo ceros, no falla', () => {
+		// La salida temprana de arriba se conserva: un despacho sin registros no
+		// es un error, simplemente no aporta nada.
+		expect(() => generadorResultadosSubfactor(FUNC, 0, 0, false, 600)([], [], 40, 'oral')).not.toThrow();
+	});
+
+	it('cero días del FUNCIONARIO no es error: reparte cero y sigue', () => {
+		// Solo el denominador es problema. Un funcionario que no laboró días en
+		// el despacho da carga proporcional cero, que es correcto.
+		const r = generadorResultadosSubfactor(FUNC, 200, 0, false, 600)([trimestreNormal()], [], 40, 'oral');
+		expect(r.cargaProporcional).toBe(0);
+		expect(r.totalSubfactor).toBe(0);
 	});
 });
