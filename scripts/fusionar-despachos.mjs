@@ -75,6 +75,101 @@ async function ultimaFecha(despachoId) {
 	return r?.hasta ?? new Date(0);
 }
 
+/**
+ * Clave del índice único de RegistroCalificacion. Dos filas con la misma clave
+ * no pueden convivir en el mismo despacho.
+ */
+const claveRegistro = (r) => [r.funcionarioId, r.clase, r.categoria, r.desde.toISOString().slice(0, 10), r.calificacionId ?? '-'].join('|');
+
+/** Las cifras de una fila, para saber si dos filas en choque dicen lo mismo. */
+const cifrasRegistro = (r) =>
+	[
+		r.inventarioInicial,
+		r.ingresoEfectivo,
+		r.cargaEfectiva,
+		r.egresoEfectivo,
+		r.conciliaciones,
+		r.inventarioFinal,
+		r.restan,
+		r.cargaBruta ?? 0,
+	].join(',');
+
+/**
+ * Filas del despacho absorbido que ya existen igual en el vigente: la misma
+ * estadística cargada bajo los dos códigos. Mover una sobre la otra viola el
+ * índice único, y sumarlas contaría dos veces, así que se descarta la copia.
+ *
+ * Si las cifras difieren no se decide por cuenta propia: eso es elegir qué
+ * número vale en un acto administrativo.
+ */
+async function duplicadosEntre(cliente, vigenteId, viejoId) {
+	const delVigente = await cliente.registroCalificacion.findMany({ where: { despachoId: vigenteId } });
+	const mapa = new Map(delVigente.map((r) => [claveRegistro(r), r]));
+	const delViejo = await cliente.registroCalificacion.findMany({ where: { despachoId: viejoId } });
+
+	const aDescartar = [];
+	const enConflicto = [];
+	for (const r of delViejo) {
+		const gemelo = mapa.get(claveRegistro(r));
+		if (!gemelo) continue;
+		if (cifrasRegistro(r) === cifrasRegistro(gemelo)) aDescartar.push(r.id);
+		else enConflicto.push({ registro: r, gemelo });
+	}
+	return { aDescartar, enConflicto };
+}
+
+/**
+ * Revisa TODOS los juzgados antes de escribir el primero.
+ *
+ * Sin esto, una sorpresa en el tercer juzgado deja los dos primeros fusionados
+ * y el resto partido: un estado a medias peor que el problema original. Pasó en
+ * el ensayo del 2026-08-24 contra una copia de producción, y por eso existe
+ * esta comprobación.
+ */
+async function revisarTodoAntesDeEscribir(duplicados) {
+	const problemas = [];
+	let descartables = 0;
+
+	for (const [nombre, despachos] of duplicados) {
+		const conFecha = [];
+		for (const d of despachos) conFecha.push({ ...d, ultima: await ultimaFecha(d.id) });
+		conFecha.sort((a, b) => b.ultima - a.ultima);
+		const [vigente, ...absorbidos] = conFecha;
+
+		for (const viejo of absorbidos) {
+			const { aDescartar, enConflicto } = await duplicadosEntre(db, vigente.id, viejo.id);
+			descartables += aDescartar.length;
+			for (const c of enConflicto) {
+				problemas.push(
+					`${nombre}: la fila ${c.registro.clase}/${c.registro.categoria} del ` +
+						`${c.registro.desde.toISOString().slice(0, 10)} existe en los dos despachos con cifras distintas.`
+				);
+			}
+		}
+	}
+
+	console.log('─'.repeat(64));
+	console.log('REVISIÓN PREVIA');
+	console.log(`  Filas repetidas en los dos despachos, con cifras iguales: ${descartables}`);
+	console.log(`  Filas repetidas con cifras DISTINTAS: ${problemas.length}`);
+	console.log('');
+
+	if (problemas.length) {
+		console.error('╔═══════════════════════════════════════════════════════════════╗');
+		console.error('║  ABORTADO ANTES DE ESCRIBIR NADA                              ║');
+		console.error('║  Hay filas que existen en los dos despachos con cifras        ║');
+		console.error('║  distintas. Cuál vale no lo decide un script.                 ║');
+		console.error('╚═══════════════════════════════════════════════════════════════╝\n');
+		for (const p of problemas.slice(0, 20)) console.error('  · ' + p);
+		if (problemas.length > 20) console.error(`  ... y ${problemas.length - 20} más.`);
+		console.error('');
+		return false;
+	}
+
+	console.log('  Sin conflictos. Se puede continuar.\n');
+	return true;
+}
+
 async function main() {
 	// 1. Encontrar juzgados con más de un registro de despacho.
 	const todos = await db.despacho.findMany({
@@ -94,9 +189,15 @@ async function main() {
 
 	console.log(`Juzgados con más de un registro: ${duplicados.length}\n`);
 
+	if (!(await revisarTodoAntesDeEscribir(duplicados))) {
+		process.exitCode = 1;
+		return;
+	}
+
 	const calificacionesAfectadas = new Set();
 	const revisarAudiencias = [];
 	let fusiones = 0;
+	let descartadas = 0;
 
 	for (const [nombre, despachos] of duplicados) {
 		// 2. Decidir cuál sobrevive: el de la fecha más reciente.
@@ -198,7 +299,21 @@ async function main() {
 					}
 				}
 
-				// c) Registros de estadísticas y novedades: trasladar.
+				// c) Filas que ya existen igual en el vigente. Son la misma
+				//    estadística cargada bajo los dos códigos: se descarta la
+				//    copia. Moverla violaría el índice único, y sumarlas
+				//    contaría doble. La revisión previa ya comprobó que ninguna
+				//    de estas parejas tiene cifras distintas; si alguna la
+				//    tuviera, aquí se aborta y la transacción deshace todo.
+				const { aDescartar, enConflicto } = await duplicadosEntre(tx, vigente.id, viejo.id);
+				if (enConflicto.length)
+					throw new Error(`${nombre}: hay ${enConflicto.length} filas repetidas con cifras distintas. No se decide por script.`);
+				if (aDescartar.length) {
+					await tx.registroCalificacion.deleteMany({ where: { id: { in: aDescartar } } });
+					descartadas += aDescartar.length;
+				}
+
+				// d) Registros de estadísticas y novedades: trasladar.
 				await tx.registroCalificacion.updateMany({
 					where: { despachoId: viejo.id },
 					data: { despachoId: vigente.id },
@@ -208,7 +323,7 @@ async function main() {
 					data: { despachoId: vigente.id },
 				});
 
-				// d) Eliminar el despacho vacío.
+				// e) Eliminar el despacho vacío.
 				await tx.despacho.delete({ where: { id: viejo.id } });
 			});
 			fusiones++;
@@ -233,6 +348,7 @@ async function main() {
 	console.log('─'.repeat(64));
 	if (aplicar) {
 		console.log(`Fusiones aplicadas: ${fusiones}`);
+		console.log(`Filas repetidas descartadas: ${descartadas}`);
 		console.log(`Calificaciones a regenerar: ${calificacionesAfectadas.size}`);
 		console.log('\nSiguiente paso: volver a generar esas calificaciones desde la aplicación.');
 	} else {
