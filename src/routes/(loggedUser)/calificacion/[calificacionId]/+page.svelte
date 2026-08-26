@@ -12,7 +12,7 @@
 	import Observaciones from './observaciones.svelte';
 	import RegistroAudienciasForm from './registro-audiencias-form.svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
 	const {
 		calificacion,
 		calificacionesAdicionales,
@@ -105,6 +105,22 @@
 
 <PageLayout {header} username={data.user}>
 	<div class="container mx-auto space-y-4 px-4">
+		<!--
+			Las acciones de la calificación -enviar a revisión, aprobar, devolver,
+			eliminar, archivar- devuelven un mensaje cuando algo no cuadra, pero
+			la página no lo recibía: solo tomaba `data`. El usuario pulsaba el
+			botón, no pasaba nada y no sabía por qué. Este bloque muestra ese
+			mensaje para todas ellas.
+		-->
+		{#if form?.error}
+			<div
+				role="alert"
+				class="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-200 print:hidden"
+			>
+				<div class="font-medium">No se pudo completar la acción</div>
+				<div class="text-sm">{form.error}</div>
+			</div>
+		{/if}
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
 			<EditorEstadoCalificacion
 				estado={calificacion.calificacion.estado}

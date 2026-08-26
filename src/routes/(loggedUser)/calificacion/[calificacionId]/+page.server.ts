@@ -398,7 +398,17 @@ export const actions = {
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
-			include: { calificaciones: { select: { despachoId: true, diasLaborados: true, diasDescontados: true, diasHabilesDespacho: true } } },
+			include: {
+				calificaciones: {
+					select: {
+						despachoId: true,
+						diasLaborados: true,
+						diasDescontados: true,
+						diasHabilesDespacho: true,
+						despacho: { select: { codigo: true, nombre: true } },
+					},
+				},
+			},
 		});
 		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
 		const despachoId = url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
@@ -414,16 +424,54 @@ export const actions = {
 		const isEditor = user.roles.includes('editor');
 		if (!isEditor) return { success: false, error: 'No tiene permiso para enviar una calificación a revision.' };
 
-		const diasLaboralesCorrectos = calificacionPeriodo.calificaciones.every(
-			(calificacion) => calificacion.diasLaborados === calificacion.diasHabilesDespacho - calificacion.diasDescontados
-		);
+		// La cuenta que debe cerrar en cada despacho es:
+		//     días laborados = días hábiles del despacho − días descontados
+		//
+		// Los laborados salen del cálculo; los descontados, de las novedades que
+		// alguien digitó. Falla en dos direcciones opuestas, y conviene decir
+		// cuál es, porque se corrigen al revés:
+		//
+		//   · Faltan días por justificar. La persona no estuvo todo el periodo
+		//     en ese despacho —lo habitual si rotó entre varios— y no hay
+		//     novedades que cubran la ausencia. Hay que registrarlas.
+		//
+		//   · Se descontaron días de más. Suele ser una novedad que cubre fechas
+		//     en las que la persona no estaba en ese despacho: el cálculo solo
+		//     descuenta lo que cae dentro de lo efectivamente laborado.
+		//
+		// Antes se devolvía el enunciado de la regla, sin decir en qué despacho
+		// fallaba, en qué dirección, ni con qué cifras.
+		const descuadradas = calificacionPeriodo.calificaciones
+			.map((c) => ({ ...c, faltan: c.diasHabilesDespacho - c.diasDescontados - c.diasLaborados }))
+			.filter((c) => c.faltan !== 0);
 
-		if (!diasLaboralesCorrectos)
+		if (descuadradas.length) {
+			const detalle = descuadradas
+				.map((c) => {
+					const nombre = c.despacho ? `${c.despacho.codigo} ${c.despacho.nombre}` : 'un despacho';
+					return c.faltan > 0
+						? `${nombre}: quedan ${c.faltan} días sin justificar ` +
+								`(${c.diasHabilesDespacho} hábiles, ${c.diasLaborados} laborados, ${c.diasDescontados} descontados)`
+						: `${nombre}: se descontaron ${-c.faltan} días de más ` +
+								`(${c.diasHabilesDespacho} hábiles, ${c.diasLaborados} laborados, ${c.diasDescontados} descontados)`;
+				})
+				.join(' | ');
+
+			const soloFaltan = descuadradas.every((c) => c.faltan > 0);
+			const soloSobran = descuadradas.every((c) => c.faltan < 0);
+			const explicacion = soloFaltan
+				? 'Registre las novedades que expliquen los días en que el funcionario no estuvo en el despacho.'
+				: soloSobran
+					? 'No se pueden descontar días en fechas en las que el funcionario no estuvo en el despacho: revise que el periodo de cada novedad caiga dentro del tiempo que la persona estuvo allí.'
+					: 'Revise las novedades de cada despacho: su periodo debe caer dentro del tiempo que la persona estuvo allí, y debe cubrir los días en que no estuvo.';
+
 			return {
 				success: false,
 				error:
-					'Los días laborados de cada uno de los despachos debe ser igual a los días hábiles del despacho menos los días descontados por las novedades.',
+					`En cada despacho los días laborados más los descontados deben sumar los días hábiles del despacho, y no cuadran. ` +
+					`${explicacion} ${detalle}`,
 			};
+		}
 
 		const formData = await request.formData();
 		const observaciones = formData.get('observaciones')?.toString() || 'Enviado para revisión sin observaciones.';
