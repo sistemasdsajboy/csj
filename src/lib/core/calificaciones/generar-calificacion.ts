@@ -367,10 +367,17 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	});
 }
 
+/**
+ * Despachos donde el funcionario tiene estadísticas del periodo.
+ *
+ * Se excluyen las filas "Consolidado": son datos DERIVADOS que produce el
+ * propio cálculo. Si de un despacho solo quedan consolidados, ahí no hay nada
+ * que calcular, y devolverlo hacía que la generación reventara más adelante.
+ */
 export async function consultarDespachosPorFuncionario(funcionarioId: string, periodo: number) {
 	return (
 		await db.registroCalificacion.findMany({
-			where: { funcionarioId, periodo },
+			where: { funcionarioId, periodo, categoria: { not: 'Consolidado' } },
 			select: { despacho: { select: { id: true, codigo: true, nombre: true, tipoDespachoId: true } } },
 			distinct: ['despachoId'],
 		})
@@ -435,6 +442,21 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 		where: { despachoId, periodo, categoria: { not: 'Consolidado' } },
 		orderBy: { desde: 'asc' },
 	});
+	// Sin estadísticas del periodo no hay de dónde sacar el rango de días. Antes
+	// se leía registros[0] a ciegas y reventaba con "Cannot read properties of
+	// undefined", que no le dice nada a quien genera la calificación.
+	//
+	// Ocurre cuando del despacho solo quedan filas "Consolidado" —datos
+	// derivados— sin las estadísticas que las originaron: por ejemplo si se
+	// recargó el consolidado del periodo y el archivo nuevo ya no traía a esa
+	// persona.
+	if (!registros.length)
+		throw new Error(
+			`El despacho ${despacho.nombre} (${despacho.codigo}) no tiene estadísticas del periodo ${periodo}, ` +
+				`solo consolidados sobrantes de un cálculo anterior. Cargue el consolidado del periodo para ese despacho ` +
+				`antes de generar la calificación.`
+		);
+
 	const diasHabilesDespacho = contarDiasHabiles(diasNoHabiles, registros[0].desde, registros[registros.length - 1].hasta);
 
 	const registrosTutelas = registros.filter((registro) => registro.clase === 'tutelas');
@@ -535,6 +557,15 @@ export async function generarCalificacionFuncionario(funcionarioId: string, peri
 	if (calificacionPeriodo.estado === 'aprobada') return calificacionPeriodo.id;
 
 	const despachos = await consultarDespachosPorFuncionario(funcionarioId, periodo);
+
+	// Sin despachos con estadísticas no hay calificación que calcular. Antes se
+	// seguía adelante y salía una ponderada de 0, que se confunde con una
+	// calificación real de cero. Es preferible un error que se entienda.
+	if (!despachos.length)
+		throw new Error(
+			`No hay estadísticas cargadas para este funcionario en el periodo ${periodo}. ` +
+				`Cargue el consolidado del despacho correspondiente antes de generar la calificación.`
+		);
 
 	for await (const despacho of despachos) {
 		await generarCalificacionDespacho(calificacionPeriodo, despacho.id);
