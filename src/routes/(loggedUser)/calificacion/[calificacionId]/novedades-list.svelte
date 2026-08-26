@@ -15,15 +15,10 @@
 			<thead>
 				<tr class="bg-gray-100 dark:bg-gray-800">
 					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300"> Tipo </th>
-					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300">
-						Periodo
-					</th>
-					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300">
-						Días hábiles
-					</th>
-					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300">
-						Observaciones
-					</th>
+					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300"> Periodo </th>
+					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300"> Días hábiles </th>
+					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300"> Días descontables </th>
+					<th class="px-2 py-2 text-center font-medium text-gray-700 dark:text-gray-300"> Observaciones </th>
 					<th></th>
 				</tr>
 			</thead>
@@ -37,6 +32,7 @@
 							<Badge variant="secondary">{formatDate(novedad.from)}-{formatDate(novedad.to)}</Badge>
 						</td>
 						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{novedad.days}</td>
+						<td class="px-2 text-center text-gray-900 dark:text-gray-100">{novedad.diasDescontables}</td>
 						<td class="px-2 text-gray-900 dark:text-gray-100">
 							{novedad.notes}
 						</td>
