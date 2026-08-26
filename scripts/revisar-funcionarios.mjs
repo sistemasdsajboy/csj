@@ -1,20 +1,28 @@
 /**
- * Revisa duplicados y documentos vacíos en Funcionario. SOLO LEE.
+ * Revisa registros de Funcionario que podrían estar de más. SOLO LEE.
  *
- * carga-xlsx.ts empareja al funcionario únicamente por documento. Si el
- * documento del archivo no coincide con el guardado -un cero de más, un
- * espacio al final que rompe el /[0-9]+$/, un digito distinto- no reconoce a
- * la persona y crea otro registro. Sus estadísticas quedan repartidas entre
- * dos, y la interfaz muestra el mismo nombre dos veces.
+ * IMPORTANTE — la convención de encargos
  *
- * Peor aún: si el documento no se puede leer queda en '', y la búsqueda
- * `findFirst({ where: { documento: '' } })` empareja con CUALQUIER otro de
- * documento vacío. Dos personas distintas terminarían en un solo registro.
+ *   Que una persona aparezca dos veces NO significa que haya un error. Cuando
+ *   un funcionario sirve ENCARGADO en otro despacho, la oficina le crea un
+ *   registro aparte con SU CEDULA MAS UN DIGITO, para que esa gestión se
+ *   califique por separado.
  *
- * Este script no corrige nada. Reúne la evidencia para decidir qué hacer con
- * cada caso, que es una decisión de la oficina y no del programa: fusionar dos
- * registros de la misma persona no es lo mismo que separar dos personas que
- * quedaron mezcladas.
+ *   Por eso, si de dos registros con el mismo nombre uno tiene el documento del
+ *   otro más un dígito al final, lo más probable es que sea un encargo y NO hay
+ *   que fusionarlos: hacerlo destruiría la distinción que la oficina mantiene a
+ *   propósito. Este script los marca como "posible encargo".
+ *
+ * Lo que sí es un problema
+ *
+ *   carga-xlsx.ts empareja al funcionario por documento. Si el documento no se
+ *   puede leer del archivo queda en cadena vacía, y antes la búsqueda se
+ *   quedaba con el primer registro de documento vacío que encontrara: dos
+ *   personas distintas podían terminar en uno solo. Eso ya está corregido en el
+ *   código, pero este script sirve para comprobar si alcanzó a ocurrir.
+ *
+ * Este script no corrige nada. Reúne evidencia para que alguien de la oficina
+ * decida, que es donde está el conocimiento de quién estuvo encargado dónde.
  *
  *   node scripts/revisar-funcionarios.mjs
  *
@@ -83,11 +91,18 @@ async function main() {
 
 	console.log('─'.repeat(70));
 	console.log(`MISMO NOMBRE EN MAS DE UN REGISTRO: ${repetidos.length}`);
-	console.log('Probable causa: el documento del archivo no coincidio con el guardado.');
-	console.log('Sus estadisticas estan repartidas entre dos registros.\n');
+	console.log('OJO: si un documento es el otro mas un digito, lo normal es que sea un');
+	console.log('ENCARGO en otro despacho, no un error. NO fusionar sin preguntar.\n');
 	for (const fs of repetidos) {
 		console.log(`── ${fs[0].nombre}`);
 		for (const f of fs) await imprimir(f);
+		const docs = fs.map((f) => (f.documento ?? '').trim()).sort((a, b) => a.length - b.length);
+		const pareceEncargo = docs.length === 2 && docs[1].length === docs[0].length + 1 && docs[1].startsWith(docs[0]);
+		console.log(
+			pareceEncargo
+				? '   -> PATRON DE ENCARGO: el segundo es el primero mas un digito. Probablemente correcto.'
+				: '   -> los documentos no siguen el patron de encargo: revisar caso por caso.'
+		);
 		console.log('');
 	}
 
@@ -129,10 +144,12 @@ async function main() {
 	console.log('─'.repeat(70));
 	console.log('No se modifico nada. Este script solo lee.');
 	console.log('');
-	console.log('Antes de decidir la correccion hay que distinguir dos casos:');
-	console.log('  a) Dos registros de la MISMA persona  -> se fusionan.');
-	console.log('  b) Dos personas DISTINTAS mezcladas   -> hay que separarlas, y');
-	console.log('     revisar las calificaciones ya emitidas de ambas.');
+	console.log('Antes de tocar nada hay que distinguir tres casos, y solo la oficina');
+	console.log('puede hacerlo:');
+	console.log('  a) ENCARGO en otro despacho -> correcto, NO se fusiona.');
+	console.log('  b) Dos registros de la misma persona por error -> se fusionan.');
+	console.log('  c) Dos personas distintas mezcladas -> hay que separarlas, y revisar');
+	console.log('     las calificaciones ya emitidas de ambas.');
 	console.log('');
 }
 
