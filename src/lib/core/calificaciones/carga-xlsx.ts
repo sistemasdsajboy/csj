@@ -193,39 +193,95 @@ export const createRegistrosCalificacionFromXlsx = async (file: File) => {
 	const { fileData, avisos: avisosFuncionarios } = await fileDataFromWorkbook(woorkbook, despacho);
 	const todosLosAvisos = [...avisos, ...avisosFuncionarios];
 
-	try {
-		const { count: countEliminados } = await db.registroCalificacion.deleteMany({
-			where: {
-				despachoId: despacho.id,
-				periodo: fileData[0].periodo,
-				categoria: { not: 'Consolidado' },
-			},
-		});
+	// Un mismo archivo puede traer filas de varios años: los consolidados de
+	// SIERJU cortan por rangos de fechas, no por año calendario. Antes se
+	// borraba solo el periodo de la PRIMERA fila y se insertaban todas, así que
+	// al recargar el archivo las filas de los demás años chocaban con el índice
+	// único y la carga entera fallaba.
+	const periodos = [...new Set(fileData.map((d) => d.periodo))].sort();
 
-		const { count: countCreados } = await db.registroCalificacion.createMany({
-			data: fileData.map((d) => ({
-				cargaEfectiva: d.cargaEfectiva,
-				egresoEfectivo: d.egresoEfectivo,
-				ingresoEfectivo: d.ingresoEfectivo,
-				inventarioFinal: d.inventarioFinal,
-				inventarioInicial: d.inventarioInicial,
-				restan: d.restan,
-				cargaBruta: d.cargaBruta,
-				conciliaciones: d.conciliaciones,
-				desde: d.desde,
-				hasta: d.hasta,
-				periodo: d.periodo,
-				clase: d.clase,
-				categoria: d.categoria.replaceAll('.', ''),
-				despachoId: d.despachoId,
-				funcionarioId: d.funcionarioId,
-			})),
-		});
-
-		return { countCreados, countEliminados, despacho: despacho.nombre, periodo: fileData[0].periodo, avisos: todosLosAvisos };
-	} catch (error) {
+	// Filas repetidas DENTRO del mismo archivo. Ocurre cuando el consolidado
+	// junta dos reportes con la misma fecha de inicio y distinto fin —por
+	// ejemplo `..._2025-07-01_-_2025-08-03` y `..._2025-07-01_-_2025-09-04`—.
+	// Como la clave única incluye la fecha de inicio, chocan entre sí.
+	//
+	// No se elige una: cuál de las dos cifras vale es una decisión sobre la
+	// estadística de una persona, y hay que corregirla en el origen.
+	const vistas = new Map<string, number>();
+	for (const d of fileData) {
+		const clave = [d.funcionarioId, d.clase, d.categoria.replaceAll('.', ''), d.desde.toISOString().slice(0, 10)].join('|');
+		vistas.set(clave, (vistas.get(clave) ?? 0) + 1);
+	}
+	const repetidas = [...vistas].filter(([, n]) => n > 1);
+	if (repetidas.length) {
+		const ejemplos = await Promise.all(
+			repetidas.slice(0, 3).map(async ([clave]) => {
+				const [funcionarioId, clase, categoria, desde] = clave.split('|');
+				const f = await db.funcionario.findFirst({ where: { id: funcionarioId }, select: { nombre: true } });
+				return `${f?.nombre ?? 'un funcionario'} — ${clase} / ${categoria}, desde ${desde}`;
+			})
+		);
 		throw new Error(
-			'Ocurrió un error durante la actualización de los registros en la base de datos. Por favor vuelva a cargar el archivo consolidado.'
+			`El archivo trae ${repetidas.length} filas repetidas: la misma categoría, para el mismo funcionario y la misma ` +
+				`fecha de inicio, aparece más de una vez. Suele pasar cuando el consolidado junta dos reportes que empiezan ` +
+				`el mismo día y terminan en fechas distintas. Corrija el archivo en SIERJU antes de volver a cargarlo. ` +
+				`Ejemplos: ${ejemplos.join(' | ')}`
+		);
+	}
+
+	try {
+		// Borrar y crear van juntos en una transacción. Sin ella, una inserción
+		// fallida dejaba el despacho SIN los registros que ya tenía: el borrado
+		// ya había ocurrido. Perder datos por un reintento es peor que no poder
+		// cargar el archivo.
+		const { countEliminados, countCreados } = await db.$transaction(async (tx) => {
+			const { count: countEliminados } = await tx.registroCalificacion.deleteMany({
+				where: {
+					despachoId: despacho.id,
+					periodo: { in: periodos },
+					categoria: { not: 'Consolidado' },
+				},
+			});
+
+			const { count: countCreados } = await tx.registroCalificacion.createMany({
+				data: fileData.map((d) => ({
+					cargaEfectiva: d.cargaEfectiva,
+					egresoEfectivo: d.egresoEfectivo,
+					ingresoEfectivo: d.ingresoEfectivo,
+					inventarioFinal: d.inventarioFinal,
+					inventarioInicial: d.inventarioInicial,
+					restan: d.restan,
+					cargaBruta: d.cargaBruta,
+					conciliaciones: d.conciliaciones,
+					desde: d.desde,
+					hasta: d.hasta,
+					periodo: d.periodo,
+					clase: d.clase,
+					categoria: d.categoria.replaceAll('.', ''),
+					despachoId: d.despachoId,
+					funcionarioId: d.funcionarioId,
+				})),
+			});
+
+			return { countEliminados, countCreados };
+		});
+
+		return {
+			countCreados,
+			countEliminados,
+			despacho: despacho.nombre,
+			periodo: periodos.join(', '),
+			avisos: todosLosAvisos,
+		};
+	} catch (error) {
+		// El mensaje amable solo no basta: sin la causa, quien carga el archivo
+		// reintenta una y otra vez sin saber qué pasa, y quien tiene que
+		// arreglarlo no tiene por dónde empezar. Se conserva el aviso y se
+		// agrega el detalle técnico.
+		const detalle = error instanceof Error ? error.message.split('\n').filter(Boolean).slice(0, 3).join(' ') : String(error);
+		throw new Error(
+			`No se pudieron guardar los registros del archivo. No se modificó nada. Revise que el consolidado ` +
+				`corresponda al despacho esperado, y reporte este detalle si el problema continúa: ${detalle}`
 		);
 	}
 };
