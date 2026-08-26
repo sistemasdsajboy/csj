@@ -119,6 +119,52 @@ async function duplicadosEntre(cliente, vigenteId, viejoId) {
 }
 
 /**
+ * Categorías que `generar-calificacion.ts` reclasifica de "oral" a "tutelas"
+ * antes de calcular (ver `actualizarClaseRegistros`). Copiadas aquí porque este
+ * script es .mjs y no puede importar del código de la aplicación; si allá
+ * cambian, hay que cambiarlas aquí.
+ */
+const CATEGORIAS_TUTELAS = [
+	'Incidentes de Desacato',
+	'Movimiento de Tutelas',
+	'Procesos con sentencia y trámite posterior incidentes de Desacato',
+	'Consultas Incidentes de Desacato',
+	'Movimiento de Impugnaciones',
+];
+
+/**
+ * Filas que chocarán cuando el cálculo reclasifique.
+ *
+ * Al juntar los dos despachos puede quedar, en el mismo despacho, una fila ya
+ * marcada como "tutelas" y otra igual todavía como "oral". Ninguna de las dos
+ * viola el índice único mientras tengan clases distintas, pero en cuanto
+ * `actualizarClaseRegistros` reclasifica la segunda, chocan — y la calificación
+ * de esa persona deja de poder generarse.
+ *
+ * Se detectó el 2026-08-25 ensayando contra una copia de producción: una
+ * calificación en revisión quedó imposible de regenerar después de fusionar.
+ */
+async function chocaranAlReclasificar(cliente, despachoIds) {
+	const filas = await cliente.registroCalificacion.findMany({
+		where: { despachoId: { in: despachoIds }, categoria: { in: CATEGORIAS_TUTELAS } },
+	});
+	const yaTutelas = new Map(filas.filter((r) => r.clase === 'tutelas').map((r) => [claveSinClase(r), r]));
+
+	const aDescartar = [];
+	const enConflicto = [];
+	for (const r of filas) {
+		if (r.clase === 'tutelas') continue;
+		const gemela = yaTutelas.get(claveSinClase(r));
+		if (!gemela) continue;
+		if (cifrasRegistro(r) === cifrasRegistro(gemela)) aDescartar.push(r.id);
+		else enConflicto.push({ registro: r, gemela });
+	}
+	return { aDescartar, enConflicto };
+}
+
+/** La clave del índice único sin la clase, para comparar antes de reclasificar. */
+const claveSinClase = (r) => [r.funcionarioId, r.categoria, r.desde.toISOString().slice(0, 10), r.calificacionId ?? '-'].join('|');
+/**
  * Revisa TODOS los juzgados antes de escribir el primero.
  *
  * Sin esto, una sorpresa en el tercer juzgado deja los dos primeros fusionados
@@ -139,6 +185,15 @@ async function revisarTodoAntesDeEscribir(duplicados) {
 		for (const viejo of absorbidos) {
 			const { aDescartar, enConflicto } = await duplicadosEntre(db, vigente.id, viejo.id);
 			descartables += aDescartar.length;
+
+			// Y las que chocarian despues, cuando el calculo reclasifique a tutelas.
+			const reclas = await chocaranAlReclasificar(db, [vigente.id, viejo.id]);
+			descartables += reclas.aDescartar.length;
+			for (const c of reclas.enConflicto)
+				problemas.push(
+					`${nombre}: la fila ${c.registro.categoria} del ${c.registro.desde.toISOString().slice(0, 10)} ` +
+						`quedaria duplicada al reclasificarse a tutelas, y las cifras difieren.`
+				);
 			for (const c of enConflicto) {
 				problemas.push(
 					`${nombre}: la fila ${c.registro.clase}/${c.registro.categoria} del ` +
@@ -322,6 +377,17 @@ async function main() {
 					where: { despachoId: viejo.id },
 					data: { despachoId: vigente.id },
 				});
+
+				// Ya con las filas juntas: descartar las que chocarian cuando el
+				// calculo las reclasifique a tutelas. Sin esto la calificacion de
+				// esa persona no se puede volver a generar.
+				const reclas = await chocaranAlReclasificar(tx, [vigente.id]);
+				if (reclas.enConflicto.length)
+					throw new Error(`${nombre}: filas que chocarian al reclasificar tienen cifras distintas. No se decide por script.`);
+				if (reclas.aDescartar.length) {
+					await tx.registroCalificacion.deleteMany({ where: { id: { in: reclas.aDescartar } } });
+					descartadas += reclas.aDescartar.length;
+				}
 
 				// e) Eliminar el despacho vacío.
 				await tx.despacho.delete({ where: { id: viejo.id } });
