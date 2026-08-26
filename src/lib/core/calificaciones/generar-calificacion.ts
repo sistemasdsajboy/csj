@@ -168,6 +168,25 @@ export const generadorResultadosSubfactor =
 		// Se calcula la carga que resulta más favorable para el funcionario, es decir, la menor carga.
 		const cargaMinima = Math.min(cargaProporcional, cargaBaseCalificacionFuncionario, capacidadMaximaProporcional);
 
+		// Una carga negativa no es una base sobre la que calificar: dividir el
+		// egreso entre ella da un subfactor NEGATIVO, que no existe en ninguna
+		// escala. Ocurre cuando los otros funcionarios del despacho evacuaron
+		// más procesos que la carga que le corresponde al calificado por el
+		// tiempo que estuvo allí, y el cálculo se la resta.
+		//
+		// Se detectó en producción con dos calificaciones, una de ellas de
+		// -34.89 y en revisión: pasaba la validación de días y podía aprobarse.
+		//
+		// Una carga de CERO sigue dando cero, como siempre: eso sí es un caso
+		// previsto y la línea de abajo lo maneja.
+		if (cargaMinima < 0)
+			throw new Error(
+				`No se puede calcular el subfactor "${subfactor}": la carga del funcionario da ${cargaMinima.toFixed(1)}, ` +
+					`un número negativo. Ocurre cuando otros funcionarios del despacho evacuaron más procesos que la carga ` +
+					`que le corresponde al calificado por el tiempo que estuvo allí. Revise los periodos de cada funcionario ` +
+					`en el despacho antes de generar la calificación.`
+			);
+
 		const totalSubfactor = cargaMinima ? Math.min((egresoFuncionario / cargaMinima) * maxResultado, maxResultado) : 0;
 
 		return {

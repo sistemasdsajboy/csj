@@ -65,7 +65,17 @@
 					<Button type="submit" disabled={submitDisabled}>Ver calificación</Button>
 				</div>
 				{#if form?.error}
-					<div class="text-rose-700">{form.error}</div>
+					<div
+						role="alert"
+						class="space-y-2 rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-200"
+					>
+						<div>{form.error}</div>
+						{#if data.calificacionExistenteId}
+							<a href="/calificacion/{data.calificacionExistenteId}" class="inline-block font-medium underline">
+								Ver la calificación guardada para revisar los datos
+							</a>
+						{/if}
+					</div>
 				{/if}
 			</form>
 		{:else}

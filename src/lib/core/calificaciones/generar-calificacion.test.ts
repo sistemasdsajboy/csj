@@ -240,3 +240,25 @@ describe('generadorResultadosSubfactor — días del funcionario negativos', () 
 		expect(r.totalSubfactor).toBe(0);
 	});
 });
+
+describe('generadorResultadosSubfactor — carga del funcionario negativa', () => {
+	// Ocurre cuando los otros funcionarios del despacho evacuaron más de la
+	// carga que le corresponde al calificado por su tiempo allí. El cálculo se
+	// la resta y queda por debajo de cero. Sin guarda, el egreso dividido por
+	// una carga negativa da un subfactor negativo: pasó en producción con dos
+	// calificaciones, una de ellas de -34.89 y en revisión.
+	const conEgresoDeOtros = () => [
+		reg({ inventarioInicial: 100, ingresoEfectivo: 50, egresoEfectivo: 30 }),
+		reg({ funcionarioId: OTRO, egresoEfectivo: 400 }),
+	];
+
+	it('falla en vez de devolver un subfactor negativo', () => {
+		expect(() => generadorResultadosSubfactor(FUNC, 200, 100, false, 600)(conEgresoDeOtros(), [], 40, 'oral')).toThrowError(/carga/);
+	});
+
+	it('el mensaje dice que otros funcionarios evacuaron más', () => {
+		expect(() => generadorResultadosSubfactor(FUNC, 200, 100, false, 600)(conEgresoDeOtros(), [], 40, 'oral')).toThrowError(
+			/otros funcionarios/
+		);
+	});
+});
