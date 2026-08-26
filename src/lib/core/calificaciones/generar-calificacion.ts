@@ -148,6 +148,18 @@ export const generadorResultadosSubfactor =
 					`funcionario en ese periodo antes de volver a generar la calificación.`
 			);
 
+		// Los días del funcionario nunca pueden ser negativos: significaría que se
+		// le descontaron más días de los que estuvo. Sin esta guarda la carga
+		// proporcional se vuelve negativa y el subfactor sale NEGATIVO, que no es
+		// una calificación posible. Quien llama ya lo comprueba con un mensaje
+		// que nombra el despacho; esto es la red de abajo.
+		if (diasHabilesFuncionario < 0)
+			throw new Error(
+				`No se puede calcular el subfactor "${subfactor}": los días laborados del funcionario dan ` +
+					`${diasHabilesFuncionario}, un número negativo. Las novedades están descontando más días de los ` +
+					`que estuvo vinculado al despacho.`
+			);
+
 		// La capacidad máxima solo aplica para el subfactor "oral", de modo que para los demás subfactores se usa el valor
 		// infinito para excluirlo del cálculo de la carga mínima.
 		const capacidadMaximaProporcional = subfactor === 'oral' ? (capacidadMaxima * diasHabilesFuncionario) / diasHabilesDespacho : Infinity;
@@ -477,6 +489,24 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 		: 0;
 
 	const diasHabilesLaborados = diasHabilesVinculacion - diasDescontables;
+
+	// Las novedades no pueden descontar más días de los que la persona estuvo
+	// vinculada al despacho. Cuando ocurre, `diasHabilesLaborados` queda
+	// negativo, la carga proporcional se vuelve negativa y el subfactor sale
+	// NEGATIVO: una calificación que no existe en ninguna escala.
+	//
+	// El comentario de arriba dice que se cuentan solo los días "dentro de los
+	// rangos de tiempo efectivamente laborado", pero la suma no lo comprueba.
+	// Hasta que se decida cómo recortarlos —es una decisión sobre la
+	// estadística de una persona, no un detalle técnico— se falla aquí con un
+	// mensaje que dice exactamente qué revisar.
+	if (diasHabilesLaborados < 0)
+		throw new Error(
+			`Las novedades descuentan ${diasDescontables} días en ${despacho.nombre} (${despacho.codigo}), ` +
+				`pero el funcionario solo estuvo vinculado ${diasHabilesVinculacion} días a ese despacho en ${periodo}. ` +
+				`No se pueden descontar días en fechas en las que no estuvo allí: revise que el periodo de cada novedad ` +
+				`caiga dentro del tiempo que la persona estuvo en el despacho.`
+		);
 
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
 	const hayEscritos = cuentaProcesosEscritos > 0;

@@ -225,3 +225,18 @@ describe('generadorResultadosSubfactor — protección de la división por días
 		expect(r.totalSubfactor).toBe(0);
 	});
 });
+
+describe('generadorResultadosSubfactor — días del funcionario negativos', () => {
+	it('falla en vez de devolver un subfactor negativo', () => {
+		// Ocurre cuando las novedades descuentan más días de los que la persona
+		// estuvo vinculada al despacho. Antes daba carga proporcional negativa y
+		// un subfactor negativo, que no existe en ninguna escala.
+		expect(() => generadorResultadosSubfactor(FUNC, 228, -92, false, 600)([trimestreNormal()], [], 40, 'oral')).toThrowError(/negativo/);
+	});
+
+	it('cero días del funcionario sigue siendo válido: reparte cero', () => {
+		const r = generadorResultadosSubfactor(FUNC, 228, 0, false, 600)([trimestreNormal()], [], 40, 'oral');
+		expect(r.cargaProporcional).toBe(0);
+		expect(r.totalSubfactor).toBe(0);
+	});
+});
