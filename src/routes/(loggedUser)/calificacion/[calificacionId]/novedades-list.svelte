@@ -5,8 +5,9 @@
 	import { formatDate } from '$lib/utils/dates';
 	import type { NovedadFuncionario } from '@prisma/client';
 	import Trash2Icon from 'lucide-svelte/icons/trash-2';
+	import NovedadForm from './novedad-form.svelte';
 
-	let { novedades }: { novedades: NovedadFuncionario[] } = $props();
+	let { novedades, diasNoHabiles }: { novedades: NovedadFuncionario[]; diasNoHabiles: Record<string, number[]> } = $props();
 </script>
 
 {#if novedades.length > 0}
@@ -37,12 +38,15 @@
 							{novedad.notes}
 						</td>
 						<td class="px-2 text-gray-900 dark:text-gray-100">
-							<form action="?/deleteNovedad" method="post">
-								<Input type="hidden" name="novedadId" value={novedad.id} />
-								<Button type="submit" variant="destructive">
-									<Trash2Icon class="h-4 w-4" />
-								</Button>
-							</form>
+							<div class="flex flex-row items-center gap-1">
+								<NovedadForm {diasNoHabiles} despachoId={novedad.despachoId} {novedad} />
+								<form action="?/deleteNovedad" method="post">
+									<Input type="hidden" name="novedadId" value={novedad.id} />
+									<Button type="submit" variant="destructive" title="Eliminar novedad">
+										<Trash2Icon class="h-4 w-4" />
+									</Button>
+								</form>
+							</div>
 						</td>
 					</tr>
 				{/each}

@@ -190,7 +190,7 @@
 		</div>
 
 		<div>
-			<NovedadesList {novedades} />
+			<NovedadesList {novedades} {diasNoHabiles} />
 		</div>
 
 		<div class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">

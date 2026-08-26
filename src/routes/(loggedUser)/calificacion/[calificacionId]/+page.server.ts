@@ -267,6 +267,77 @@ export const actions = {
 		redirect(302, `/calificacion/${params.calificacionId}?despacho=${calificacion.despachoId}`);
 	},
 
+	/**
+	 * Corrige una novedad ya registrada, sin borrarla y volverla a escribir.
+	 *
+	 * Antes solo se podía eliminar y crear de nuevo, lo que obligaba a retipear
+	 * fechas y observaciones para cambiar un número, con el riesgo de
+	 * equivocarse en el camino.
+	 */
+	editarNovedad: async ({ request, params, locals }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({ where: { id: params.calificacionId } });
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
+
+		if (calificacionPeriodo.estado === 'aprobada')
+			return {
+				success: false,
+				error: 'No es posible modificar la novedad. La calificación a la que corresponde ya ha sido aprobada.',
+			};
+
+		const data = Object.fromEntries(await request.formData());
+		const novedadId = data.novedadId?.toString();
+		if (!novedadId) return { success: false, error: 'Se debe especificar la novedad que desea modificar.' };
+
+		const novedad = await db.novedadFuncionario.findFirst({ where: { id: novedadId } });
+		if (!novedad) return { success: false, error: 'Novedad no encontrada.' };
+
+		// La novedad tiene que ser del mismo funcionario de esta calificación:
+		// el identificador llega en el formulario y no basta con confiar en él.
+		if (novedad.funcionarioId !== calificacionPeriodo.funcionarioId)
+			return { success: false, error: 'La novedad no corresponde a este funcionario.' };
+
+		const cambiosSchema = z.object({
+			type: z.string().refine((v) => v !== 'undefined'),
+			from: z.date(),
+			to: z.date(),
+			days: z.coerce.number().min(0),
+			diasDescontables: z.coerce.number().min(0),
+			notes: z.string(),
+		});
+
+		const { success, data: cambios } = cambiosSchema.safeParse({
+			type: data.type,
+			from: new Date(data.from.toString()),
+			to: new Date(data.to.toString()),
+			days: data.dias?.toString(),
+			diasDescontables: data.diasDescontables?.toString(),
+			notes: data.notes?.toString() ?? '',
+		});
+		if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
+
+		if (cambios.diasDescontables > cambios.days)
+			return {
+				success: false,
+				error: `No se pueden descontar ${cambios.diasDescontables} días si la novedad solo abarca ${cambios.days} días hábiles.`,
+			};
+
+		await db.novedadFuncionario.update({ where: { id: novedadId }, data: cambios });
+
+		try {
+			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacionPeriodo.periodo);
+		} catch (error) {
+			if (error instanceof Error) return { success: false, error: error.message };
+			return {
+				success: false,
+				error: 'Se modificó la novedad, pero no se pudo generar la calificación. Es necesario recalcularla.',
+			};
+		}
+
+		redirect(302, `/calificacion/${params.calificacionId}?despacho=${novedad.despachoId}`);
+	},
+
 	deleteNovedad: async ({ request, params, locals }) => {
 		if (!locals.user) return { success: false, error: 'No autorizado' };
 
