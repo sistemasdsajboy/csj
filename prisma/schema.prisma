@@ -112,6 +112,9 @@ model CapacidadMaximaRespuesta {
 model Despacho {
   id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
   codigo                String
+  /// Códigos que tuvo este despacho antes de un cambio de código. Es una
+  /// anotación: no interviene en ningún cálculo ni en la búsqueda de despachos.
+  codigosAnteriores     String[]
   nombre                String
   numero                Int?
   tipoDespachoId        String?                @db.ObjectId

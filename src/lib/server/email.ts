@@ -11,9 +11,11 @@ type SendEmailProps = {
 };
 
 export async function sendEmail({ subject, to, html }: SendEmailProps) {
-	// Test adress for development only
+	// En desarrollo no se envía el correo: el contenido queda visible en la consola
+	// y se devuelve un identificador ficticio para que el flujo continúe igual.
 	if (dev) {
 		console.log({ subject, to, html });
+		return 'dev-correo-no-enviado';
 	}
 
 	const from = 'Consejo Seccional de la Judicatura - Boyacá y Casanare <notificacion@calificacionesboycas.com>';

@@ -71,7 +71,7 @@ const getRangoFechasFuncionario = (data: RegistroCalificacion[], funcionarioId: 
 	return { desde, hasta };
 };
 
-const generadorResultadosSubfactor =
+export const generadorResultadosSubfactor =
 	(funcionarioId: string, diasHabilesDespacho: number, diasHabilesFuncionario: number, hayEscritos: boolean, capacidadMaxima: number) =>
 	(data: RegistroCalificacion[], dataTutelas: RegistroCalificacion[], maxResultado: number, subfactor: ClaseRegistroCalificacion) => {
 		if (!data.length)
@@ -131,6 +131,35 @@ const generadorResultadosSubfactor =
 
 		cargaBaseCalificacionFuncionario -= egresoOtrosFuncionarios;
 
+		// Sin días hábiles del despacho no hay con qué repartir la carga. La
+		// división daría NaN, Prisma lo rechaza y el usuario recibe "Argument
+		// `cargaProporcional` is missing", que no le dice nada de lo que pasó.
+		// Se falla con un mensaje que apunta a la causa. Nunca se devuelve 0:
+		// un 0 aquí se convertiría en una calificación silenciosamente
+		// equivocada, que es peor que un error visible.
+		//
+		// El caso de `data` vacío ya salió arriba; si se llega hasta aquí es que
+		// hay estadísticas pero al tramo no le corresponde ningún día hábil.
+		if (!(diasHabilesDespacho > 0))
+			throw new Error(
+				`No se puede calcular el subfactor "${subfactor}": el despacho tiene ${diasHabilesDespacho} días hábiles ` +
+					`en el periodo, pero sí tiene estadísticas. Suele ocurrir cuando el historial de un juzgado quedó partido ` +
+					`entre dos registros y a uno de los tramos no le corresponde ningún día hábil. Revise los despachos del ` +
+					`funcionario en ese periodo antes de volver a generar la calificación.`
+			);
+
+		// Los días del funcionario nunca pueden ser negativos: significaría que se
+		// le descontaron más días de los que estuvo. Sin esta guarda la carga
+		// proporcional se vuelve negativa y el subfactor sale NEGATIVO, que no es
+		// una calificación posible. Quien llama ya lo comprueba con un mensaje
+		// que nombra el despacho; esto es la red de abajo.
+		if (diasHabilesFuncionario < 0)
+			throw new Error(
+				`No se puede calcular el subfactor "${subfactor}": los días laborados del funcionario dan ` +
+					`${diasHabilesFuncionario}, un número negativo. Las novedades están descontando más días de los ` +
+					`que estuvo vinculado al despacho.`
+			);
+
 		// La capacidad máxima solo aplica para el subfactor "oral", de modo que para los demás subfactores se usa el valor
 		// infinito para excluirlo del cálculo de la carga mínima.
 		const capacidadMaximaProporcional = subfactor === 'oral' ? (capacidadMaxima * diasHabilesFuncionario) / diasHabilesDespacho : Infinity;
@@ -138,6 +167,25 @@ const generadorResultadosSubfactor =
 
 		// Se calcula la carga que resulta más favorable para el funcionario, es decir, la menor carga.
 		const cargaMinima = Math.min(cargaProporcional, cargaBaseCalificacionFuncionario, capacidadMaximaProporcional);
+
+		// Una carga negativa no es una base sobre la que calificar: dividir el
+		// egreso entre ella da un subfactor NEGATIVO, que no existe en ninguna
+		// escala. Ocurre cuando los otros funcionarios del despacho evacuaron
+		// más procesos que la carga que le corresponde al calificado por el
+		// tiempo que estuvo allí, y el cálculo se la resta.
+		//
+		// Se detectó en producción con dos calificaciones, una de ellas de
+		// -34.89 y en revisión: pasaba la validación de días y podía aprobarse.
+		//
+		// Una carga de CERO sigue dando cero, como siempre: eso sí es un caso
+		// previsto y la línea de abajo lo maneja.
+		if (cargaMinima < 0)
+			throw new Error(
+				`No se puede calcular el subfactor "${subfactor}": la carga del funcionario da ${cargaMinima.toFixed(1)}, ` +
+					`un número negativo. Ocurre cuando otros funcionarios del despacho evacuaron más procesos que la carga ` +
+					`que le corresponde al calificado por el tiempo que estuvo allí. Revise los periodos de cada funcionario ` +
+					`en el despacho antes de generar la calificación.`
+			);
 
 		const totalSubfactor = cargaMinima ? Math.min((egresoFuncionario / cargaMinima) * maxResultado, maxResultado) : 0;
 
@@ -205,11 +253,24 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 	return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
-function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[] = []) {
+export function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[] = []) {
 	if (calificaciones.length === 0) return 0;
 	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
 
 	const totalDiasLaborados = _.sumBy(calificaciones, 'diasLaborados');
+
+	// Sin días laborados no hay con qué ponderar: la división daría NaN y la
+	// calificación quedaría en un número inventado. Se falla con un mensaje que
+	// dice qué revisar. Nunca se devuelve 0: un 0 pasaría por una calificación
+	// real y el error quedaría invisible en un acto administrativo.
+	if (!(totalDiasLaborados > 0))
+		throw new Error(
+			`No se puede ponderar la calificación: los ${calificaciones.length} despachos del periodo suman ` +
+				`${totalDiasLaborados} días laborados. Suele ocurrir cuando el historial de un juzgado quedó partido ` +
+				`entre dos registros y algún tramo se queda sin días hábiles. Revise los despachos del funcionario ` +
+				`en ese periodo antes de volver a generar la calificación.`
+		);
+
 	return _(calificaciones)
 		.map(({ diasLaborados, calificacionTotalFactorEficiencia }) => {
 			return (calificacionTotalFactorEficiencia / totalDiasLaborados) * diasLaborados;
@@ -337,10 +398,17 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	});
 }
 
+/**
+ * Despachos donde el funcionario tiene estadísticas del periodo.
+ *
+ * Se excluyen las filas "Consolidado": son datos DERIVADOS que produce el
+ * propio cálculo. Si de un despacho solo quedan consolidados, ahí no hay nada
+ * que calcular, y devolverlo hacía que la generación reventara más adelante.
+ */
 export async function consultarDespachosPorFuncionario(funcionarioId: string, periodo: number) {
 	return (
 		await db.registroCalificacion.findMany({
-			where: { funcionarioId, periodo },
+			where: { funcionarioId, periodo, categoria: { not: 'Consolidado' } },
 			select: { despacho: { select: { id: true, codigo: true, nombre: true, tipoDespachoId: true } } },
 			distinct: ['despachoId'],
 		})
@@ -405,6 +473,21 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 		where: { despachoId, periodo, categoria: { not: 'Consolidado' } },
 		orderBy: { desde: 'asc' },
 	});
+	// Sin estadísticas del periodo no hay de dónde sacar el rango de días. Antes
+	// se leía registros[0] a ciegas y reventaba con "Cannot read properties of
+	// undefined", que no le dice nada a quien genera la calificación.
+	//
+	// Ocurre cuando del despacho solo quedan filas "Consolidado" —datos
+	// derivados— sin las estadísticas que las originaron: por ejemplo si se
+	// recargó el consolidado del periodo y el archivo nuevo ya no traía a esa
+	// persona.
+	if (!registros.length)
+		throw new Error(
+			`El despacho ${despacho.nombre} (${despacho.codigo}) no tiene estadísticas del periodo ${periodo}, ` +
+				`solo consolidados sobrantes de un cálculo anterior. Cargue el consolidado del periodo para ese despacho ` +
+				`antes de generar la calificación.`
+		);
+
 	const diasHabilesDespacho = contarDiasHabiles(diasNoHabiles, registros[0].desde, registros[registros.length - 1].hasta);
 
 	const registrosTutelas = registros.filter((registro) => registro.clase === 'tutelas');
@@ -425,6 +508,24 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 		: 0;
 
 	const diasHabilesLaborados = diasHabilesVinculacion - diasDescontables;
+
+	// Las novedades no pueden descontar más días de los que la persona estuvo
+	// vinculada al despacho. Cuando ocurre, `diasHabilesLaborados` queda
+	// negativo, la carga proporcional se vuelve negativa y el subfactor sale
+	// NEGATIVO: una calificación que no existe en ninguna escala.
+	//
+	// El comentario de arriba dice que se cuentan solo los días "dentro de los
+	// rangos de tiempo efectivamente laborado", pero la suma no lo comprueba.
+	// Hasta que se decida cómo recortarlos —es una decisión sobre la
+	// estadística de una persona, no un detalle técnico— se falla aquí con un
+	// mensaje que dice exactamente qué revisar.
+	if (diasHabilesLaborados < 0)
+		throw new Error(
+			`Las novedades descuentan ${diasDescontables} días en ${despacho.nombre} (${despacho.codigo}), ` +
+				`pero el funcionario solo estuvo vinculado ${diasHabilesVinculacion} días a ese despacho en ${periodo}. ` +
+				`No se pueden descontar días en fechas en las que no estuvo allí: revise que el periodo de cada novedad ` +
+				`caiga dentro del tiempo que la persona estuvo en el despacho.`
+		);
 
 	const cuentaProcesosEscritos = await getCuentaProcesosEscritos(despachoId, periodo);
 	const hayEscritos = cuentaProcesosEscritos > 0;
@@ -505,6 +606,15 @@ export async function generarCalificacionFuncionario(funcionarioId: string, peri
 	if (calificacionPeriodo.estado === 'aprobada') return calificacionPeriodo.id;
 
 	const despachos = await consultarDespachosPorFuncionario(funcionarioId, periodo);
+
+	// Sin despachos con estadísticas no hay calificación que calcular. Antes se
+	// seguía adelante y salía una ponderada de 0, que se confunde con una
+	// calificación real de cero. Es preferible un error que se entienda.
+	if (!despachos.length)
+		throw new Error(
+			`No hay estadísticas cargadas para este funcionario en el periodo ${periodo}. ` +
+				`Cargue el consolidado del despacho correspondiente antes de generar la calificación.`
+		);
 
 	for await (const despacho of despachos) {
 		await generarCalificacionDespacho(calificacionPeriodo, despacho.id);

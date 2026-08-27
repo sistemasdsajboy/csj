@@ -18,9 +18,25 @@ export const load = (async ({ params, url }) => {
 
 	const periodo = url.searchParams.get('periodo') ?? periodos[0]?.toString();
 
-	const despachos = await consultarDespachosPorFuncionario(funcionario.id, parseInt(periodo));
+	// Un funcionario sin estadísticas cargadas no es un error: la página ya
+	// muestra un mensaje para ese caso. Sin este resguardo, parseInt(undefined)
+	// da NaN, Prisma rechaza la consulta y el usuario ve un 500 en vez de la
+	// página. Igual si llega un ?periodo= que no sea un número.
+	const anio = parseInt(periodo ?? '');
+	const despachos = Number.isNaN(anio) ? [] : await consultarDespachosPorFuncionario(funcionario.id, anio);
 
-	return { funcionario, periodos, periodo, despachos };
+	// Si ya hay una calificación guardada de ese periodo se envía su
+	// identificador. Cuando la generación falla —por ejemplo porque las
+	// novedades descuentan de más— el usuario necesita poder entrar a mirar los
+	// datos para corregirlos, y sin esto el error lo dejaba encerrado afuera.
+	const calificacionExistente = Number.isNaN(anio)
+		? null
+		: await db.calificacionPeriodo.findFirst({
+				where: { funcionarioId: funcionario.id, periodo: anio },
+				select: { id: true },
+			});
+
+	return { funcionario, periodos, periodo, despachos, calificacionExistenteId: calificacionExistente?.id ?? null };
 }) satisfies PageServerLoad;
 
 export const actions = {

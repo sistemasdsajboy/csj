@@ -12,7 +12,7 @@
 	import Observaciones from './observaciones.svelte';
 	import RegistroAudienciasForm from './registro-audiencias-form.svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
 	const {
 		calificacion,
 		calificacionesAdicionales,
@@ -105,6 +105,22 @@
 
 <PageLayout {header} username={data.user}>
 	<div class="container mx-auto space-y-4 px-4">
+		<!--
+			Las acciones de la calificación -enviar a revisión, aprobar, devolver,
+			eliminar, archivar- devuelven un mensaje cuando algo no cuadra, pero
+			la página no lo recibía: solo tomaba `data`. El usuario pulsaba el
+			botón, no pasaba nada y no sabía por qué. Este bloque muestra ese
+			mensaje para todas ellas.
+		-->
+		{#if form?.error}
+			<div
+				role="alert"
+				class="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-rose-800 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-200 print:hidden"
+			>
+				<div class="font-medium">No se pudo completar la acción</div>
+				<div class="text-sm">{form.error}</div>
+			</div>
+		{/if}
 		<div class="flex flex-row items-center justify-between gap-2 print:hidden">
 			<EditorEstadoCalificacion
 				estado={calificacion.calificacion.estado}
@@ -140,6 +156,13 @@
 			</h3>
 			<div class="font-bold">
 				<div>{despacho.codigo} - {despacho.nombre}</div>
+				{#if despacho.codigosAnteriores?.length}
+					<div class="text-sm font-normal text-slate-600">
+						Este despacho antes tuvo {despacho.codigosAnteriores.length === 1 ? 'el código' : 'los códigos'}
+						<span class="font-mono">{despacho.codigosAnteriores.join(', ')}</span>. Parte de la estadística de este periodo pudo reportarse
+						así.
+					</div>
+				{/if}
 				{#each calificacionesAdicionales as adicional}
 					<div>
 						<a href="?despacho={adicional.despacho.id}" class="text-sky-800 underline">
@@ -174,7 +197,7 @@
 		</div>
 
 		<div>
-			<NovedadesList {novedades} />
+			<NovedadesList {novedades} {diasNoHabiles} />
 		</div>
 
 		<div class="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 print:grid-cols-6">

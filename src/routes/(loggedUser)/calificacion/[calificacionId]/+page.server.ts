@@ -190,6 +190,12 @@ export const actions = {
 	addNovedad: async ({ request, params, locals }) => {
 		if (!locals.user) return { success: false, error: 'No autorizado' };
 
+		// Las novedades cambian los días laborados, y con ellos la cifra de la
+		// calificación. Antes bastaba con tener sesión: cualquier usuario podía
+		// tocarlas, incluso los que no tienen ningún rol asignado.
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user?.roles.includes('admin')) return { success: false, error: 'No tiene permiso para registrar una novedad.' };
+
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
 			include: { calificaciones: { select: { despachoId: true } } },
@@ -267,8 +273,91 @@ export const actions = {
 		redirect(302, `/calificacion/${params.calificacionId}?despacho=${calificacion.despachoId}`);
 	},
 
+	/**
+	 * Corrige una novedad ya registrada, sin borrarla y volverla a escribir.
+	 *
+	 * Antes solo se podía eliminar y crear de nuevo, lo que obligaba a retipear
+	 * fechas y observaciones para cambiar un número, con el riesgo de
+	 * equivocarse en el camino.
+	 */
+	editarNovedad: async ({ request, params, locals }) => {
+		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		// Las novedades cambian los días laborados, y con ellos la cifra de la
+		// calificación. Antes bastaba con tener sesión: cualquier usuario podía
+		// tocarlas, incluso los que no tienen ningún rol asignado.
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user?.roles.includes('admin')) return { success: false, error: 'No tiene permiso para modificar una novedad.' };
+
+		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({ where: { id: params.calificacionId } });
+		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
+
+		if (calificacionPeriodo.estado === 'aprobada')
+			return {
+				success: false,
+				error: 'No es posible modificar la novedad. La calificación a la que corresponde ya ha sido aprobada.',
+			};
+
+		const data = Object.fromEntries(await request.formData());
+		const novedadId = data.novedadId?.toString();
+		if (!novedadId) return { success: false, error: 'Se debe especificar la novedad que desea modificar.' };
+
+		const novedad = await db.novedadFuncionario.findFirst({ where: { id: novedadId } });
+		if (!novedad) return { success: false, error: 'Novedad no encontrada.' };
+
+		// La novedad tiene que ser del mismo funcionario de esta calificación:
+		// el identificador llega en el formulario y no basta con confiar en él.
+		if (novedad.funcionarioId !== calificacionPeriodo.funcionarioId)
+			return { success: false, error: 'La novedad no corresponde a este funcionario.' };
+
+		const cambiosSchema = z.object({
+			type: z.string().refine((v) => v !== 'undefined'),
+			from: z.date(),
+			to: z.date(),
+			days: z.coerce.number().min(0),
+			diasDescontables: z.coerce.number().min(0),
+			notes: z.string(),
+		});
+
+		const { success, data: cambios } = cambiosSchema.safeParse({
+			type: data.type,
+			from: new Date(data.from.toString()),
+			to: new Date(data.to.toString()),
+			days: data.dias?.toString(),
+			diasDescontables: data.diasDescontables?.toString(),
+			notes: data.notes?.toString() ?? '',
+		});
+		if (!success) return { success: false, error: 'Datos incompletos o no válidos.' };
+
+		if (cambios.diasDescontables > cambios.days)
+			return {
+				success: false,
+				error: `No se pueden descontar ${cambios.diasDescontables} días si la novedad solo abarca ${cambios.days} días hábiles.`,
+			};
+
+		await db.novedadFuncionario.update({ where: { id: novedadId }, data: cambios });
+
+		try {
+			await generarCalificacionFuncionario(calificacionPeriodo.funcionarioId, calificacionPeriodo.periodo);
+		} catch (error) {
+			if (error instanceof Error) return { success: false, error: error.message };
+			return {
+				success: false,
+				error: 'Se modificó la novedad, pero no se pudo generar la calificación. Es necesario recalcularla.',
+			};
+		}
+
+		redirect(302, `/calificacion/${params.calificacionId}?despacho=${novedad.despachoId}`);
+	},
+
 	deleteNovedad: async ({ request, params, locals }) => {
 		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		// Las novedades cambian los días laborados, y con ellos la cifra de la
+		// calificación. Antes bastaba con tener sesión: cualquier usuario podía
+		// tocarlas, incluso los que no tienen ningún rol asignado.
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user?.roles.includes('admin')) return { success: false, error: 'No tiene permiso para eliminar una novedad.' };
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
@@ -398,7 +487,17 @@ export const actions = {
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
-			include: { calificaciones: { select: { despachoId: true, diasLaborados: true, diasDescontados: true, diasHabilesDespacho: true } } },
+			include: {
+				calificaciones: {
+					select: {
+						despachoId: true,
+						diasLaborados: true,
+						diasDescontados: true,
+						diasHabilesDespacho: true,
+						despacho: { select: { codigo: true, nombre: true } },
+					},
+				},
+			},
 		});
 		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
 		const despachoId = url.searchParams.get('despacho') || calificacionPeriodo.calificaciones[0].despachoId;
@@ -414,16 +513,54 @@ export const actions = {
 		const isEditor = user.roles.includes('editor');
 		if (!isEditor) return { success: false, error: 'No tiene permiso para enviar una calificación a revision.' };
 
-		const diasLaboralesCorrectos = calificacionPeriodo.calificaciones.every(
-			(calificacion) => calificacion.diasLaborados === calificacion.diasHabilesDespacho - calificacion.diasDescontados
-		);
+		// La cuenta que debe cerrar en cada despacho es:
+		//     días laborados = días hábiles del despacho − días descontados
+		//
+		// Los laborados salen del cálculo; los descontados, de las novedades que
+		// alguien digitó. Falla en dos direcciones opuestas, y conviene decir
+		// cuál es, porque se corrigen al revés:
+		//
+		//   · Faltan días por justificar. La persona no estuvo todo el periodo
+		//     en ese despacho —lo habitual si rotó entre varios— y no hay
+		//     novedades que cubran la ausencia. Hay que registrarlas.
+		//
+		//   · Se descontaron días de más. Suele ser una novedad que cubre fechas
+		//     en las que la persona no estaba en ese despacho: el cálculo solo
+		//     descuenta lo que cae dentro de lo efectivamente laborado.
+		//
+		// Antes se devolvía el enunciado de la regla, sin decir en qué despacho
+		// fallaba, en qué dirección, ni con qué cifras.
+		const descuadradas = calificacionPeriodo.calificaciones
+			.map((c) => ({ ...c, faltan: c.diasHabilesDespacho - c.diasDescontados - c.diasLaborados }))
+			.filter((c) => c.faltan !== 0);
 
-		if (!diasLaboralesCorrectos)
+		if (descuadradas.length) {
+			const detalle = descuadradas
+				.map((c) => {
+					const nombre = c.despacho ? `${c.despacho.codigo} ${c.despacho.nombre}` : 'un despacho';
+					return c.faltan > 0
+						? `${nombre}: quedan ${c.faltan} días sin justificar ` +
+								`(${c.diasHabilesDespacho} hábiles, ${c.diasLaborados} laborados, ${c.diasDescontados} descontados)`
+						: `${nombre}: se descontaron ${-c.faltan} días de más ` +
+								`(${c.diasHabilesDespacho} hábiles, ${c.diasLaborados} laborados, ${c.diasDescontados} descontados)`;
+				})
+				.join(' | ');
+
+			const soloFaltan = descuadradas.every((c) => c.faltan > 0);
+			const soloSobran = descuadradas.every((c) => c.faltan < 0);
+			const explicacion = soloFaltan
+				? 'Registre las novedades que expliquen los días en que el funcionario no estuvo en el despacho.'
+				: soloSobran
+					? 'No se pueden descontar días en fechas en las que el funcionario no estuvo en el despacho: revise que el periodo de cada novedad caiga dentro del tiempo que la persona estuvo allí.'
+					: 'Revise las novedades de cada despacho: su periodo debe caer dentro del tiempo que la persona estuvo allí, y debe cubrir los días en que no estuvo.';
+
 			return {
 				success: false,
 				error:
-					'Los días laborados de cada uno de los despachos debe ser igual a los días hábiles del despacho menos los días descontados por las novedades.',
+					`En cada despacho los días laborados más los descontados deben sumar los días hábiles del despacho, y no cuadran. ` +
+					`${explicacion} ${detalle}`,
 			};
+		}
 
 		const formData = await request.formData();
 		const observaciones = formData.get('observaciones')?.toString() || 'Enviado para revisión sin observaciones.';

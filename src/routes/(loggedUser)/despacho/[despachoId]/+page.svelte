@@ -13,6 +13,16 @@
 <PageLayout username={data.user}>
 	<h1 class="text-2xl font-bold">{despacho.nombre} - {despacho.codigo}</h1>
 
+	{#if despacho.codigosAnteriores?.length}
+		<p class="text-sm text-slate-600">
+			Antes tuvo {despacho.codigosAnteriores.length === 1 ? 'el código' : 'los códigos'}
+			<span class="font-mono">{despacho.codigosAnteriores.join(', ')}</span>. La estadística anterior al cambio se reportó bajo {despacho
+				.codigosAnteriores.length === 1
+				? 'ese código'
+				: 'esos códigos'}.
+		</p>
+	{/if}
+
 	<form method="post" class="max-w-xs" action="?/actualizar">
 		<div class="grid items-center gap-2 sm:grid-cols-[1fr_2fr]">
 			<Label for="numero">Número</Label>
