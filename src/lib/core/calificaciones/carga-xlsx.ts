@@ -1,4 +1,5 @@
 import { db } from '$lib/server/db-client';
+import { codigosAnterioresTrasFusion } from './fusionar-despachos';
 import type { ClaseRegistroCalificacion, Despacho, Funcionario, RegistroCalificacion } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
@@ -74,7 +75,7 @@ type Workbook = Array<WorkbookPage>;
  * Por eso, cuando el código del archivo no corresponde a ningún despacho, se
  * busca también por nombre antes de crear uno nuevo.
  */
-type DespachoCandidato = { id: string; codigo: string; nombre: string; ultimoRegistro: Date | null };
+type DespachoCandidato = { id: string; codigo: string; nombre: string; codigosAnteriores?: string[]; ultimoRegistro: Date | null };
 
 type DecisionDespacho =
 	| { accion: 'usar'; id: string; aviso?: string }
@@ -374,7 +375,12 @@ async function getDespachoFromXlsxFileString(
 
 	// El juzgado cambió de código: se actualiza el registro que ya existe en vez
 	// de crear otro, para que su historial quede completo bajo un solo despacho.
-	const despacho = await db.despacho.update({ where: { id: decision.id }, data: { codigo } });
+	// El código que deja de usarse queda anotado en el despacho. Es solo
+	// información —no interviene en el cálculo ni en la búsqueda— para no perder
+	// con qué código se reportó la estadística de los años anteriores.
+	const yaAnotados = conUltimoRegistro.find((d) => d.id === decision.id)?.codigosAnteriores ?? [];
+	const codigosAnteriores = codigosAnterioresTrasFusion({ codigo }, [{ codigo: decision.codigoAnterior, codigosAnteriores: yaAnotados }]);
+	const despacho = await db.despacho.update({ where: { id: decision.id }, data: { codigo, codigosAnteriores } });
 	avisos.push(
 		`El juzgado ${despacho.nombre} cambió de código: ${decision.codigoAnterior} → ${codigo}. ` +
 			`Se actualizó el despacho que ya existía, en vez de crear uno nuevo, para no partir su historial.`

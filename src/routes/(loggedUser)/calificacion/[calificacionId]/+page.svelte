@@ -156,6 +156,13 @@
 			</h3>
 			<div class="font-bold">
 				<div>{despacho.codigo} - {despacho.nombre}</div>
+				{#if despacho.codigosAnteriores?.length}
+					<div class="text-sm font-normal text-slate-600">
+						Este despacho antes tuvo {despacho.codigosAnteriores.length === 1 ? 'el código' : 'los códigos'}
+						<span class="font-mono">{despacho.codigosAnteriores.join(', ')}</span>. Parte de la estadística de este periodo pudo reportarse
+						así.
+					</div>
+				{/if}
 				{#each calificacionesAdicionales as adicional}
 					<div>
 						<a href="?despacho={adicional.despacho.id}" class="text-sky-800 underline">
