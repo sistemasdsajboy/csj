@@ -1,34 +1,47 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import * as Command from '$lib/components/ui/command';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import * as Popover from '$lib/components/ui/popover';
-	import { tick } from 'svelte';
+	import { filtrarFuncionarios, type OpcionFuncionario } from '$lib/utils/buscar-funcionarios';
 
 	/**
 	 * Buscador de funcionarios.
 	 *
-	 * Antes era un `<input list>` con un `<datalist>`. La lista de sugerencias de
-	 * un datalist la dibuja y la ubica el navegador por su cuenta: no se puede
-	 * darle estilo ni corregir dónde aparece, y en la práctica salía flotando
-	 * fuera de la tarjeta. Aquí la lista es parte de la página.
+	 * Empezó siendo un `<input list>` con `<datalist>`: esa lista la dibuja y la
+	 * ubica el navegador, no admite estilos ni corrección de posición, y salía
+	 * flotando fuera de la tarjeta.
+	 *
+	 * El siguiente intento delegó el filtrado en `Command` y llegó a producción
+	 * sin encontrar coincidencias. Ahora el filtrado es `filtrarFuncionarios`,
+	 * que está cubierto por pruebas: lo que se prueba es lo que corre.
 	 */
 
-	let {
-		funcionarios = [],
-		funcionarioId = $bindable(null),
-	}: { funcionarios: { label: string; value: string }[]; funcionarioId: string | null } = $props();
+	let { funcionarios = [], funcionarioId = $bindable(null) }: { funcionarios: OpcionFuncionario[]; funcionarioId: string | null } =
+		$props();
 
+	const MAXIMO_VISIBLE = 50;
+
+	let texto = $state('');
 	let abierto = $state(false);
+
+	const coincidencias = $derived(filtrarFuncionarios(funcionarios, texto));
+
 	const seleccionado = $derived(funcionarios.find((f) => f.value === funcionarioId));
 
-	// Al cerrar hay que devolver el foco al botón: si no, el teclado queda en el
-	// aire y quien navega sin ratón pierde el hilo.
-	const elegir = (id: string, boton: HTMLElement | null) => {
-		funcionarioId = id;
+	const elegir = (f: OpcionFuncionario) => {
+		funcionarioId = f.value;
+		texto = f.label;
 		abierto = false;
-		tick().then(() => boton?.focus());
+	};
+
+	const alTeclado = (evento: KeyboardEvent) => {
+		if (evento.key === 'Escape') return (abierto = false);
+		// Enter con una sola coincidencia la elige: evita bajar con el ratón.
+		if (evento.key === 'Enter' && coincidencias.length === 1) {
+			evento.preventDefault();
+			elegir(coincidencias[0]);
+		}
 	};
 </script>
 
@@ -38,39 +51,64 @@
 	</Card.Header>
 	<Card.Content>
 		<Label for="funcionario">Funcionario</Label>
-		<Popover.Root bind:open={abierto}>
-			<Popover.Trigger asChild let:builder>
-				<Button
-					builders={[builder]}
-					id="funcionario"
-					variant="outline"
-					role="combobox"
-					aria-expanded={abierto}
-					class="w-full justify-between text-left font-normal"
-				>
-					<span class="truncate">
-						{seleccionado?.label ?? 'Buscar funcionario por nombre...'}
-					</span>
-					<span aria-hidden="true" class="pl-2 opacity-60">▾</span>
-				</Button>
-			</Popover.Trigger>
 
-			<Popover.Content class="w-[min(30rem,90vw)] p-0" align="start">
-				<Command.Root>
-					<Command.Input placeholder="Escribe parte del nombre..." />
-					<Command.Empty>Ningún funcionario con ese nombre.</Command.Empty>
-					<Command.List>
-						<Command.Group>
-							{#each funcionarios as funcionario}
-								<Command.Item value={funcionario.label} onSelect={() => elegir(funcionario.value, document.getElementById('funcionario'))}>
-									{funcionario.label}
-								</Command.Item>
-							{/each}
-						</Command.Group>
-					</Command.List>
-				</Command.Root>
-			</Popover.Content>
-		</Popover.Root>
+		<div class="relative">
+			<Input
+				id="funcionario"
+				autocomplete="off"
+				role="combobox"
+				aria-expanded={abierto}
+				aria-controls="lista-funcionarios"
+				placeholder="Buscar funcionario por nombre..."
+				bind:value={texto}
+				onfocus={() => (abierto = true)}
+				oninput={() => {
+					abierto = true;
+					funcionarioId = null;
+				}}
+				onkeydown={alTeclado}
+			/>
+
+			{#if abierto}
+				<!-- El clic en un resultado tiene que llegar antes que el cierre por
+				     perder el foco, así que se cierra con onblur del contenedor. -->
+				<div
+					id="lista-funcionarios"
+					role="listbox"
+					tabindex="-1"
+					class="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-md border border-slate-300 bg-white shadow-md"
+					onfocusout={(e) => {
+						if (!e.currentTarget.contains(e.relatedTarget as Node)) abierto = false;
+					}}
+				>
+					{#if coincidencias.length === 0}
+						<div class="px-3 py-2 text-sm text-slate-600">Ningún funcionario con ese nombre.</div>
+					{:else}
+						{#each coincidencias.slice(0, MAXIMO_VISIBLE) as funcionario}
+							<button
+								type="button"
+								role="option"
+								aria-selected={funcionario.value === funcionarioId}
+								class="block w-full px-3 py-1.5 text-left text-sm hover:bg-sky-100 focus:bg-sky-100 focus:outline-none"
+								onclick={() => elegir(funcionario)}
+							>
+								{funcionario.label}
+							</button>
+						{/each}
+
+						{#if coincidencias.length > MAXIMO_VISIBLE}
+							<div class="px-3 py-2 text-sm text-slate-600">
+								y {coincidencias.length - MAXIMO_VISIBLE} más. Escribe un poco más para acotar.
+							</div>
+						{/if}
+					{/if}
+				</div>
+			{/if}
+		</div>
+
+		{#if seleccionado}
+			<p class="pt-2 text-sm text-slate-600">Seleccionado: {seleccionado.label}</p>
+		{/if}
 	</Card.Content>
 	<Card.Footer class="flex justify-between">
 		{#if funcionarioId}
