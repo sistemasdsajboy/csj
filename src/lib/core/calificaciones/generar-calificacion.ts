@@ -11,6 +11,7 @@ import {
 import type { CalificacionPeriodo, ClaseRegistroCalificacion, RegistroCalificacion, TipoDespacho } from '@prisma/client';
 import dayjs from 'dayjs';
 import _ from 'lodash';
+import { descartarAsientosDeCierre } from './asiento-de-cierre';
 
 const getInventarioInicial = (data: RegistroCalificacion[]) => {
 	const minDate = _.minBy(data, 'desde')?.desde;
@@ -469,10 +470,29 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 
 	const diasNoHabiles = getDiasFestivosPorTipoDespacho(despacho.tipoDespacho);
 
-	const registros = await db.registroCalificacion.findMany({
+	const registrosDelDespacho = await db.registroCalificacion.findMany({
 		where: { despachoId, periodo, categoria: { not: 'Consolidado' } },
 		orderBy: { desde: 'asc' },
 	});
+
+	// Cuando el juzgado cambió de código, el reporte del código viejo se cierra
+	// traspasando el inventario: ingresos negativos, cero egresos, inventario
+	// final en cero. Ese tramo no es trabajo, y contarlo mete el mismo
+	// inventario dos veces en la carga. El área indicó calcular sobre los datos
+	// del código nuevo, dejando lo anterior registrado sin tomarlo en cuenta.
+	//
+	// Las filas NO se borran: siguen en la base y se pueden consultar.
+	const { conservados: registros, descartados: asientosDeCierre } = descartarAsientosDeCierre(registrosDelDespacho);
+
+	// De este despacho solo queda el traspaso: la estadística real del año está
+	// bajo el otro código. Pasa mientras el juzgado siga partido en dos
+	// registros, y se arregla unificándolo, no cargando otro archivo.
+	if (asientosDeCierre.length && !registros.length)
+		throw new Error(
+			`El juzgado ${despacho.nombre} sigue partido en dos registros por un cambio de código. Del registro ` +
+				`${despacho.codigo} solo queda el traspaso de inventario de ${periodo}; la estadística del año está en el ` +
+				`otro. Unifíquelo en Configuración → Juzgados duplicados y vuelva a generar la calificación.`
+		);
 	// Sin estadísticas del periodo no hay de dónde sacar el rango de días. Antes
 	// se leía registros[0] a ciegas y reventaba con "Cannot read properties of
 	// undefined", que no le dice nada a quien genera la calificación.
