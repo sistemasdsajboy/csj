@@ -1,3 +1,4 @@
+import { descartarAsientosDeCierre } from '$lib/core/calificaciones/asiento-de-cierre';
 import { generarCalificacionFuncionario, getDiasFestivosPorTipoDespacho } from '$lib/core/calificaciones/generar-calificacion';
 import { db } from '$lib/server/db-client';
 import { error, redirect } from '@sveltejs/kit';
@@ -161,6 +162,18 @@ export const load = (async ({ params, locals, url }) => {
 
 	const diasNoHabiles = getDiasFestivosPorTipoDespacho(calificacion.despacho.tipoDespacho);
 
+	// El traspaso de inventario por el cambio de código no entra al cálculo
+	// (H-32), así que tampoco aparece en los consolidados. Se carga aparte para
+	// mostrarlo: el área pidió dejarlo indicado, no esconderlo. Sin esto, la
+	// calificación empieza el 13 de enero y no hay forma de ver qué pasó antes.
+	const registrosDelDespacho = await db.registroCalificacion.findMany({
+		where: { despachoId, periodo: calificacionPeriodo.periodo, categoria: { not: 'Consolidado' } },
+		orderBy: { desde: 'asc' },
+	});
+	const traspasoPorCambioDeCodigo = descartarAsientosDeCierre(registrosDelDespacho)
+		.descartados.filter((r) => r.funcionarioId === calificacionPeriodo.funcionarioId)
+		.filter((r) => r.inventarioInicial !== 0 || r.ingresoEfectivo !== 0);
+
 	const consolidadoXlsxData = await getDataForXlsxExport(calificacion.id);
 
 	const despachos = (await db.despachoSeccional.findMany({ orderBy: { nombre: 'asc' } })).map((d) => ({ label: d.nombre, value: d.id }));
@@ -183,6 +196,7 @@ export const load = (async ({ params, locals, url }) => {
 		consolidadoXlsxData,
 		despachos,
 		capacidadMaxima,
+		traspasoPorCambioDeCodigo,
 	};
 }) satisfies PageServerLoad;
 

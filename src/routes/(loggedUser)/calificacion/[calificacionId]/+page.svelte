@@ -21,6 +21,7 @@
 		funcionario,
 		novedades,
 		consolidadoOrdinario,
+		traspasoPorCambioDeCodigo,
 		consolidadoTutelas,
 		consolidadoGarantias,
 		consolidadoEscrito,
@@ -172,6 +173,47 @@
 				{/each}
 			</div>
 		</div>
+
+		{#if traspasoPorCambioDeCodigo.length}
+			<div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900">
+				<h3 class="font-bold">Traspaso por cambio de código — no entra en el cálculo</h3>
+				<p class="pt-1 text-sm">
+					El juzgado cambió de código el
+					<span class="font-medium">{formatDate(traspasoPorCambioDeCodigo[0].hasta)}</span>. El reporte del código anterior se cerró
+					traspasando su inventario al nuevo: sale como ingreso negativo y el inventario final queda en cero. Ese mismo inventario vuelve a
+					entrar bajo el código nuevo, así que
+					<span class="font-medium">contarlo lo sumaría dos veces</span>. Queda registrado, pero el cálculo empieza después.
+				</p>
+				<div class="overflow-x-auto pt-3">
+					<table class="w-full text-sm">
+						<thead class="text-left text-amber-800">
+							<tr>
+								<th class="pr-4 font-medium">Categoría</th>
+								<th class="pr-4 font-medium">Desde</th>
+								<th class="pr-4 font-medium">Hasta</th>
+								<th class="pr-4 text-right font-medium">Inv. inicial</th>
+								<th class="pr-4 text-right font-medium">Ingreso</th>
+								<th class="pr-4 text-right font-medium">Egreso</th>
+								<th class="text-right font-medium">Inv. final</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each traspasoPorCambioDeCodigo as fila}
+								<tr class="border-t border-amber-200">
+									<td class="py-1 pr-4">{fila.categoria}</td>
+									<td class="py-1 pr-4">{formatDate(fila.desde)}</td>
+									<td class="py-1 pr-4">{formatDate(fila.hasta)}</td>
+									<td class="py-1 pr-4 text-right">{fila.inventarioInicial}</td>
+									<td class="py-1 pr-4 text-right">{fila.ingresoEfectivo}</td>
+									<td class="py-1 pr-4 text-right">{fila.egresoEfectivo}</td>
+									<td class="py-1 text-right">{fila.inventarioFinal}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{/if}
 
 		<h3 class="bold text-2xl font-bold text-slate-800">Totales</h3>
 		<div class="flex flex-row gap-2">
