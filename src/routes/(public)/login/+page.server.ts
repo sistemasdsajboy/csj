@@ -5,6 +5,7 @@ import { hash, verify } from '@node-rs/argon2';
 import { fail, redirect } from '@sveltejs/kit';
 import dayjs from 'dayjs';
 import { ObjectId } from 'mongodb';
+import { randomInt } from 'node:crypto';
 
 // recommended minimum parameters
 const passwordHashOptions = {
@@ -23,7 +24,10 @@ export const actions = {
 			return fail(400, { message: 'Nombre de usuario no válido' });
 		}
 
-		const password = Math.floor(100000 + Math.random() * 900000).toString();
+		// El código es la credencial de acceso. `Math.random()` no sirve para esto:
+		// su generador es reconstruible observando suficientes salidas, y quien lo
+		// logre puede predecir el código que se le envía a otra persona.
+		const password = randomInt(100000, 1000000).toString();
 		const passwordHash = await hash(password, passwordHashOptions);
 
 		const to = `${username}@cendoj.ramajudicial.gov.co`;

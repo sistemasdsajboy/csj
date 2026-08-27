@@ -190,6 +190,12 @@ export const actions = {
 	addNovedad: async ({ request, params, locals }) => {
 		if (!locals.user) return { success: false, error: 'No autorizado' };
 
+		// Las novedades cambian los días laborados, y con ellos la cifra de la
+		// calificación. Antes bastaba con tener sesión: cualquier usuario podía
+		// tocarlas, incluso los que no tienen ningún rol asignado.
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user?.roles.includes('admin')) return { success: false, error: 'No tiene permiso para registrar una novedad.' };
+
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
 			include: { calificaciones: { select: { despachoId: true } } },
@@ -277,6 +283,12 @@ export const actions = {
 	editarNovedad: async ({ request, params, locals }) => {
 		if (!locals.user) return { success: false, error: 'No autorizado' };
 
+		// Las novedades cambian los días laborados, y con ellos la cifra de la
+		// calificación. Antes bastaba con tener sesión: cualquier usuario podía
+		// tocarlas, incluso los que no tienen ningún rol asignado.
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user?.roles.includes('admin')) return { success: false, error: 'No tiene permiso para modificar una novedad.' };
+
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({ where: { id: params.calificacionId } });
 		if (!calificacionPeriodo) return { success: false, error: 'Calificación no encontrada' };
 
@@ -340,6 +352,12 @@ export const actions = {
 
 	deleteNovedad: async ({ request, params, locals }) => {
 		if (!locals.user) return { success: false, error: 'No autorizado' };
+
+		// Las novedades cambian los días laborados, y con ellos la cifra de la
+		// calificación. Antes bastaba con tener sesión: cualquier usuario podía
+		// tocarlas, incluso los que no tienen ningún rol asignado.
+		const user = await db.user.findFirst({ where: { id: locals.user.id } });
+		if (!user?.roles.includes('admin')) return { success: false, error: 'No tiene permiso para eliminar una novedad.' };
 
 		const calificacionPeriodo = await db.calificacionPeriodo.findFirst({
 			where: { id: params.calificacionId },
