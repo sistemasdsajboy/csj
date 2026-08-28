@@ -93,6 +93,9 @@
 								onclick={() => elegir(funcionario)}
 							>
 								{funcionario.label}
+								{#if funcionario.detalle}
+									<span class="block text-xs text-slate-500">{funcionario.detalle}</span>
+								{/if}
 							</button>
 						{/each}
 
@@ -107,7 +110,9 @@
 		</div>
 
 		{#if seleccionado}
-			<p class="pt-2 text-sm text-slate-600">Seleccionado: {seleccionado.label}</p>
+			<p class="pt-2 text-sm text-slate-600">
+				Seleccionado: {seleccionado.label}{seleccionado.detalle ? ` — ${seleccionado.detalle}` : ''}
+			</p>
 		{/if}
 	</Card.Content>
 	<Card.Footer class="flex justify-between">

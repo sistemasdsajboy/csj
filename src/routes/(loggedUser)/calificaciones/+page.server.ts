@@ -5,6 +5,7 @@ import { error, fail } from '@sveltejs/kit';
 import _ from 'lodash';
 import type { PageServerLoad } from './$types';
 import { filtroCalificacionesSchema } from './validation';
+import { etiquetarFuncionarios } from '$lib/utils/buscar-funcionarios';
 
 const estadosVisiblesPorRol: Record<string, EstadoCalificacion[]> = {
 	admin: ['borrador', 'devuelta', 'revision', 'aprobada', 'eliminada', 'archivada'],
@@ -118,11 +119,15 @@ export const load = (async ({ locals }) => {
 		).map((m) => ({ label: m.municipio, value: m.municipio })) as { label: string; value: string }[]),
 	];
 
-	const funcionarios = (
+	// Dos funcionarios pueden llamarse igual —el titular y su propio registro de
+	// encargo—. Sin distinguirlos, elegir el que no era hace que el periodo que
+	// se busca "no aparezca", aunque los datos estén cargados.
+	const funcionarios = etiquetarFuncionarios(
 		await db.funcionario.findMany({
 			orderBy: { nombre: 'asc' },
+			select: { id: true, nombre: true, documento: true },
 		})
-	).map((f) => ({ label: f.nombre, value: f.id }));
+	);
 
 	return {
 		calificaciones,
