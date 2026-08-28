@@ -61,9 +61,11 @@ describe('etiquetarFuncionarios', () => {
 		{ id: 'otra', nombre: 'ANA ELIZABETH QUINTERO CASTELLANOS', documento: '52123456' },
 	];
 
-	it('no ensucia la lista cuando el nombre no se repite', () => {
+	it('muestra el documento siempre, tambien cuando el nombre no se repite', () => {
+		// Se puede buscar por cédula: si el documento no estuviera a la vista,
+		// escribir un número devolvería un nombre sin explicar por qué apareció.
 		const ana = etiquetarFuncionarios(geovanny).find((o) => o.value === 'otra');
-		expect(ana?.detalle).toBeUndefined();
+		expect(ana?.detalle).toBe('Documento 52123456');
 	});
 
 	it('muestra el documento cuando dos se llaman igual', () => {
@@ -84,8 +86,34 @@ describe('etiquetarFuncionarios', () => {
 		for (const o of etiquetarFuncionarios(homonimos)) expect(o.detalle).not.toContain('Encargo');
 	});
 
-	it('se puede buscar por el documento', () => {
+	it('se puede buscar por el documento completo', () => {
 		const opciones = etiquetarFuncionarios(geovanny);
 		expect(filtrarFuncionarios(opciones, '10575728521').map((o) => o.value)).toEqual(['encargo']);
+	});
+
+	it('se puede buscar por la cédula de cualquiera, no solo de los homónimos', () => {
+		const opciones = etiquetarFuncionarios(geovanny);
+		expect(filtrarFuncionarios(opciones, '52123456').map((o) => o.value)).toEqual(['otra']);
+	});
+
+	it('el documento del titular NO arrastra al de encargo, que es mas largo', () => {
+		// El encargo es la cédula del titular más un dígito, así que buscar la
+		// del titular encuentra a los dos. Es correcto: son la misma persona.
+		const opciones = etiquetarFuncionarios(geovanny);
+		expect(
+			filtrarFuncionarios(opciones, '1057572852')
+				.map((o) => o.value)
+				.sort()
+		).toEqual(['encargo', 'titular']);
+	});
+
+	it('se puede buscar por un trozo de la cédula', () => {
+		const opciones = etiquetarFuncionarios(geovanny);
+		expect(filtrarFuncionarios(opciones, '5212').map((o) => o.value)).toEqual(['otra']);
+	});
+
+	it('se puede combinar nombre y cédula', () => {
+		const opciones = etiquetarFuncionarios(geovanny);
+		expect(filtrarFuncionarios(opciones, 'geovanny 10575728521').map((o) => o.value)).toEqual(['encargo']);
 	});
 });

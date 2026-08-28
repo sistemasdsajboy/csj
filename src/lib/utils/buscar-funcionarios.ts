@@ -23,16 +23,18 @@ export const esDocumentoDeEncargo = (documento: string, otro: string) => documen
 /**
  * Prepara las opciones del buscador.
  *
- * Dos funcionarios pueden llamarse igual —normalmente el titular y su propio
- * registro de encargo— y en pantalla se ven idénticos. Al elegir el que no era,
- * el periodo que se busca "no aparece", aunque los datos estén cargados.
+ * **El documento se muestra siempre**, debajo del nombre. Se puede buscar por
+ * cédula, y si el documento no estuviera a la vista, escribir un número
+ * devolvería un nombre sin ninguna pista de por qué apareció.
  *
- * Pasó de verdad con GEOVANNY ANDRES PINEDA LEGUÍZAMO: su registro de titular
- * tiene 2023, 2024 y 2025; el de encargo solo 2024. Buscándolo por nombre no
- * había forma de saber cuál se estaba abriendo.
+ * Además resuelve un caso real: dos funcionarios pueden llamarse igual
+ * —normalmente el titular y su propio registro de encargo— y en pantalla se
+ * veían idénticos. Al elegir el que no era, el periodo que se busca "no
+ * aparece", aunque los datos estén cargados.
  *
- * Por eso el documento se muestra **solo cuando el nombre se repite**: ahí es
- * cuando hace falta, y en el resto de los casos ensuciaría la lista.
+ * Pasó con GEOVANNY ANDRES PINEDA LEGUÍZAMO: su registro de titular tiene 2023,
+ * 2024 y 2025; el de encargo solo 2024. Buscándolo por nombre no había forma de
+ * saber cuál se estaba abriendo.
  */
 export const etiquetarFuncionarios = (funcionarios: FuncionarioParaBuscar[]): OpcionFuncionario[] => {
 	const porNombre = new Map<string, FuncionarioParaBuscar[]>();
@@ -44,8 +46,6 @@ export const etiquetarFuncionarios = (funcionarios: FuncionarioParaBuscar[]): Op
 
 	return funcionarios.map((f) => {
 		const homonimos = porNombre.get(normalizarBusqueda(f.nombre)) ?? [];
-		if (homonimos.length < 2) return { label: f.nombre, value: f.id };
-
 		const esEncargo = homonimos.some((otro) => otro.id !== f.id && esDocumentoDeEncargo(f.documento, otro.documento));
 		return {
 			label: f.nombre,
@@ -58,10 +58,10 @@ export const etiquetarFuncionarios = (funcionarios: FuncionarioParaBuscar[]): Op
 /**
  * Filtra la lista de funcionarios por lo que se escribe en el buscador.
  *
- * Cada palabra escrita tiene que aparecer en el nombre o en el detalle, en
- * cualquier orden: así "ortega wilson" encuentra a WILSON URIEL ORTEGA PEÑA, y
- * escribir un documento encuentra a quien lo tiene. Sin texto, devuelve la
- * lista completa.
+ * Cada palabra escrita tiene que aparecer en el nombre o en el detalle —donde
+ * va el documento—, en cualquier orden: así "ortega wilson" encuentra a WILSON
+ * URIEL ORTEGA PEÑA, y escribir una cédula encuentra a su dueño. Sin texto,
+ * devuelve la lista completa.
  *
  * Vive aquí y no dentro del componente para poder probarla. La versión anterior
  * delegaba el filtrado en un componente de terceros y llegó a producción sin
