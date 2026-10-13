@@ -5,7 +5,13 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('$lib/server/db-client', () => ({ db: {} }));
 
 import type { RegistroCalificacion } from '@prisma/client';
-import { calcularPonderada, generadorResultadosSubfactor } from './generar-calificacion';
+import {
+	calcularPonderada,
+	comprobarDiasDeVinculacion,
+	diasHabilesDeTramos,
+	generadorResultadosSubfactor,
+	getDiasFestivosPorTipoDespacho,
+} from './generar-calificacion';
 
 const c = (diasLaborados: number, calificacionTotalFactorEficiencia: number) => ({
 	diasLaborados,
@@ -260,5 +266,86 @@ describe('generadorResultadosSubfactor — carga del funcionario negativa', () =
 		expect(() => generadorResultadosSubfactor(FUNC, 200, 100, false, 600)(conEgresoDeOtros(), [], 40, 'oral')).toThrowError(
 			/otros funcionarios/
 		);
+	});
+});
+
+describe('días de vinculación que no se pudieron contar (H-35)', () => {
+	// Los días de vinculación salen solo de las filas de tutelas. Un consolidado
+	// de 2025 trajo "MOVIMIENTO DE TUTELAS" en mayúsculas, el sistema no las
+	// reconoció, los días dieron 0 y la calificación quedó en 5: solo las
+	// audiencias. Estas pruebas fijan la protección de respaldo.
+	const penalMunicipal = getDiasFestivosPorTipoDespacho({ especialidad: 'PenalConocimiento', categoria: 'Municipal' } as never);
+	const civilCircuito = getDiasFestivosPorTipoDespacho({ especialidad: 'Civil', categoria: 'Circuito' } as never);
+	const tramo = (desde: string, hasta: string, over: Partial<RegistroCalificacion> = {}) =>
+		reg({ desde: new Date(`${desde}T00:00:00Z`), hasta: new Date(`${hasta}T00:00:00Z`), ...over });
+
+	// Los tramos de la titular del caso real: todo 2025 menos un encargo de otra
+	// persona del 21 de abril al 12 de mayo.
+	const tramosTitular = () => [
+		tramo('2025-01-01', '2025-03-31'),
+		tramo('2025-04-01', '2025-04-20'),
+		tramo('2025-04-21', '2025-05-12', { funcionarioId: OTRO }),
+		tramo('2025-05-13', '2025-06-30'),
+		tramo('2025-07-01', '2025-09-30'),
+		tramo('2025-10-01', '2025-12-31'),
+	];
+	const comprobar = (diasHabilesVinculacion: number, registros: RegistroCalificacion[], diasNoHabiles = penalMunicipal) =>
+		comprobarDiasDeVinculacion({
+			diasHabilesVinculacion,
+			registros,
+			funcionario: { id: FUNC, nombre: 'FUNCIONARIA DE PRUEBA' },
+			despacho: { nombre: 'JUZGADO DE PRUEBA', codigo: '000000000000' },
+			periodo: 2025,
+			diasNoHabiles,
+		});
+
+	it('cuenta los días hábiles de los tramos del funcionario, sin los del otro', () => {
+		expect(diasHabilesDeTramos(tramosTitular(), FUNC, penalMunicipal)).toBe(226);
+		expect(diasHabilesDeTramos(tramosTitular(), OTRO, penalMunicipal)).toBe(15);
+	});
+
+	it('cada tramo se cuenta una vez, aunque traiga varias categorías', () => {
+		const dosCategorias = [tramo('2025-07-01', '2025-09-30'), tramo('2025-07-01', '2025-09-30', { categoria: 'Otra' })];
+		expect(diasHabilesDeTramos(dosCategorias, FUNC, penalMunicipal)).toBe(diasHabilesDeTramos([dosCategorias[0]], FUNC, penalMunicipal));
+	});
+
+	it('falla si los tramos tienen días hábiles pero no se pudo contar ninguno', () => {
+		expect(() => comprobar(0, tramosTitular())).toThrowError(/226 días hábiles/);
+	});
+
+	it('el mensaje nombra a la persona y al despacho, y dice qué revisar', () => {
+		expect(() => comprobar(0, tramosTitular())).toThrowError(/FUNCIONARIA DE PRUEBA.*JUZGADO DE PRUEBA/);
+		expect(() => comprobar(0, tramosTitular())).toThrowError(/Movimiento de Tutelas/);
+	});
+
+	it('con los días contados no interviene', () => {
+		expect(() => comprobar(226, tramosTitular())).not.toThrow();
+		expect(() => comprobar(1, tramosTitular())).not.toThrow();
+	});
+
+	it('un tramo que cae entero en la vacancia judicial tiene 0 días de verdad: se calcula como siempre', () => {
+		// Así están cinco calificaciones de producción, y son correctas.
+		const enVacancia = [tramo('2025-01-01', '2025-01-12')];
+		expect(diasHabilesDeTramos(enVacancia, FUNC, civilCircuito)).toBe(0);
+		expect(() => comprobar(0, enVacancia, civilCircuito)).not.toThrow();
+	});
+
+	it('si la persona tiene filas de tutelas no interviene, aunque sus días den 0 (eso es H-36, sin decidir)', () => {
+		// Caso real: su tramo empieza el mismo día que el de otra persona y el
+		// cálculo le atribuye los días a la otra. No es el fallo de los nombres.
+		const conTutelas = [...tramosTitular(), tramo('2025-01-01', '2025-03-31', { clase: 'tutelas' })];
+		expect(() => comprobar(0, conTutelas)).not.toThrow();
+	});
+
+	it('sin tramos del funcionario no hay nada que comprobar', () => {
+		expect(() => comprobar(0, [tramo('2025-01-01', '2025-12-31', { funcionarioId: OTRO })])).not.toThrow();
+	});
+
+	it('por qué hace falta: con 0 días el subfactor sale en 0 aunque haya egresos', () => {
+		// Comportamiento del cálculo, que no se cambia: 0 días reparten 0 carga,
+		// y 0 carga da subfactor 0. Sumado a audiencias completas, la nota es 5.
+		const r = generadorResultadosSubfactor(FUNC, 241, 0, false, 730)([trimestreNormal()], [], 40, 'oral');
+		expect(r.egresoFuncionario).toBeGreaterThan(0);
+		expect(r.totalSubfactor).toBe(0);
 	});
 });

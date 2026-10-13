@@ -12,6 +12,7 @@ import type { CalificacionPeriodo, ClaseRegistroCalificacion, RegistroCalificaci
 import dayjs from 'dayjs';
 import _ from 'lodash';
 import { descartarAsientosDeCierre } from './asiento-de-cierre';
+import { CATEGORIAS_CONSTITUCIONAL, CATEGORIAS_PENAL_ESCRITO, CATEGORIAS_TUTELAS, categoriasGuardadasDe } from './categorias';
 
 const getInventarioInicial = (data: RegistroCalificacion[]) => {
 	const minDate = _.minBy(data, 'desde')?.desde;
@@ -254,6 +255,66 @@ export function getDiasFestivosPorTipoDespacho(tipoDespacho: TipoDespacho | null
 	return unirFechasNoHabiles(festivosPorMes, diaJusticia, semanaSantaCompleta, vacanciaJudicial);
 }
 
+/**
+ * Días hábiles de los tramos en que el funcionario tiene estadísticas en el
+ * despacho, de cualquier clase. Cada tramo se cuenta una vez aunque traiga
+ * varias categorías. No entra en la fórmula: solo sirve para saber si un 0 en
+ * los días de vinculación es real o es que no se pudieron contar.
+ */
+export function diasHabilesDeTramos(
+	registros: Pick<RegistroCalificacion, 'funcionarioId' | 'desde' | 'hasta'>[],
+	funcionarioId: string,
+	diasNoHabiles: Record<string, Array<number>>
+) {
+	return _(registros)
+		.filter((registro) => registro.funcionarioId === funcionarioId)
+		.uniqBy((registro) => registro.desde.getTime())
+		.sumBy((registro) => contarDiasHabiles(diasNoHabiles, registro.desde, registro.hasta));
+}
+
+/**
+ * Los días de vinculación salen SOLO de las filas de tutelas del funcionario.
+ * Si no se reconoce ninguna, dan 0 aunque la persona sí haya estado en el
+ * despacho, y la calificación se reduce a las audiencias: un 5, o un 0, que
+ * pasan por una cifra real (H-35).
+ *
+ * Solo es error si sus tramos SÍ tienen días hábiles. Un tramo que cae completo
+ * en la vacancia judicial tiene 0 días de verdad y se calcula como siempre: en
+ * producción hay cinco casos así, y son correctos.
+ *
+ * Y solo cuando la persona no tiene NINGUNA fila de tutelas. Si las tiene y aun
+ * así sus días dan 0, es otro problema —dos tramos de personas distintas que
+ * empiezan el mismo día se cuentan como uno— que todavía no está decidido
+ * (H-36). Esta guarda no lo toca: se comporta como antes.
+ */
+export function comprobarDiasDeVinculacion({
+	diasHabilesVinculacion,
+	registros,
+	funcionario,
+	despacho,
+	periodo,
+	diasNoHabiles,
+}: {
+	diasHabilesVinculacion: number;
+	registros: Pick<RegistroCalificacion, 'funcionarioId' | 'clase' | 'desde' | 'hasta'>[];
+	funcionario: { id: string; nombre: string };
+	despacho: { nombre: string; codigo: string };
+	periodo: number;
+	diasNoHabiles: Record<string, Array<number>>;
+}) {
+	if (diasHabilesVinculacion !== 0) return;
+	if (registros.some((registro) => registro.funcionarioId === funcionario.id && registro.clase === 'tutelas')) return;
+
+	const diasHabilesTramos = diasHabilesDeTramos(registros, funcionario.id, diasNoHabiles);
+	if (diasHabilesTramos > 0)
+		throw new Error(
+			`No se pudieron contar los días que ${funcionario.nombre} estuvo en ${despacho.nombre} (${despacho.codigo}) ` +
+				`en ${periodo}: sus tramos suman ${diasHabilesTramos} días hábiles, pero no tiene ninguna fila de tutelas, ` +
+				`que es con lo que el sistema cuenta los días. Sin ellos la calificación quedaría reducida a las audiencias. ` +
+				`Revise que el consolidado del despacho traiga "Movimiento de Tutelas" en cada tramo de esta persona.`
+		);
+}
+
 export function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[] = []) {
 	if (calificaciones.length === 0) return 0;
 	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
@@ -354,7 +415,20 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	const despacho = await db.despacho.findFirst({ where: { id: despachoId }, include: { tipoDespacho: true } });
 	if (!despacho) return;
 
-	const categoriasConstitucional = ['Primera Instancia Acciones Constitucionales'];
+	// Las categorías se reconocen sin distinguir mayúsculas, tildes ni signos, y
+	// se actualizan con el texto exacto con que quedaron guardadas. SIERJU no las
+	// escribe siempre igual: con una comparación exacta, un consolidado con
+	// "MOVIMIENTO DE TUTELAS" dejaba las tutelas como oral, el funcionario se
+	// quedaba con 0 días y la calificación se reducía a las audiencias (H-35).
+	const guardadas = (
+		await db.registroCalificacion.findMany({
+			where: { despachoId, periodo, categoria: { not: 'Consolidado' } },
+			select: { categoria: true },
+			distinct: ['categoria'],
+		})
+	).map(({ categoria }) => categoria);
+
+	const categoriasConstitucional = categoriasGuardadasDe(CATEGORIAS_CONSTITUCIONAL, guardadas);
 	if (hayEscritos) {
 		// Cuando hay procesos escritos, estas categorías se acumulan con ellos.
 		await db.registroCalificacion.updateMany({
@@ -362,10 +436,7 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 			data: { clase: 'escrito' },
 		});
 
-		const categoriaPenalEscrito = [
-			'segunda Instancia Ejecución de penas y medidas de seguridad ccto',
-			'Segunda Instancia Acciones Constitucionales',
-		];
+		const categoriaPenalEscrito = categoriasGuardadasDe(CATEGORIAS_PENAL_ESCRITO, guardadas);
 		if (despacho.tipoDespacho?.especialidad.startsWith('Penal') && despacho.tipoDespacho.categoria === 'Circuito') {
 			await db.registroCalificacion.updateMany({
 				where: { despachoId, periodo, categoria: { in: categoriaPenalEscrito } },
@@ -386,13 +457,7 @@ async function actualizarClaseRegistros(despachoId: string, periodo: number) {
 	}
 
 	// Categorías incluidas en la clase oral que deben consolidarse bajo la clase "tutelas".
-	const categoriasTutelas = [
-		'Incidentes de Desacato',
-		'Movimiento de Tutelas',
-		'Procesos con sentencia y trámite posterior incidentes de Desacato',
-		'Consultas Incidentes de Desacato',
-		'Movimiento de Impugnaciones',
-	];
+	const categoriasTutelas = categoriasGuardadasDe(CATEGORIAS_TUTELAS, guardadas);
 	await db.registroCalificacion.updateMany({
 		where: { despachoId, periodo, categoria: { in: categoriasTutelas } },
 		data: { clase: 'tutelas' },
@@ -517,6 +582,8 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 		.filter((registro) => registro.funcionarioId === funcionario.id)
 		.map((registro) => registro.dias)
 		.reduce((a, b) => a + b, 0);
+
+	comprobarDiasDeVinculacion({ diasHabilesVinculacion, registros, funcionario, despacho, periodo, diasNoHabiles });
 
 	const diasDescontados = funcionario.novedades ? funcionario.novedades.reduce((dias, novedad) => dias + novedad.days, 0) : 0;
 
