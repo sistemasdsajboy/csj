@@ -94,6 +94,12 @@ describe('clasificarReclasificacion', () => {
 		expect(r.aDescartar).toEqual(['b']);
 	});
 
+	it('ve el choque aunque la categoría venga en mayúsculas (H-35)', () => {
+		const yaTutelas = reg({ id: 'a', clase: 'tutelas', categoria: 'MOVIMIENTO DE TUTELAS' });
+		const todaviaOral = reg({ id: 'b', clase: 'oral', categoria: 'MOVIMIENTO DE TUTELAS' });
+		expect(clasificarReclasificacion([yaTutelas, todaviaOral]).aDescartar).toEqual(['b']);
+	});
+
 	it('no toca las categorías que no se reclasifican', () => {
 		const a = reg({ id: 'a', clase: 'tutelas', categoria: 'Primera Instancia Civil' });
 		const b = reg({ id: 'b', clase: 'oral', categoria: 'Primera Instancia Civil' });

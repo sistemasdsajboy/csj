@@ -1,5 +1,6 @@
 import { db } from '$lib/server/db-client';
 import type { Prisma, RegistroCalificacion } from '@prisma/client';
+import { CATEGORIAS_TUTELAS, esCategoria } from './categorias';
 
 /**
  * Unifica juzgados que quedaron partidos en dos registros de `Despacho` por un
@@ -35,15 +36,9 @@ export const cifrasRegistro = (r: RegistroCalificacion) =>
 
 /**
  * Categorías que `generar-calificacion.ts` reclasifica de oral a tutelas antes
- * de calcular. Si cambian allá, hay que cambiarlas aquí.
+ * de calcular. La lista vive en `categorias.ts`, la misma que usa el cálculo.
  */
-export const CATEGORIAS_TUTELAS = [
-	'Incidentes de Desacato',
-	'Movimiento de Tutelas',
-	'Procesos con sentencia y trámite posterior incidentes de Desacato',
-	'Consultas Incidentes de Desacato',
-	'Movimiento de Impugnaciones',
-];
+export { CATEGORIAS_TUTELAS };
 
 /**
  * Los códigos que el despacho que sobrevive debe recordar tras absorber a otro:
@@ -108,7 +103,7 @@ export const clasificarRepetidas = (delVigente: RegistroCalificacion[], delViejo
  * calificación de esa persona deja de poder generarse.
  */
 export const clasificarReclasificacion = (filas: RegistroCalificacion[]): Repetidas => {
-	const enTutelas = filas.filter((r) => CATEGORIAS_TUTELAS.includes(r.categoria));
+	const enTutelas = filas.filter((r) => esCategoria(r.categoria, CATEGORIAS_TUTELAS));
 	const yaTutelas = new Map(enTutelas.filter((r) => r.clase === 'tutelas').map((r) => [claveSinClase(r), r]));
 	const aDescartar: string[] = [];
 	const enConflicto: Repetidas['enConflicto'] = [];

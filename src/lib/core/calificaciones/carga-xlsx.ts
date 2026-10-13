@@ -1,4 +1,5 @@
 import { db } from '$lib/server/db-client';
+import { normalizarNombre } from '$lib/utils/normalizar-nombre';
 import { codigosAnterioresTrasFusion } from './fusionar-despachos';
 import type { ClaseRegistroCalificacion, Despacho, Funcionario, RegistroCalificacion } from '@prisma/client';
 import dayjs from 'dayjs';
@@ -83,18 +84,11 @@ type DecisionDespacho =
 	| { accion: 'crear'; aviso?: string };
 
 /**
- * Deja el nombre en una forma comparable: sin tildes, sin signos y en
- * mayúsculas. Los nombres se guardan pasados por `_.startCase`, pero algunos
+ * Los nombres de despacho se guardan pasados por `_.startCase`, pero algunos
  * se editan a mano desde la interfaz y no conviene que una tilde o un espacio
- * de más vuelvan a partir un juzgado.
+ * de más vuelvan a partir un juzgado. Por eso se comparan normalizados.
  */
-export const normalizarNombre = (nombre: string) =>
-	nombre
-		.normalize('NFKD')
-		.replace(/[\u0300-\u036f]/g, '')
-		.replace(/[^A-Za-z0-9]+/g, ' ')
-		.trim()
-		.toUpperCase();
+export { normalizarNombre };
 
 /**
  * Despachos que podrían ser el del archivo: el del mismo código, y los que
