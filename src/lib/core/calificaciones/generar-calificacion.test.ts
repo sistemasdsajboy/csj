@@ -11,6 +11,7 @@ import {
 	diasHabilesDeTramos,
 	generadorResultadosSubfactor,
 	getDiasFestivosPorTipoDespacho,
+	motivoParaNoAprobar,
 } from './generar-calificacion';
 
 const c = (diasLaborados: number, calificacionTotalFactorEficiencia: number) => ({
@@ -287,6 +288,29 @@ describe('generadorResultadosSubfactor — carga del funcionario negativa (H-27)
 	it('si la carga del despacho es negativa, sigue fallando con un mensaje', () => {
 		const despachoNegativo = [reg({ ingresoEfectivo: -100 })];
 		expect(() => calcular(despachoNegativo)).toThrowError(/carga del despacho/);
+	});
+});
+
+describe('motivoParaNoAprobar', () => {
+	it('deja aprobar cifras dentro de la escala, incluidos 0 y 45', () => {
+		for (const c of [0, 5, 26.08, 45]) expect(motivoParaNoAprobar(c)).toBeNull();
+	});
+
+	it('tolera el error de redondeo al ponderar', () => {
+		expect(motivoParaNoAprobar(45.000000000001)).toBeNull();
+	});
+
+	it('no deja aprobar una cifra negativa, como la de -34.89 que llegó a estar en revisión', () => {
+		expect(motivoParaNoAprobar(-34.89)).toMatch(/-34\.89/);
+	});
+
+	it('no deja aprobar por encima de 45', () => {
+		expect(motivoParaNoAprobar(45.01)).toMatch(/entre 0 y 45/);
+	});
+
+	it('no deja aprobar algo que no es un número', () => {
+		expect(motivoParaNoAprobar(NaN)).not.toBeNull();
+		expect(motivoParaNoAprobar(Infinity)).not.toBeNull();
 	});
 });
 

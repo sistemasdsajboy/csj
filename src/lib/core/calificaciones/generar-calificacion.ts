@@ -324,6 +324,28 @@ export function comprobarDiasDeVinculacion({
 		);
 }
 
+/** La mayor calificación posible: 40 del subfactor oral más 5 de audiencias, o 45 de garantías o escrito. */
+export const CALIFICACION_MAXIMA = 45;
+
+/**
+ * Por qué una cifra no puede aprobarse, o `null` si puede.
+ *
+ * Aprobar no recalcula: aprueba la cifra guardada. Una calificación guardada
+ * antes de las guardas del cálculo puede seguir en un número imposible —en
+ * producción hubo una de −34,89 en revisión— y el botón la aprobaba tal cual.
+ * Cero sí se puede aprobar: es lo que da un encargo de pocos días sin egresos.
+ */
+export function motivoParaNoAprobar(calificacion: number): string | null {
+	if (!Number.isFinite(calificacion))
+		return `La calificación guardada no es un número válido. Vuelva a generarla desde la ficha del funcionario antes de aprobarla.`;
+	if (calificacion < 0 || calificacion > CALIFICACION_MAXIMA + 1e-9)
+		return (
+			`No se puede aprobar una calificación de ${calificacion.toFixed(2)}: debe estar entre 0 y ${CALIFICACION_MAXIMA}. ` +
+			`Vuelva a generarla desde la ficha del funcionario; si el problema sigue, revise sus estadísticas.`
+		);
+	return null;
+}
+
 export function calcularPonderada(calificaciones: { diasLaborados: number; calificacionTotalFactorEficiencia: number }[] = []) {
 	if (calificaciones.length === 0) return 0;
 	if (calificaciones.length === 1) return calificaciones[0].calificacionTotalFactorEficiencia;
