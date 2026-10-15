@@ -167,26 +167,35 @@ export const generadorResultadosSubfactor =
 		const capacidadMaximaProporcional = subfactor === 'oral' ? (capacidadMaxima * diasHabilesFuncionario) / diasHabilesDespacho : Infinity;
 		const cargaProporcional = (cargaBaseCalificacionDespacho * diasHabilesFuncionario) / diasHabilesDespacho;
 
+		// La carga propia del funcionario sale NEGATIVA cuando dentro de su rango
+		// —que se toma de su primera a su última fecha— hay tramos de otra persona
+		// que evacuó más de lo que entró: típicamente una titular que se ausenta y
+		// vuelve, a quien se le resta el trabajo de su suplente (H-27). Una carga
+		// negativa no mide nada, así que en ese caso no entra en la comparación y
+		// quedan la proporcional y la capacidad máxima, que el cálculo ya usa
+		// siempre.
+		//
+		// Medido sobre las 808 calificaciones de producción: solo cambian las dos
+		// que hoy no se pueden generar por esto. Si la carga propia es cero o
+		// positiva, todo sigue igual. Corregir el rango de fondo es decisión del
+		// área.
+		const cargaFuncionarioComparable = cargaBaseCalificacionFuncionario < 0 ? Infinity : cargaBaseCalificacionFuncionario;
+
 		// Se calcula la carga que resulta más favorable para el funcionario, es decir, la menor carga.
-		const cargaMinima = Math.min(cargaProporcional, cargaBaseCalificacionFuncionario, capacidadMaximaProporcional);
+		const cargaMinima = Math.min(cargaProporcional, cargaFuncionarioComparable, capacidadMaximaProporcional);
 
 		// Una carga negativa no es una base sobre la que calificar: dividir el
 		// egreso entre ella da un subfactor NEGATIVO, que no existe en ninguna
-		// escala. Ocurre cuando los otros funcionarios del despacho evacuaron
-		// más procesos que la carga que le corresponde al calificado por el
-		// tiempo que estuvo allí, y el cálculo se la resta.
-		//
-		// Se detectó en producción con dos calificaciones, una de ellas de
-		// -34.89 y en revisión: pasaba la validación de días y podía aprobarse.
+		// escala. Con la carga propia fuera de la comparación, solo puede venir
+		// de la carga del despacho, por ejemplo con ingresos negativos.
 		//
 		// Una carga de CERO sigue dando cero, como siempre: eso sí es un caso
 		// previsto y la línea de abajo lo maneja.
 		if (cargaMinima < 0)
 			throw new Error(
-				`No se puede calcular el subfactor "${subfactor}": la carga del funcionario da ${cargaMinima.toFixed(1)}, ` +
-					`un número negativo. Ocurre cuando otros funcionarios del despacho evacuaron más procesos que la carga ` +
-					`que le corresponde al calificado por el tiempo que estuvo allí. Revise los periodos de cada funcionario ` +
-					`en el despacho antes de generar la calificación.`
+				`No se puede calcular el subfactor "${subfactor}": la carga del despacho repartida por los días del ` +
+					`funcionario da ${cargaMinima.toFixed(1)}, un número negativo. Suele venir de ingresos negativos en el ` +
+					`consolidado. Revise las estadísticas del despacho en el periodo antes de generar la calificación.`
 			);
 
 		const totalSubfactor = cargaMinima ? Math.min((egresoFuncionario / cargaMinima) * maxResultado, maxResultado) : 0;

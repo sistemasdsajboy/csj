@@ -247,25 +247,46 @@ describe('generadorResultadosSubfactor — días del funcionario negativos', () 
 	});
 });
 
-describe('generadorResultadosSubfactor — carga del funcionario negativa', () => {
-	// Ocurre cuando los otros funcionarios del despacho evacuaron más de la
-	// carga que le corresponde al calificado por su tiempo allí. El cálculo se
-	// la resta y queda por debajo de cero. Sin guarda, el egreso dividido por
-	// una carga negativa da un subfactor negativo: pasó en producción con dos
-	// calificaciones, una de ellas de -34.89 y en revisión.
-	const conEgresoDeOtros = () => [
+describe('generadorResultadosSubfactor — carga del funcionario negativa (H-27)', () => {
+	// Ocurre cuando dentro del rango del funcionario hay tramos de otra persona
+	// que evacuó más de lo que entró: a una titular que se ausenta y vuelve se le
+	// resta el trabajo de su suplente. Pasó en producción con dos calificaciones,
+	// una de ellas de -34.89 y en revisión.
+	//
+	// Aquí: carga del despacho 150, el otro evacuó 400, carga propia -250.
+	// Carga proporcional 150 * 100 / 200 = 75. Egreso propio 30.
+	const conEgresoDeOtros = (egresoDelOtro = 400) => [
 		reg({ inventarioInicial: 100, ingresoEfectivo: 50, egresoEfectivo: 30 }),
-		reg({ funcionarioId: OTRO, egresoEfectivo: 400 }),
+		reg({ funcionarioId: OTRO, egresoEfectivo: egresoDelOtro }),
 	];
+	const calcular = (data: RegistroCalificacion[]) => generadorResultadosSubfactor(FUNC, 200, 100, false, 600)(data, [], 40, 'oral');
 
-	it('falla en vez de devolver un subfactor negativo', () => {
-		expect(() => generadorResultadosSubfactor(FUNC, 200, 100, false, 600)(conEgresoDeOtros(), [], 40, 'oral')).toThrowError(/carga/);
+	it('con la carga propia negativa usa la proporcional en vez de fallar', () => {
+		const r = calcular(conEgresoDeOtros());
+		expect(r.cargaProporcional).toBe(75);
+		expect(r.totalSubfactor).toBeCloseTo((30 / 75) * 40, 10);
 	});
 
-	it('el mensaje dice que otros funcionarios evacuaron más', () => {
-		expect(() => generadorResultadosSubfactor(FUNC, 200, 100, false, 600)(conEgresoDeOtros(), [], 40, 'oral')).toThrowError(
-			/otros funcionarios/
-		);
+	it('el subfactor nunca sale negativo', () => {
+		expect(calcular(conEgresoDeOtros()).totalSubfactor).toBeGreaterThanOrEqual(0);
+	});
+
+	it('la carga propia negativa se conserva en el resultado, para que se vea', () => {
+		expect(calcular(conEgresoDeOtros()).cargaBaseCalificacionFuncionario).toBe(-250);
+	});
+
+	it('si la carga propia es positiva y es la menor, se usa como siempre', () => {
+		// Carga propia 150 - 100 = 50, menor que la proporcional 75.
+		expect(calcular(conEgresoDeOtros(100)).totalSubfactor).toBeCloseTo((30 / 50) * 40, 10);
+	});
+
+	it('si la carga propia es cero, el subfactor sigue en cero como siempre', () => {
+		expect(calcular(conEgresoDeOtros(150)).totalSubfactor).toBe(0);
+	});
+
+	it('si la carga del despacho es negativa, sigue fallando con un mensaje', () => {
+		const despachoNegativo = [reg({ ingresoEfectivo: -100 })];
+		expect(() => calcular(despachoNegativo)).toThrowError(/carga del despacho/);
 	});
 });
 
