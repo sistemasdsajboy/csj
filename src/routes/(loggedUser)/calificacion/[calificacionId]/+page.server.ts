@@ -1,5 +1,9 @@
 import { descartarAsientosDeCierre } from '$lib/core/calificaciones/asiento-de-cierre';
-import { generarCalificacionFuncionario, getDiasFestivosPorTipoDespacho } from '$lib/core/calificaciones/generar-calificacion';
+import {
+	generarCalificacionFuncionario,
+	getDiasFestivosPorTipoDespacho,
+	motivoParaNoAprobar,
+} from '$lib/core/calificaciones/generar-calificacion';
 import { db } from '$lib/server/db-client';
 import { error, redirect } from '@sveltejs/kit';
 import _ from 'lodash';
@@ -616,6 +620,11 @@ export const actions = {
 
 		const isReviewer = user.roles.includes('reviewer');
 		if (!isReviewer) return { success: false, error: 'No tiene permiso para aprobar una calificación.' };
+
+		// Aprobar no recalcula: se aprueba la cifra guardada. Una cifra imposible
+		// no debe convertirse en un acto administrativo.
+		const motivo = motivoParaNoAprobar(calificacionPeriodo.calificacionPonderada);
+		if (motivo) return { success: false, error: motivo };
 
 		await db.calificacionPeriodo.update({
 			where: { id: params.calificacionId },
