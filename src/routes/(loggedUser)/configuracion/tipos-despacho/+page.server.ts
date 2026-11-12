@@ -1,3 +1,4 @@
+import { exigirRol } from '$lib/server/acceso';
 import { db } from '$lib/server/db-client';
 import { CategoriaDespacho, EspecialidadDespacho } from '@prisma/client';
 import { z } from 'zod';
@@ -6,7 +7,7 @@ import type { PageServerLoad } from './$types';
 export const load = (async () => {
 	const tiposDespacho = await db.tipoDespacho.findMany({
 		include: { capacidadesMaximas: true },
-		orderBy: { nombre: 'asc' }
+		orderBy: { nombre: 'asc' },
 	});
 	const especialidades = Object.values(EspecialidadDespacho).map((e) => ({ label: e, value: e }));
 	const categorias = Object.values(CategoriaDespacho).map((e) => ({ label: e, value: e }));
@@ -17,17 +18,20 @@ export const load = (async () => {
 const tipoDespachoSchema = z.object({
 	nombre: z.string().min(15).max(80),
 	especialidad: z.nativeEnum(EspecialidadDespacho),
-	categoria: z.nativeEnum(CategoriaDespacho)
+	categoria: z.nativeEnum(CategoriaDespacho),
 });
 
 const capacidadMaximaSchema = z.object({
 	tipoDespachoId: z.string(),
 	periodo: z.coerce.number().min(2020).max(2029),
-	cantidad: z.coerce.number().min(1)
+	cantidad: z.coerce.number().min(1),
 });
 
 export const actions = {
-	guardarTipoDespacho: async ({ request }) => {
+	guardarTipoDespacho: async ({ request, locals }) => {
+		// Cambiar especialidad o categoría cambia el calendario, el tope del
+		// subfactor y si cuentan las audiencias: afecta calificaciones.
+		exigirRol(locals, 'admin');
 		const formData = await request.formData();
 		const id = formData.get('id') as string;
 		const nombre = formData.get('nombre') as string;
@@ -47,7 +51,8 @@ export const actions = {
 		return { success: true };
 	},
 
-	guardarCapacidadMaxima: async ({ request }) => {
+	guardarCapacidadMaxima: async ({ request, locals }) => {
+		exigirRol(locals, 'admin');
 		const formData = await request.formData();
 		const tipoDespachoId = formData.get('tipoDespachoId') as string;
 		const cantidad = formData.get('cantidad') as string;
@@ -56,19 +61,19 @@ export const actions = {
 		const { success, data } = capacidadMaximaSchema.safeParse({
 			tipoDespachoId,
 			cantidad,
-			periodo
+			periodo,
 		});
 		if (!success) return { success: false, error: 'Datos inválidos' };
 
 		const existente = await db.capacidadMaximaRespuesta.findFirst({
 			where: { tipoDespachoId, periodo: data.periodo },
-			include: { tipoDespacho: true }
+			include: { tipoDespacho: true },
 		});
 
 		if (existente)
 			return {
 				success: false,
-				error: `Ya existe una capacidad máxima de respuesta para el tipo de despacho "${existente.tipoDespacho.nombre}" en el periodo ${data.periodo}.`
+				error: `Ya existe una capacidad máxima de respuesta para el tipo de despacho "${existente.tipoDespacho.nombre}" en el periodo ${data.periodo}.`,
 			};
 
 		try {
@@ -78,5 +83,5 @@ export const actions = {
 		}
 
 		return { success: true };
-	}
+	},
 };
