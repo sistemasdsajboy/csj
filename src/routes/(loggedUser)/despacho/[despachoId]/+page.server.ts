@@ -1,3 +1,4 @@
+import { exigirRol } from '$lib/server/acceso';
 import { db } from '$lib/server/db-client';
 import { error, redirect } from '@sveltejs/kit';
 import { z } from 'zod';
@@ -15,7 +16,9 @@ export const load = (async ({ params }) => {
 }) satisfies PageServerLoad;
 
 export const actions = {
-	actualizar: async ({ request, params }) => {
+	actualizar: async ({ request, params, locals }) => {
+		// El tipo de despacho decide cómo se calcula la calificación.
+		exigirRol(locals, 'admin');
 		const formData = Object.fromEntries(await request.formData());
 
 		const schema = z.object({
@@ -33,7 +36,9 @@ export const actions = {
 		redirect(302, '/despacho/' + params.despachoId);
 	},
 
-	descargarEstadisticas: async ({ params }) => {
+	descargarEstadisticas: async ({ params, locals }) => {
+		// Inicia sesión en SIERJU con las credenciales institucionales.
+		exigirRol(locals, 'admin');
 		const despacho = await db.despacho.findFirst({ where: { id: params.despachoId }, select: { codigo: true } });
 		if (!despacho) error(404, 'Despacho no encontrado');
 

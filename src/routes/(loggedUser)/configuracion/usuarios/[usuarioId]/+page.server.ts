@@ -1,3 +1,4 @@
+import { exigirRol } from '$lib/server/acceso';
 import { db } from '$lib/server/db-client';
 import { error, fail } from '@sveltejs/kit';
 import { superValidate } from 'sveltekit-superforms';
@@ -36,10 +37,10 @@ export const load = (async ({ params }) => {
 
 export const actions = {
 	default: async ({ request, locals }) => {
-		const user = await db.user.findFirst({ where: { id: locals.user?.id } });
-		if (!user) throw fail(404, { message: 'Usuario no encontrado' });
-		const adminsCount = await db.user.count({ where: { roles: { has: 'admin' } } });
-		if (!user.roles.includes('admin') && adminsCount > 1) error(403, 'No autorizado');
+		// Solo un administrador cambia roles. Ojo con buscar al usuario de la
+		// sesión con `where: { id: locals.user?.id }`: si el id es `undefined`,
+		// Prisma ignora el filtro y devuelve el primer registro.
+		exigirRol(locals, 'admin');
 
 		// TODO: Crear página de gestión de despachos en /configuracion y eliminar esta creación
 		const despachosSeccional = await db.despachoSeccional.findMany({});
