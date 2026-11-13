@@ -2,8 +2,9 @@ import { db } from '$lib/server/db-client';
 import { normalizarNombre } from '$lib/utils/normalizar-nombre';
 import type { Funcionario, Genero, NovedadFuncionario, RegistroCalificacion } from '@prisma/client';
 import { descartarAsientosDeCierre } from '../asiento-de-cierre';
-import type { DespachoEficiencia, SubfactorEficiencia } from './motivacion-eficiencia';
-import { fechaCorta, letrasYCifraDelante } from './redaccion';
+import { esDespachoDeGarantias } from '../generar-calificacion';
+import { fraseDeDescuentos, type DescuentoNovedad, type DespachoEficiencia, type SubfactorEficiencia } from './motivacion-eficiencia';
+import { fechaCorta } from './redaccion';
 
 /**
  * Reúne desde la base lo que el formato de calificación integral toma del
@@ -23,19 +24,24 @@ const TIPOS_NOVEDAD: Record<string, string> = {
 	otras: 'otras novedades',
 };
 
-/** Frase propuesta para los días descontados, a partir de las novedades con días descontables. */
-export function fraseDescuentos(novedades: Pick<NovedadFuncionario, 'type' | 'from' | 'to' | 'diasDescontables'>[]): string | null {
-	const partes = novedades
+type NovedadDescuento = Pick<NovedadFuncionario, 'type' | 'from' | 'to' | 'diasDescontables'> & { id?: string };
+
+/**
+ * Una entrada por novedad con días descontables, en orden de fecha. La
+ * descripción es lo que quien califica puede modificar; los días no.
+ */
+export const descuentosDeNovedades = (novedades: NovedadDescuento[]): DescuentoNovedad[] =>
+	novedades
 		.filter((n) => n.diasDescontables > 0)
 		.sort((a, b) => a.from.getTime() - b.from.getTime())
-		.map(
-			(n) =>
-				`${letrasYCifraDelante(n.diasDescontables)} ${n.diasDescontables === 1 ? 'día' : 'días'} de ${TIPOS_NOVEDAD[n.type] ?? n.type} ` +
-				`(del ${fechaCorta(n.from)} al ${fechaCorta(n.to)})`
-		);
-	if (!partes.length) return null;
-	return partes.length === 1 ? partes[0] : partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1];
-}
+		.map((n) => ({
+			novedadId: n.id ?? '',
+			dias: n.diasDescontables,
+			descripcion: `${TIPOS_NOVEDAD[n.type] ?? n.type} (del ${fechaCorta(n.from)} al ${fechaCorta(n.to)})`,
+		}));
+
+/** Frase propuesta para los días descontados, a partir de las novedades con días descontables. */
+export const fraseDescuentos = (novedades: NovedadDescuento[]): string | null => fraseDeDescuentos(descuentosDeNovedades(novedades));
 
 /**
  * Propuesta de nombres y apellidos a partir del nombre completo: los dos
@@ -159,10 +165,12 @@ export async function datosEficiencia(calificacionId: string) {
 			diasLaborables: cd.diasLaborables,
 			diasLaborados: cd.diasLaborados,
 			descuentos: fraseDescuentos(novedades),
+			descuentosDetalle: descuentosDeNovedades(novedades),
 			cargaEfectivaTotal: cd.cargaEfectivaTotal,
 			egresoEfectivoTotal: cd.egresoEfectivoTotal,
 			capacidad: cd.despacho.tipoDespacho?.capacidadesMaximas.find((c) => c.periodo === cp.periodo)?.cantidad ?? null,
 			conEscritos,
+			esGarantias: esDespachoDeGarantias(cd.despacho.tipoDespacho?.especialidad),
 			oral: subfactor('oral', 'oral', !conEscritos),
 			escrito: subfactor('escrito', 'escrito', conEscritos),
 			garantias: subfactor('garantias', 'garantias', false),

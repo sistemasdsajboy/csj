@@ -450,6 +450,69 @@ describe('motivación de eficiencia', () => {
 		expect(t).toContain('según los días laborados en cada despacho: (20,00 × 100 + 40,00 × 50) / 150 = 26,67');
 	});
 
+	it('despacho con función de control de garantías: el oral sobre 45 y sin audiencias, como en el cálculo', () => {
+		const t = motivacionEficiencia({
+			genero: 'masculino',
+			ponderada: (45 + (459 / 490) * 45) / 2,
+			despachos: [
+				despacho({
+					nombre: 'JUZGADO 004 PENAL MUNICIPAL DE PRUEBA',
+					esGarantias: true,
+					oral: {
+						cargaDespacho: 168,
+						cargaFuncionario: 156,
+						cargaProporcional: 157.54,
+						egreso: 156,
+						total: 45,
+						desglose: { principal: 2, tutelas: 154, conciliaciones: 0 },
+					},
+					garantias: {
+						cargaDespacho: 528,
+						cargaFuncionario: 490,
+						cargaProporcional: 495.14,
+						egreso: 459,
+						total: (459 / 490) * 45,
+						desglose: { principal: 459, tutelas: 0, conciliaciones: 0 },
+					},
+					audiencias: { programadas: 942, atendidas: 744, ajenas: 198, justificadas: 0, noJustificadas: 0, puntaje: 0 },
+					oralMasAudiencias: 45,
+					total: (45 + (459 / 490) * 45) / 2,
+				}),
+			],
+		}).join('\n');
+		expect(t).toContain('(156 / 156) × 45 = 45,00');
+		expect(t).not.toContain('× 40');
+		expect(t).toContain('se califica sobre 45 puntos y no se califica la atención de audiencias programadas');
+		expect(t).not.toContain('Audiencias programadas) × 5');
+		expect(t).toContain('TOTAL FACTOR EFICIENCIA O RENDIMIENTO SISTEMA ORAL: 45,00 puntos');
+		expect(t).toContain('(459 / 490) × 45 = 42,15');
+		expect(t).toContain('= 45,00 + 42,15 = 87,15 / 2 = 43,58');
+	});
+
+	it('la cuenta de la fórmula se puede rehacer a mano: si con dos decimales no da, la carga va con cuatro', () => {
+		const t = (cargaProporcional: number, egreso: number) =>
+			motivacionEficiencia({
+				genero: 'femenino',
+				ponderada: 0,
+				despachos: [
+					despacho({
+						oral: {
+							cargaDespacho: 100,
+							cargaFuncionario: 1000,
+							cargaProporcional,
+							egreso,
+							total: (egreso / cargaProporcional) * 40,
+							desglose: null,
+						},
+					}),
+				],
+			}).join('\n');
+		// 36 / 45,3943 × 40 = 31,72, pero 36 / 45,39 × 40 = 31,73: se muestran cuatro decimales.
+		expect(t(45.3943, 36)).toContain('(36 / 45,3943) × 40 = 31,72');
+		// Si con dos decimales la cuenta da lo mismo, se dejan dos, como en ARGUMENTOS.
+		expect(t(198.6316, 161)).toContain('(161 / 198,63) × 40 = 32,42');
+	});
+
 	it('sin audiencias programadas lo dice y suma cero', () => {
 		const t = motivacionEficiencia({
 			genero: 'masculino',

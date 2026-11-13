@@ -46,7 +46,8 @@
 			publicacionesPuntaje: publicaciones === '' ? null : Number(publicaciones),
 		})
 	);
-	const eficienciaGuardada = data.motivacion.find((m) => m.titulo.startsWith('3.'));
+	// Se recalcula al guardar: los días descontados modificados a mano cambian este texto.
+	const eficienciaGuardada = $derived(data.motivacion.find((m) => m.titulo.startsWith('3.')));
 	const vivo = $derived.by(() => {
 		const factores = {
 			calidad: notaCalidad(numeroONulo(formularios), numeroONulo(suma)),
@@ -311,11 +312,43 @@
 							Factor eficiencia: <span class="font-semibold">{cifra(data.factores.eficiencia)}</span>. La motivación de este factor la arma
 							el sistema con los datos de la calificación.
 						</div>
-						{#if data.textosPredeterminados && data.unSoloDespacho}
-							<p class="text-sm">
-								Días descontados (salen de las novedades registradas):
-								<span class="italic">{data.descuentos ?? 'sin días descontados.'}</span>
-							</p>
+						{#if data.textosPredeterminados}
+							{@const variosJuzgados = data.descuentosPorJuzgado.length > 1}
+							{#if data.descuentosPorJuzgado.some((g) => g.descuentos.length)}
+								<div class="space-y-3">
+									<div class="text-sm font-medium">Días descontados en la motivación</div>
+									<p class="text-xs text-slate-500">
+										Cada novedad completa la frase "Para calcular los días laborados ... se descontaron ...". El sistema propone la
+										descripción y se puede modificar. El número de días sale de la novedad y no cambia aquí: si está mal, corrija la novedad
+										en la calificación.
+										{#if variosJuzgados}
+											Como trabajó en varios juzgados en el periodo, cada juzgado tiene sus propios días descontados.
+										{/if}
+									</p>
+									{#each data.descuentosPorJuzgado as grupo, n (n)}
+										<div class="space-y-3">
+											{#if variosJuzgados}
+												<div class="text-sm font-semibold">{grupo.juzgado}</div>
+											{/if}
+											{#each grupo.descuentos as descuento (descuento.novedadId)}
+												<MotivacionEditable
+													name={`descuento_${descuento.novedadId}`}
+													etiqueta={descuento.prefijo}
+													predeterminada={[descuento.descripcion]}
+													guardada={(i?.descuentosEditados ?? []).find((x) => x.novedadId === descuento.novedadId)}
+													vacio=""
+													filas={2}
+													clase={`${campo} py-2 font-serif leading-relaxed`}
+												/>
+											{:else}
+												<p class="text-sm italic">Sin días descontados en este juzgado.</p>
+											{/each}
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<p class="text-sm">Días descontados: <span class="italic">sin días descontados.</span></p>
+							{/if}
 						{/if}
 					</div>
 

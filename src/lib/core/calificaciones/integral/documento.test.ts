@@ -1,7 +1,8 @@
 import type { CalificacionIntegral } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { revisarCompletitud, seccionesMotivacion, type EntradaDocumento } from './documento';
+import { descuentosPorJuzgado, revisarCompletitud, seccionesMotivacion, type EntradaDocumento } from './documento';
 import { comoTexto, motivacionCalidad } from './motivacion';
+import { fraseDeDescuentos, type DescuentoNovedad, type DespachoEficiencia } from './motivacion-eficiencia';
 
 const fecha = (s: string) => new Date(`${s}T00:00:00Z`);
 
@@ -19,6 +20,7 @@ const integral: CalificacionIntegral = {
 	calidadMotivacion: null,
 	organizacionMotivacion: null,
 	publicacionesMotivacion: null,
+	descuentosEditados: [],
 	motivacionLibre: null,
 	ponente: null,
 	presidente: null,
@@ -94,5 +96,122 @@ describe('motivación modificada a mano', () => {
 
 	it('la eficiencia no se puede reemplazar: siempre la arma el sistema', () => {
 		expect(seccionesMotivacion(entrada())[2].titulo).toBe('3. FACTOR EFICIENCIA O RENDIMIENTO');
+	});
+});
+
+describe('redacción de los días descontados', () => {
+	// Dos novedades con días descontados, como las arma el sistema.
+	const ID1 = '6a0000000000000000000001';
+	const ID2 = '6a0000000000000000000002';
+	const detalle: DescuentoNovedad[] = [
+		{
+			novedadId: ID1,
+			dias: 6,
+			descripcion: 'permiso para actividades de la Escuela Judicial Rodrigo Lara Bonilla (del 02/06/2025 al 09/06/2025)',
+		},
+		{ novedadId: ID2, dias: 1, descripcion: 'incapacidad (del 17/10/2025 al 17/10/2025)' },
+	];
+	const auto = fraseDeDescuentos(detalle)!;
+	const despacho = (descuentos: string | null, descuentosDetalle: DescuentoNovedad[] = descuentos ? detalle : []): DespachoEficiencia => ({
+		nombre: 'JUZGADO 001 CIVIL MUNICIPAL DE PRUEBA',
+		desde: fecha('2025-01-01'),
+		hasta: fecha('2025-12-31'),
+		diasHabilesDespacho: 228,
+		diasLaborables: 228,
+		diasLaborados: 222,
+		descuentos,
+		descuentosDetalle,
+		cargaEfectivaTotal: 100,
+		egresoEfectivoTotal: 80,
+		capacidad: 500,
+		conEscritos: false,
+		oral: { cargaDespacho: 100, cargaFuncionario: 100, cargaProporcional: 97.37, egreso: 80, total: 32.86, desglose: null },
+		escrito: null,
+		garantias: null,
+		audiencias: null,
+		oralMasAudiencias: 32.86,
+		total: 32.86,
+	});
+	const con = (descuentos: string | null, i: Partial<CalificacionIntegral> = {}, despachos = [despacho(descuentos)]) => ({
+		...entrada(i),
+		eficiencia: { despachos, ponderada: 32.86 },
+	});
+	const eficiencia = (e: EntradaDocumento) => seccionesMotivacion(e)[2].parrafos.join('\n');
+
+	it('sin modificar sale la frase que arma el sistema con las novedades', () => {
+		expect(auto).toBe(
+			'seis (6) días de permiso para actividades de la Escuela Judicial Rodrigo Lara Bonilla (del 02/06/2025 al 09/06/2025) y un (1) día de incapacidad (del 17/10/2025 al 17/10/2025)'
+		);
+		expect(eficiencia(con(auto))).toContain(`por la funcionaria se descontaron ${auto}.`);
+	});
+
+	it('cada novedad se modifica por separado; los días no cambian', () => {
+		const texto = 'capacitaciones certificados por la Escuela Judicial Rodrigo Lara Bonilla mediante oficio EJO26-73';
+		const e = con(auto, { descuentosEditados: [{ novedadId: ID1, texto, base: detalle[0].descripcion }] });
+		expect(eficiencia(e)).toContain(`se descontaron seis (6) días de ${texto} y un (1) día de incapacidad (del 17/10/2025 al 17/10/2025).`);
+		expect(eficiencia(e)).toContain('Días laborados por la funcionaria: 222.');
+		expect(revisarCompletitud(e).join(' ')).not.toContain('días descontados');
+	});
+
+	it('si cambia la novedad después de modificar su descripción, lo avisa', () => {
+		const e = con(auto, {
+			descuentosEditados: [{ novedadId: ID2, texto: 'Texto propio', base: 'incapacidad (del 01/03/2025 al 01/03/2025)' }],
+		});
+		expect(revisarCompletitud(e)).toContain(
+			'La redacción de los días descontados se modificó a mano y después cambiaron las novedades: revise que siga diciendo lo correcto.'
+		);
+	});
+
+	it('una descripción de una novedad que ya no existe no sale', () => {
+		const e = con(auto, { descuentosEditados: [{ novedadId: '6a0000000000000000000009', texto: 'Texto propio', base: 'x' }] });
+		expect(eficiencia(e)).not.toContain('Texto propio');
+		expect(revisarCompletitud(e).join(' ')).not.toContain('días descontados');
+	});
+
+	it('sin días descontados no se aplica', () => {
+		const editado = { descuentosEditados: [{ novedadId: ID1, texto: 'Texto propio', base: detalle[0].descripcion }] };
+		expect(eficiencia(con(null, editado))).not.toContain('Texto propio');
+	});
+
+	describe('funcionario que trabajó en dos juzgados', () => {
+		const ID3 = '6a0000000000000000000003';
+		const delSegundo: DescuentoNovedad[] = [{ novedadId: ID3, dias: 3, descripcion: 'licencia (del 03/09/2025 al 05/09/2025)' }];
+		const segundo: DespachoEficiencia = {
+			...despacho(fraseDeDescuentos(delSegundo), delSegundo),
+			nombre: 'JUZGADO 002 PENAL MUNICIPAL DE PRUEBA',
+		};
+		const dos = (i: Partial<CalificacionIntegral> = {}) => con(auto, i, [despacho(auto), segundo]);
+
+		it('cada juzgado tiene sus propias novedades', () => {
+			expect(descuentosPorJuzgado(dos())).toEqual([
+				{ juzgado: 'JUZGADO 001 CIVIL MUNICIPAL DE PRUEBA', descuentos: detalle },
+				{ juzgado: 'JUZGADO 002 PENAL MUNICIPAL DE PRUEBA', descuentos: delSegundo },
+			]);
+		});
+
+		it('lo modificado en un juzgado cambia solo la frase de ese juzgado', () => {
+			const e = dos({ descuentosEditados: [{ novedadId: ID3, texto: 'licencia no remunerada', base: delSegundo[0].descripcion }] });
+			const texto = eficiencia(e);
+			expect(texto).toContain('se descontaron tres (3) días de licencia no remunerada.');
+			// El primer juzgado conserva la frase que arma el sistema.
+			expect(texto).toContain(`se descontaron ${auto}.`);
+		});
+
+		it('se pueden modificar novedades de los dos juzgados a la vez', () => {
+			const e = dos({
+				descuentosEditados: [
+					{ novedadId: ID2, texto: 'incapacidad médica', base: detalle[1].descripcion },
+					{ novedadId: ID3, texto: 'licencia no remunerada', base: delSegundo[0].descripcion },
+				],
+			});
+			const texto = eficiencia(e);
+			expect(texto).toContain('y un (1) día de incapacidad médica.');
+			expect(texto).toContain('se descontaron tres (3) días de licencia no remunerada.');
+		});
+
+		it('si cambia la novedad de un juzgado después de modificarla, lo avisa', () => {
+			const e = dos({ descuentosEditados: [{ novedadId: ID3, texto: 'Texto propio', base: 'licencia (del 01/02/2025 al 03/02/2025)' }] });
+			expect(revisarCompletitud(e).join(' ')).toContain('La redacción de los días descontados se modificó a mano');
+		});
 	});
 });

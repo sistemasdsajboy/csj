@@ -1,7 +1,20 @@
-import { cortesDelNombre, separarEn } from '$lib/core/calificaciones/integral/datos';
+import { cortesDelNombre, datosEficiencia, separarEn } from '$lib/core/calificaciones/integral/datos';
 import { calcularIntegral, esOpcionOrganizacion, OPCIONES_ORGANIZACION } from '$lib/core/calificaciones/integral/integral';
-import { factoresDe, revisarCompletitud, seccionesMotivacion } from '$lib/core/calificaciones/integral/documento';
-import { comoTexto, mismoTexto, motivacionesPredeterminadas, type FactorEditable } from '$lib/core/calificaciones/integral/motivacion';
+import {
+	descuentosPorJuzgado,
+	descuentosPredeterminados,
+	factoresDe,
+	revisarCompletitud,
+	seccionesMotivacion,
+} from '$lib/core/calificaciones/integral/documento';
+import {
+	comoTexto,
+	mismoTexto,
+	motivacionesPredeterminadas,
+	parrafosLibres,
+	type FactorEditable,
+} from '$lib/core/calificaciones/integral/motivacion';
+import { prefijoDescuento } from '$lib/core/calificaciones/integral/motivacion-eficiencia';
 import { exigirRol } from '$lib/server/acceso';
 import { db } from '$lib/server/db-client';
 import { cargarEntrada } from '$lib/server/formato-integral/entrada';
@@ -33,7 +46,7 @@ async function sugerencias(despachoSeccionalId: string | null, periodo: number, 
 }
 
 export const load = (async ({ params, locals }) => {
-	const { cp, funcionario, eficiencia, entrada } = await cargarEntrada(params.calificacionId);
+	const { cp, funcionario, entrada } = await cargarEntrada(params.calificacionId);
 	const factores = factoresDe(entrada);
 	const despachosSeccionales = await db.despachoSeccional.findMany({
 		select: { id: true, nombre: true, numero: true },
@@ -49,8 +62,11 @@ export const load = (async ({ params, locals }) => {
 		despachoSeccional: cp.despachoSeccional ? { nombre: cp.despachoSeccional.nombre, numero: cp.despachoSeccional.numero } : null,
 		despachosSeccionales,
 		opcionesOrganizacion: Object.entries(OPCIONES_ORGANIZACION).map(([valor, o]) => ({ valor, etiqueta: o.etiqueta })),
-		unSoloDespacho: eficiencia.despachos.length === 1,
-		descuentos: eficiencia.despachos.length === 1 ? eficiencia.despachos[0].descuentos : null,
+		// Por juzgado, una entrada por novedad con días descontados: la parte fija ("un (1) día de") y la descripción, que se puede modificar.
+		descuentosPorJuzgado: descuentosPorJuzgado(entrada).map((g) => ({
+			juzgado: g.juzgado,
+			descuentos: g.descuentos.map((n) => ({ ...n, prefijo: prefijoDescuento(n.dias) })),
+		})),
 		sugerencias: await sugerencias(cp.despachoSeccionalId, cp.periodo, cp.id),
 		factores,
 		resultado: calcularIntegral(factores),
@@ -127,7 +143,8 @@ export const actions = {
 				error: 'Los datos de la calificación integral solo se pueden digitar mientras la calificación está en revisión.',
 			});
 
-		const r = formulario.safeParse(Object.fromEntries(await request.formData()));
+		const crudo = Object.fromEntries(await request.formData());
+		const r = formulario.safeParse(crudo);
 		if (!r.success) {
 			const campos = r.error.issues.map((i) => i.path.join('.')).join(', ');
 			return fail(400, { error: `Hay datos fuera de rango o con formato inválido: ${campos}.` });
@@ -154,6 +171,19 @@ export const actions = {
 		const pre = motivacionesPredeterminadas({ ...d, periodo: cp.periodo });
 		const editada = (f: FactorEditable, texto: string | null, base: string | undefined) =>
 			base === undefined || !texto || mismoTexto(texto, comoTexto(pre[f])) ? null : { texto, base };
+		// La descripción de cada novedad con días descontados, de todos los juzgados. Los
+		// campos se llaman `descuento_<id de la novedad>`; los ids salen de la base, no del
+		// formulario. Va dentro de una oración, así que se guarda en una sola línea.
+		const descuentosEditados: { novedadId: string; texto: string; base: string }[] = [];
+		for (const n of descuentosPredeterminados({ eficiencia: await datosEficiencia(cp.id) })) {
+			const valor = crudo[`descuento_${n.novedadId}`];
+			const base = crudo[`descuento_${n.novedadId}Base`];
+			const texto = typeof valor === 'string' ? parrafosLibres(valor).join(' ') : '';
+			if (typeof base !== 'string' || !texto || mismoTexto(texto, n.descripcion)) continue;
+			if (texto.length > 1000 || base.length > 1000)
+				return fail(400, { error: 'La redacción de un día descontado es demasiado larga (máximo 1000 caracteres).' });
+			descuentosEditados.push({ novedadId: n.novedadId, texto, base });
+		}
 
 		await db.$transaction([
 			db.funcionario.update({ where: { id: cp.funcionario.id }, data: { genero: d.genero, ...(partes ?? {}) } }),
@@ -176,6 +206,7 @@ export const actions = {
 							calidadMotivacion: editada('calidad', d.calidadMotivacion, d.calidadMotivacionBase),
 							organizacionMotivacion: editada('organizacion', d.organizacionMotivacion, d.organizacionMotivacionBase),
 							publicacionesMotivacion: editada('publicaciones', d.publicacionesMotivacion, d.publicacionesMotivacionBase),
+							descuentosEditados,
 							motivacionLibre: d.motivacionLibre,
 							ponente: d.ponente,
 							presidente: d.presidente,
