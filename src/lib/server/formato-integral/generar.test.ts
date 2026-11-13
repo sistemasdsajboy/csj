@@ -23,6 +23,7 @@ const integral = {
 	calidadMotivacion: null,
 	organizacionMotivacion: null,
 	publicacionesMotivacion: null,
+	descuentosEditados: [],
 	motivacionLibre: null,
 	ponente: 'Consejera Ponente: NOMBRE DE PRUEBA',
 	presidente: 'NOMBRE DE PRUEBA',

@@ -1,7 +1,7 @@
 import type { CalificacionIntegral, Genero, MotivacionEditada } from '@prisma/client';
 import { calcularIntegral, erroresFactores, notaCalidad, puntajeOrganizacion, type ResultadoIntegral } from './integral';
 import { comoTexto, mismoTexto, motivacionesPredeterminadas, parrafosLibres, type FactorEditable } from './motivacion';
-import { motivacionEficiencia, type DespachoEficiencia } from './motivacion-eficiencia';
+import { fraseDeDescuentos, motivacionEficiencia, type DescuentoNovedad, type DespachoEficiencia } from './motivacion-eficiencia';
 import { cantidad, cifra, comoTitulo, enLetras, fechaLarga, nombreMes, palabras } from './redaccion';
 
 /**
@@ -67,7 +67,7 @@ export function seccionesMotivacion(e: EntradaDocumento): Seccion[] {
 	// "Otro" sin texto propio deja solo el párrafo general: falta la motivación del puntaje.
 	if (i?.organizacionOpcion === 'otro' && !parrafosLibres(i.organizacionMotivacion?.texto).length && pre.organizacion)
 		organizacion = [...organizacion, pendiente('escribir la motivación del puntaje de organización del trabajo.')];
-	const eficiencia = motivacionEficiencia({ genero, despachos: e.eficiencia.despachos, ponderada: e.eficiencia.ponderada });
+	const eficiencia = motivacionEficiencia({ genero, despachos: despachosConDescuentos(e), ponderada: e.eficiencia.ponderada });
 	const publicaciones = elegir(
 		i?.publicacionesMotivacion,
 		pre.publicaciones,
@@ -85,6 +85,37 @@ export function seccionesMotivacion(e: EntradaDocumento): Seccion[] {
 /** Texto predeterminado de cada factor con lo guardado. */
 export const predeterminadasDe = (e: Pick<EntradaDocumento, 'integral' | 'funcionario' | 'periodo'>) =>
 	motivacionesPredeterminadas({ ...(e.integral ?? {}), genero: e.funcionario.genero, periodo: e.periodo });
+
+export type DescuentosDelJuzgado = { juzgado: string; descuentos: DescuentoNovedad[] };
+
+/**
+ * Las novedades con días descontados de cada juzgado donde trabajó el
+ * funcionario en el periodo, una por una, con la descripción que arma el
+ * sistema ("incapacidad (del ... al ...)"). Cada novedad pertenece a un solo
+ * juzgado. La descripción se puede modificar; el número de días no.
+ */
+export const descuentosPorJuzgado = (e: Pick<EntradaDocumento, 'eficiencia'>): DescuentosDelJuzgado[] =>
+	e.eficiencia.despachos.map((d) => ({ juzgado: d.nombre, descuentos: d.descuentosDetalle ?? [] }));
+
+/** Todas las novedades con días descontados, de todos los juzgados. */
+export const descuentosPredeterminados = (e: Pick<EntradaDocumento, 'eficiencia'>): DescuentoNovedad[] =>
+	descuentosPorJuzgado(e).flatMap((g) => g.descuentos);
+
+/**
+ * Los despachos de eficiencia con las descripciones de los descuentos
+ * modificadas a mano, si las hay. Cada juzgado arma su frase con sus novedades.
+ */
+function despachosConDescuentos(e: EntradaDocumento): DespachoEficiencia[] {
+	const editados = e.integral?.descuentosEditados ?? [];
+	if (!editados.length) return e.eficiencia.despachos;
+	const propia = (novedadId: string) => parrafosLibres(editados.find((x) => x.novedadId === novedadId)?.texto).join(' ');
+	return e.eficiencia.despachos.map((d) => {
+		const detalle = d.descuentosDetalle ?? [];
+		if (!detalle.some((n) => propia(n.novedadId))) return d;
+		const items = detalle.map((n) => ({ dias: n.dias, descripcion: propia(n.novedadId) || n.descripcion }));
+		return { ...d, descuentos: fraseDeDescuentos(items) };
+	});
+}
 
 const NOMBRE_EDITABLE: Record<FactorEditable, string> = {
 	calidad: 'calidad',
@@ -206,6 +237,16 @@ export function revisarCompletitud(e: EntradaDocumento): string[] {
 				avisos.push(
 					`El texto de ${NOMBRE_EDITABLE[f]} se modificó a mano y después cambiaron sus datos: revise que siga diciendo lo correcto.`
 				);
+		// Una descripción modificada cuya novedad cambió después (fechas o tipo).
+		const detalle = descuentosPredeterminados(e);
+		const cambiadas = (i.descuentosEditados ?? []).filter((x) => {
+			const actual = detalle.find((d) => d.novedadId === x.novedadId);
+			return actual && !mismoTexto(x.base, actual.descripcion);
+		});
+		if (cambiadas.length)
+			avisos.push(
+				'La redacción de los días descontados se modificó a mano y después cambiaron las novedades: revise que siga diciendo lo correcto.'
+			);
 	}
 	return avisos;
 }

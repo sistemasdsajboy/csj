@@ -286,6 +286,14 @@ type MotivacionEditada {
   base  String
 }
 
+/// Descripción de una novedad con días descontados modificada a mano. `base` es la
+/// descripción que armó el sistema cuando se modificó: si la novedad cambia después, se avisa.
+type DescuentoEditado {
+  novedadId String @db.ObjectId
+  texto     String
+  base      String
+}
+
 /// Lo que el sistema no calcula y se digita durante la revisión para generar el
 /// formato de calificación integral. El factor eficiencia sale del cálculo.
 type CalificacionIntegral {
@@ -307,6 +315,9 @@ type CalificacionIntegral {
   calidadMotivacion       MotivacionEditada?
   organizacionMotivacion  MotivacionEditada?
   publicacionesMotivacion MotivacionEditada?
+  /// Descripción de cada novedad con días descontados, modificada a mano, para la motivación de
+  /// eficiencia ("se descontaron un (1) día de <descripción>"). El número de días sale de la novedad.
+  descuentosEditados      DescuentoEditado[]
   /// Motivación completa digitada a mano, para el despacho que aún no tiene textos predeterminados.
   motivacionLibre         String?
   ponente                 String?
