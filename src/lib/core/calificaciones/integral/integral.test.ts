@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { calcularIntegral, categoria, erroresFactores, notaCalidad, puntajeOrganizacion, redondear } from './integral';
+import {
+	calcularIntegral,
+	categoria,
+	erroresFactores,
+	esOpcionOrganizacion,
+	notaCalidad,
+	puntajeOrganizacion,
+	redondear,
+} from './integral';
 import {
 	comoTexto,
 	mismoTexto,
@@ -76,6 +84,11 @@ describe('calificación integral', () => {
 		expect(puntajeOrganizacion('sinAmbos', null)).toBe(9);
 		expect(puntajeOrganizacion('otro', 8.5)).toBe(8.5);
 		expect(puntajeOrganizacion('desconocido', 12)).toBeNull();
+		// Nombres internos de JavaScript no son opciones.
+		for (const raro of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+			expect(esOpcionOrganizacion(raro)).toBe(false);
+			expect(puntajeOrganizacion(raro, 12)).toBeNull();
+		}
 	});
 
 	it('el ejemplo de la plantilla: 39,38 + 35,94 + 11 + 0 = 86, excelente', () => {

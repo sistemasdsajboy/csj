@@ -1,5 +1,5 @@
 import { cortesDelNombre, separarEn } from '$lib/core/calificaciones/integral/datos';
-import { calcularIntegral, OPCIONES_ORGANIZACION } from '$lib/core/calificaciones/integral/integral';
+import { calcularIntegral, esOpcionOrganizacion, OPCIONES_ORGANIZACION } from '$lib/core/calificaciones/integral/integral';
 import { factoresDe, revisarCompletitud, seccionesMotivacion } from '$lib/core/calificaciones/integral/documento';
 import { comoTexto, mismoTexto, motivacionesPredeterminadas, type FactorEditable } from '$lib/core/calificaciones/integral/motivacion';
 import { exigirRol } from '$lib/server/acceso';
@@ -92,7 +92,7 @@ const formulario = z.object({
 	calidadFormularios: entero(1, 1000),
 	calidadSuma: numero(0, 42000),
 	organizacionFechaVisita: fecha,
-	organizacionOpcion: z.preprocess((v) => (typeof v === 'string' && v in OPCIONES_ORGANIZACION ? v : null), z.string().nullable()),
+	organizacionOpcion: z.preprocess((v) => (esOpcionOrganizacion(v) ? v : null), z.string().nullable()),
 	organizacionPuntaje: numero(0, 12),
 	oficioEscuela: texto,
 	publicacionesPuntaje: z.preprocess((v) => (v === '0' ? 0 : v === '1' ? 1 : null), z.union([z.literal(0), z.literal(1)]).nullable()),

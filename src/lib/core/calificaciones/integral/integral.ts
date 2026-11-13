@@ -28,7 +28,9 @@ export const OPCIONES_ORGANIZACION = {
 
 export type OpcionOrganizacion = keyof typeof OPCIONES_ORGANIZACION;
 
-export const esOpcionOrganizacion = (x: unknown): x is OpcionOrganizacion => typeof x === 'string' && x in OPCIONES_ORGANIZACION;
+// `Object.hasOwn` y no `in`: con `in`, "constructor" o "toString" pasarían por opciones válidas.
+export const esOpcionOrganizacion = (x: unknown): x is OpcionOrganizacion =>
+	typeof x === 'string' && Object.hasOwn(OPCIONES_ORGANIZACION, x);
 
 /** Factor calidad (art. 31): suma de los puntajes dividida por el número de formularios. */
 export function notaCalidad(formularios: number | null | undefined, suma: number | null | undefined): number | null {
