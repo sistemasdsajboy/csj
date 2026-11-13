@@ -2,3 +2,6 @@
 pnpm-lock.yaml
 package-lock.json
 yarn.lock
+
+# Plantilla del formato integral en base64, generada por scripts/plantilla-formato-integral.py
+src/lib/server/formato-integral/plantilla.ts

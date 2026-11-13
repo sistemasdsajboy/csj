@@ -5,6 +5,7 @@
 	import { formatDate } from '$lib/utils/dates';
 	import { cn } from '$lib/utils/shadcn';
 	import { exportToSpreadsheet } from '$lib/utils/xlsx';
+	import { exportarCalificacion } from '$lib/core/calificaciones/exportar-calificacion';
 	import EditorEstadoCalificacion from './editor-estado-calificacion.svelte';
 	import EstadoCalificacion from './estado-calificacion.svelte';
 	import NovedadForm from './novedad-form.svelte';
@@ -36,6 +37,53 @@
 
 	const calificacionTotal = $derived(calificacion.calificacionTotalFactorEficiencia.toFixed(2));
 	const calificacionPonderada = $derived(calificacion.calificacion.calificacionPonderada.toFixed(2) || 0);
+
+	// Exportar lo que muestra esta pantalla (PDF para verla, Excel para trabajar los datos).
+	const paraExportar = () =>
+		exportarCalificacion(
+			{
+				funcionario,
+				despacho,
+				otrosDespachos: calificacionesAdicionales.map((a) => a.despacho),
+				calificacion: {
+					periodo: calificacion.calificacion.periodo,
+					estado: calificacion.calificacion.estado,
+					calificacionPonderada: calificacion.calificacion.calificacionPonderada,
+					calificacionTotalFactorEficiencia: calificacion.calificacionTotalFactorEficiencia,
+					cargaEfectivaTotal: calificacion.cargaEfectivaTotal,
+					egresoEfectivoTotal: calificacion.egresoEfectivoTotal,
+					diasHabilesDespacho: calificacion.diasHabilesDespacho,
+					diasLaborables: calificacion.diasLaborables,
+					diasDescontados: calificacion.diasDescontados,
+					diasLaborados: calificacion.diasLaborados,
+					factorOralMasAudiencias: calificacion.factorOralMasAudiencias,
+					calificacionAudiencias: calificacion.calificacionAudiencias,
+				},
+				capacidadMaxima: capacidadMaxima?.cantidad,
+				novedades,
+				consolidados: {
+					oral: consolidadoOrdinario,
+					tutelas: consolidadoTutelas,
+					garantias: consolidadoGarantias,
+					escrito: consolidadoEscrito,
+				},
+				subfactores: { oral, garantias, escrito },
+				audiencias: registroAudiencias,
+				traspaso: traspasoPorCambioDeCodigo,
+			},
+			new Date()
+		);
+	let exportando = $state<'' | 'pdf' | 'excel'>('');
+	async function exportar(formato: 'pdf' | 'excel') {
+		exportando = formato;
+		try {
+			// Las librerías se cargan solo al exportar, para no hacer más pesada la página.
+			if (formato === 'pdf') (await import('$lib/utils/exportar-calificacion-pdf')).descargarPdf(paraExportar());
+			else (await import('$lib/utils/exportar-calificacion-xlsx')).descargarExcel(paraExportar());
+		} finally {
+			exportando = '';
+		}
+	}
 
 	const mostrarTablaTutelas = $derived(consolidadoTutelas.length > 0 && consolidadoTutelas.some((c) => c.cargaEfectiva > 0));
 	const mostrarTablaOral = $derived(consolidadoOrdinario.length > 0 && consolidadoOrdinario.some((c) => c.cargaEfectiva > 0));
@@ -130,6 +178,15 @@
 			/>
 			<Observaciones observaciones={calificacion.calificacion.observaciones} />
 			<Button variant="outline" onclick={() => exportToSpreadsheet(consolidadoXlsxData, 'Consolidado')}>Descargar consolidado</Button>
+			<Button variant="outline" disabled={!!exportando} onclick={() => exportar('pdf')}>
+				{exportando === 'pdf' ? 'Generando…' : 'Exportar PDF'}
+			</Button>
+			<Button variant="outline" disabled={!!exportando} onclick={() => exportar('excel')}>
+				{exportando === 'excel' ? 'Generando…' : 'Exportar Excel'}
+			</Button>
+			{#if calificacion.calificacion.estado === 'revision' || calificacion.calificacion.estado === 'aprobada'}
+				<Button variant="outline" href={`/calificacion/${calificacion.calificacion.id}/integral`}>Calificación integral</Button>
+			{/if}
 			<div class="grow"></div>
 			<EstadoCalificacion estado={calificacion.calificacion.estado} />
 		</div>

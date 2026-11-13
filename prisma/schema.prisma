@@ -127,10 +127,21 @@ model Despacho {
   novedadesFuncionarios NovedadFuncionario[]
 }
 
+/// Para redactar el formato de calificación integral: el/la, funcionario/funcionaria.
+enum Genero {
+  femenino
+  masculino
+}
+
 model Funcionario {
   id                    String                 @id @default(auto()) @map("_id") @db.ObjectId
   documento             String
   nombre                String
+  /// Para el formato de calificación integral. `nombre` guarda todo junto y no
+  /// se puede separar sin equivocarse con apellidos compuestos.
+  apellidos             String?
+  nombres               String?
+  genero                Genero?
   novedades             NovedadFuncionario[]
   registrosCalificacion RegistroCalificacion[]
   calificaciones        CalificacionPeriodo[]
@@ -255,8 +266,52 @@ model CalificacionPeriodo {
   despachoSeccional     DespachoSeccional?        @relation(fields: [despachoSeccionalId], references: [id])
   calificaciones        CalificacionDespacho[]
   calificacionPonderada Float                     @default(0)
+  /// Datos que se digitan para el formato de calificación integral.
+  integral              CalificacionIntegral?
 
   @@unique([funcionarioId, periodo])
+}
+
+type CargoFormato {
+  cargo     String?
+  municipio String?
+  distrito  String?
+}
+
+/// Motivación de un factor modificada a mano. `base` es el texto predeterminado
+/// del que se partió: si después cambian los datos del factor, el predeterminado
+/// deja de coincidir con `base` y se avisa que el texto puede estar desactualizado.
+type MotivacionEditada {
+  texto String
+  base  String
+}
+
+/// Lo que el sistema no calcula y se digita durante la revisión para generar el
+/// formato de calificación integral. El factor eficiencia sale del cálculo.
+type CalificacionIntegral {
+  /// Fecha de la sala que aprueba: es la "fecha de la calificación" del formato.
+  fechaSala               DateTime?
+  cargoCarrera            CargoFormato?
+  provisionalidad         CargoFormato[]
+  /// Factor calidad (art. 31): suma de los puntajes / número de formularios.
+  calidadFormularios      Int?
+  calidadSuma             Float?
+  organizacionFechaVisita DateTime?
+  /// Texto predeterminado elegido; fija el puntaje. "otro" usa organizacionPuntaje.
+  organizacionOpcion      String?
+  organizacionPuntaje     Float?
+  /// Oficio de la Escuela Judicial que certifica los cursos del periodo, p. ej. "EJO26-73 del 21 de enero de 2026".
+  oficioEscuela           String?
+  publicacionesPuntaje    Int?
+  /// Motivación de cada factor modificada a mano (despacho 2). Sin ella sale el texto predeterminado.
+  calidadMotivacion       MotivacionEditada?
+  organizacionMotivacion  MotivacionEditada?
+  publicacionesMotivacion MotivacionEditada?
+  /// Motivación completa digitada a mano, para el despacho que aún no tiene textos predeterminados.
+  motivacionLibre         String?
+  ponente                 String?
+  presidente              String?
+  iniciales               String?
 }
 
 model CalificacionDespacho {
