@@ -62,7 +62,8 @@ export const actions = {
 		]);
 		return {
 			success: true,
-			mensaje: 'Firmas guardadas. Las calificaciones en revisión las toman la próxima vez que se guarden; las aprobadas no cambian.',
+			mensaje:
+				'Firmas guardadas. Las calificaciones que aún no tienen firmas las toman de inmediato; las que ya tenían, cuando se vuelvan a guardar.',
 		};
 	},
 } satisfies Actions;

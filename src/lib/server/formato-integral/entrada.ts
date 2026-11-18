@@ -1,5 +1,5 @@
 import { datosDelFuncionario, datosEficiencia } from '$lib/core/calificaciones/integral/datos';
-import type { EntradaDocumento, Firmas } from '$lib/core/calificaciones/integral/documento';
+import { seDigitaIntegral, type EntradaDocumento, type Firmas } from '$lib/core/calificaciones/integral/documento';
 import { db } from '$lib/server/db-client';
 import { error } from '@sveltejs/kit';
 
@@ -33,8 +33,9 @@ export async function cargarEntrada(calificacionId: string) {
 		eficiencia,
 		integral: cp.integral,
 		textosPredeterminados: usaTextosPredeterminados(cp.despachoSeccional?.numero),
-		// Aprobada, las firmas quedan como se guardaron; en revisión se compara con la configuración.
-		firmasConfiguradas: cp.estado === 'revision' ? await firmasConfiguradas(cp.despachoSeccionalId) : undefined,
+		// Mientras se puede digitar (revisión o aprobada), se compara con la configuración;
+		// en otro estado, las firmas quedan como se guardaron.
+		firmasConfiguradas: seDigitaIntegral(cp.estado) ? await firmasConfiguradas(cp.despachoSeccionalId) : undefined,
 	};
 	return { cp, funcionario, eficiencia, entrada };
 }

@@ -12,8 +12,8 @@
 	<div>
 		<h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Firmas del formato integral</h2>
 		<p class="text-slate-600 dark:text-slate-300">
-			Quién firma los formatos de calificación integral. Cada calificación toma lo que esté configurado aquí al guardarse y lo deja fijo
-			cuando se aprueba: cambiarlo no altera las calificaciones ya aprobadas.
+			Quién firma los formatos de calificación integral. Una calificación que aún no tiene firmas las toma de aquí de inmediato; una que ya
+			las tenía, cuando se vuelve a guardar.
 		</p>
 	</div>
 

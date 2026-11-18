@@ -79,7 +79,7 @@
 	<div class="space-y-1.5">
 		<Label>{titulo}</Label>
 		<div class="h-9 py-2 text-sm">{valor || '—'}</div>
-		{#if enRevision && !configurado}
+		{#if data.seDigita && !configurado}
 			<p class="text-xs text-amber-700 dark:text-amber-300">
 				Sin configurar{valor ? ': se conserva lo que ya tenía la calificación' : ''}.
 			</p>
@@ -163,9 +163,9 @@
 			<div
 				class="rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
 			>
-				{enRevision
+				{data.seDigita
 					? 'Solo revisores y administradores digitan estos datos.'
-					: 'Los datos de la calificación integral solo se digitan mientras la calificación está en revisión.'}
+					: 'Los datos de la calificación integral solo se digitan mientras la calificación está en revisión o aprobada.'}
 			</div>
 		{/if}
 
@@ -538,12 +538,12 @@
 						</div>
 					</div>
 					<p class="text-xs text-slate-500">
-						{#if enRevision}
+						{#if data.seDigita}
 							El ponente de cada despacho y el presidente se configuran una sola vez en
 							{#if data.esAdmin}<a href="/configuracion/firmas" class="underline">Configuración → Firmas</a>{:else}Configuración → Firmas
-								(administradores){/if}. Al guardar, la calificación toma lo configurado y, cuando se aprueba, queda fijo.
+								(administradores){/if}. Al guardar, la calificación toma lo configurado.
 						{:else}
-							Ponente y presidente quedaron fijos con la calificación.
+							Ponente y presidente quedaron como se guardaron en la calificación.
 						{/if}
 						Las iniciales van al final del documento, después de la notificación, junto con la fecha de la sala: "CLRA/HEHR/IKBA/ Aprobada en
 						Sesión del 13 de noviembre de 2026."
