@@ -324,6 +324,14 @@ export function comprobarDiasDeVinculacion({
 		);
 }
 
+/**
+ * Despacho con función de control de garantías: su subfactor oral se califica
+ * sobre 45 y no se califica la atención de audiencias. La motivación del
+ * formato integral usa esta misma regla.
+ */
+export const esDespachoDeGarantias = (especialidad: string | null | undefined) =>
+	especialidad === 'PenalGarantias' || especialidad === 'PenalAdolescentesGarantias';
+
 /** La mayor calificación posible: 40 del subfactor oral más 5 de audiencias, o 45 de garantías o escrito. */
 export const CALIFICACION_MAXIMA = 45;
 
@@ -659,7 +667,7 @@ async function generarCalificacionDespacho(calificacionPeriodo: CalificacionPeri
 	const registrosOral = registros.filter((registro) => registro.clase === 'oral');
 	const consolidadoOral = generarConsolidado({ diasNoHabiles, registros: registrosOral });
 
-	const esDespachoGarantias = ['PenalAdolescentesGarantias', 'PenalGarantias'].includes(despacho.tipoDespacho.especialidad);
+	const esDespachoGarantias = esDespachoDeGarantias(despacho.tipoDespacho.especialidad);
 	const maximoOral = esDespachoGarantias ? 45 : 40;
 	const oral = generarResultadosSubfactor(registrosOral, hayEscritos ? [] : registrosTutelas, maximoOral, 'oral');
 

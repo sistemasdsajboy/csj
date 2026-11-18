@@ -15,6 +15,7 @@
 			<a href="/configuracion/usuarios" class={linkClass('/configuracion/usuarios')}>Usuarios</a>
 			<a href={`/configuracion/tipos-despacho`} class={linkClass(`/configuracion/tipos-despacho`)}> Tipos de despacho </a>
 			<a href="/configuracion/despachos-duplicados" class={linkClass('/configuracion/despachos-duplicados')}> Juzgados duplicados </a>
+			<a href="/configuracion/firmas" class={linkClass('/configuracion/firmas')}> Firmas </a>
 		</div>
 
 		{@render children()}

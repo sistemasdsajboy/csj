@@ -12,7 +12,7 @@
 	let { data, form } = $props();
 
 	const i = data.integral;
-	const s = data.sugerencias as Partial<Record<'ponente' | 'presidente' | 'iniciales' | 'oficioEscuela', string | null>>;
+	const s = data.sugerencias as Partial<Record<'iniciales' | 'oficioEscuela', string | null>>;
 	const comoFecha = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : '');
 	const prov = (n: number) => i?.provisionalidad?.[n] ?? null;
 
@@ -46,7 +46,8 @@
 			publicacionesPuntaje: publicaciones === '' ? null : Number(publicaciones),
 		})
 	);
-	const eficienciaGuardada = data.motivacion.find((m) => m.titulo.startsWith('3.'));
+	// Se recalcula al guardar: los días descontados modificados a mano cambian este texto.
+	const eficienciaGuardada = $derived(data.motivacion.find((m) => m.titulo.startsWith('3.')));
 	const vivo = $derived.by(() => {
 		const factores = {
 			calidad: notaCalidad(numeroONulo(formularios), numeroONulo(suma)),
@@ -71,6 +72,18 @@
 	<div class="flex flex-col justify-between rounded-lg bg-gray-100 p-3 shadow-sm dark:bg-gray-800">
 		<div class="text-sm text-slate-600 dark:text-slate-300">{titulo} <span class="text-xs">(hasta {maximo})</span></div>
 		<div class="text-center text-2xl font-bold">{valor == null ? '—' : decimales ? cifra(valor) : cantidad(valor)}</div>
+	</div>
+{/snippet}
+
+{#snippet firma(titulo: string, valor: string | null, configurado: boolean)}
+	<div class="space-y-1.5">
+		<Label>{titulo}</Label>
+		<div class="h-9 py-2 text-sm">{valor || '—'}</div>
+		{#if enRevision && !configurado}
+			<p class="text-xs text-amber-700 dark:text-amber-300">
+				Sin configurar{valor ? ': se conserva lo que ya tenía la calificación' : ''}.
+			</p>
+		{/if}
 	</div>
 {/snippet}
 
@@ -172,8 +185,8 @@
 				<section class="space-y-4">
 					<h2 class="text-lg font-bold">1. Información del evaluado</h2>
 					<p class="text-xs text-slate-500">
-						Nombre, cédula, periodo y factor eficiencia salen del sistema y no se editan aquí. Si alguno está mal, se corrige en el sistema
-						y se vuelve a generar la calificación.
+						Nombre, cédula y factor eficiencia salen del sistema y no se editan aquí. Si alguno está mal, se corrige en el sistema y se
+						vuelve a generar la calificación.
 					</p>
 					<div class="grid gap-4 md:grid-cols-3">
 						<div class="space-y-1.5 md:col-span-2">
@@ -253,8 +266,24 @@
 					<h2 class="text-lg font-bold">2. Periodo y fecha de la calificación</h2>
 					<div class="grid gap-4 md:grid-cols-3">
 						<div class="space-y-1.5">
-							<Label>Periodo calificado</Label>
-							<div class="h-9 py-2 text-sm">1 de enero a 31 de diciembre de {data.calificacion.periodo}</div>
+							<Label for="periodoDesde">Periodo calificado</Label>
+							<div class="grid grid-cols-2 gap-2">
+								<Input
+									id="periodoDesde"
+									name="periodoDesde"
+									type="date"
+									aria-label="Desde"
+									value={comoFecha(i?.periodoDesde ?? new Date(Date.UTC(data.calificacion.periodo, 0, 1)))}
+								/>
+								<Input
+									id="periodoHasta"
+									name="periodoHasta"
+									type="date"
+									aria-label="Hasta"
+									value={comoFecha(i?.periodoHasta ?? new Date(Date.UTC(data.calificacion.periodo, 11, 31)))}
+								/>
+							</div>
+							<p class="text-xs text-slate-500">Desde y hasta. Por defecto, el año completo; se puede ajustar.</p>
 						</div>
 						<div class="space-y-1.5">
 							<Label for="fechaSala">Fecha de la sala (fecha de la calificación)</Label>
@@ -311,11 +340,43 @@
 							Factor eficiencia: <span class="font-semibold">{cifra(data.factores.eficiencia)}</span>. La motivación de este factor la arma
 							el sistema con los datos de la calificación.
 						</div>
-						{#if data.textosPredeterminados && data.unSoloDespacho}
-							<p class="text-sm">
-								Días descontados (salen de las novedades registradas):
-								<span class="italic">{data.descuentos ?? 'sin días descontados.'}</span>
-							</p>
+						{#if data.textosPredeterminados}
+							{@const variosJuzgados = data.descuentosPorJuzgado.length > 1}
+							{#if data.descuentosPorJuzgado.some((g) => g.descuentos.length)}
+								<div class="space-y-3">
+									<div class="text-sm font-medium">Días descontados en la motivación</div>
+									<p class="text-xs text-slate-500">
+										Cada novedad completa la frase "Para calcular los días laborados ... se descontaron ...". El sistema propone la
+										descripción y se puede modificar. El número de días sale de la novedad y no cambia aquí: si está mal, corrija la novedad
+										en la calificación.
+										{#if variosJuzgados}
+											Como trabajó en varios juzgados en el periodo, cada juzgado tiene sus propios días descontados.
+										{/if}
+									</p>
+									{#each data.descuentosPorJuzgado as grupo, n (n)}
+										<div class="space-y-3">
+											{#if variosJuzgados}
+												<div class="text-sm font-semibold">{grupo.juzgado}</div>
+											{/if}
+											{#each grupo.descuentos as descuento (descuento.novedadId)}
+												<MotivacionEditable
+													name={`descuento_${descuento.novedadId}`}
+													etiqueta={descuento.prefijo}
+													predeterminada={[descuento.descripcion]}
+													guardada={(i?.descuentosEditados ?? []).find((x) => x.novedadId === descuento.novedadId)}
+													vacio=""
+													filas={2}
+													clase={`${campo} py-2 font-serif leading-relaxed`}
+												/>
+											{:else}
+												<p class="text-sm italic">Sin días descontados en este juzgado.</p>
+											{/each}
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<p class="text-sm">Días descontados: <span class="italic">sin días descontados.</span></p>
+							{/if}
 						{/if}
 					</div>
 
@@ -469,25 +530,26 @@
 				<section class="space-y-4">
 					<h2 class="text-lg font-bold">5. Calificador y firma</h2>
 					<div class="grid gap-4 md:grid-cols-3">
-						<div class="space-y-1.5">
-							<Label for="ponente">Ponente</Label>
-							<Input id="ponente" name="ponente" value={i?.ponente ?? s.ponente ?? ''} placeholder="Consejera Ponente: NOMBRE" />
-						</div>
-						<div class="space-y-1.5">
-							<Label for="presidente">Presidente</Label>
-							<Input id="presidente" name="presidente" value={i?.presidente ?? s.presidente ?? ''} />
-						</div>
+						{@render firma('Ponente', data.firmas.ponente, data.firmas.ponenteConfigurado)}
+						{@render firma('Presidente', data.firmas.presidente, data.firmas.presidenteConfigurado)}
 						<div class="space-y-1.5">
 							<Label for="iniciales">Iniciales de quienes proyectaron y revisaron</Label>
 							<Input id="iniciales" name="iniciales" value={i?.iniciales ?? s.iniciales ?? ''} placeholder="CLRA/HEHR/IKBA/" />
 						</div>
 					</div>
 					<p class="text-xs text-slate-500">
-						Las iniciales van al final del documento, después de la notificación, junto con la fecha de la sala: "CLRA/HEHR/IKBA/ Aprobada
-						en Sesión del 13 de noviembre de 2026."
+						{#if enRevision}
+							El ponente de cada despacho y el presidente se configuran una sola vez en
+							{#if data.esAdmin}<a href="/configuracion/firmas" class="underline">Configuración → Firmas</a>{:else}Configuración → Firmas
+								(administradores){/if}. Al guardar, la calificación toma lo configurado y, cuando se aprueba, queda fijo.
+						{:else}
+							Ponente y presidente quedaron fijos con la calificación.
+						{/if}
+						Las iniciales van al final del documento, después de la notificación, junto con la fecha de la sala: "CLRA/HEHR/IKBA/ Aprobada en
+						Sesión del 13 de noviembre de 2026."
 					</p>
-					{#if !i && (s.ponente || s.presidente || s.iniciales)}
-						<p class="text-xs text-slate-500">Ponente, presidente e iniciales vienen de la última calificación del mismo despacho.</p>
+					{#if !i && s.iniciales}
+						<p class="text-xs text-slate-500">Las iniciales vienen de la última calificación del mismo despacho.</p>
 					{/if}
 				</section>
 

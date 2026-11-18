@@ -1,5 +1,18 @@
 import type { Genero } from '@prisma/client';
-import { cantidad, cifra, fechaCorta, nombreDespacho, palabras, type Palabras } from './redaccion';
+import { cantidad, cifra, fechaCorta, letrasYCifraDelante, nombreDespacho, palabras, type Palabras } from './redaccion';
+
+/** Una novedad con días descontados: los días salen de la novedad; la descripción se puede modificar. */
+export type DescuentoNovedad = { novedadId: string; dias: number; descripcion: string };
+
+/** "un (1) día de", "seis (6) días de": la parte fija, que sale de la novedad. */
+export const prefijoDescuento = (dias: number) => `${letrasYCifraDelante(dias)} ${dias === 1 ? 'día' : 'días'} de`;
+
+/** Junta las novedades en una frase: "dos (2) días de ..., un (1) día de ... y ...". */
+export function fraseDeDescuentos(items: Pick<DescuentoNovedad, 'dias' | 'descripcion'>[]): string | null {
+	const partes = items.map((i) => `${prefijoDescuento(i.dias)} ${i.descripcion}`);
+	if (!partes.length) return null;
+	return partes.length === 1 ? partes[0] : partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1];
+}
 
 /**
  * Motivación del factor eficiencia o rendimiento, con la redacción del
@@ -42,11 +55,18 @@ export type DespachoEficiencia = {
 	diasLaborables: number;
 	diasLaborados: number;
 	descuentos: string | null;
+	/** Las novedades que componen `descuentos`, una por una (para modificar su descripción). */
+	descuentosDetalle?: DescuentoNovedad[];
 	cargaEfectivaTotal: number;
 	egresoEfectivoTotal: number;
 	capacidad: number | null;
 	/** El despacho tiene procesos escritos: las tutelas se suman al subfactor escrito. */
 	conEscritos: boolean;
+	/**
+	 * Despacho con función de control de garantías (`esDespachoDeGarantias`): el
+	 * subfactor oral se califica sobre 45 y no se califica la atención de audiencias.
+	 */
+	esGarantias?: boolean;
 	oral: SubfactorEficiencia | null;
 	escrito: SubfactorEficiencia | null;
 	garantias: SubfactorEficiencia | null;
@@ -133,7 +153,15 @@ function parrafosSubfactor(
 		formula = `(Egreso base de calificación / Carga base de calificación) × ${o.maximo} = puntaje subfactor`;
 	}
 
-	const valorBase = base.tipo === 'funcionario' ? cantidad(base.valor) : cifra(base.valor);
+	// Con la carga redondeada a dos decimales, rehacer la cuenta a mano puede dar
+	// una centésima distinta del puntaje (que se calcula con la carga completa).
+	// En ese caso la fórmula muestra la carga con cuatro decimales.
+	const valorBase = (() => {
+		if (base.tipo === 'funcionario') return cantidad(base.valor);
+		// Sin tope: con tope la línea muestra primero el cociente y luego el máximo.
+		const puntaje = (carga: number) => cifra((s.egreso / carga) * o.maximo);
+		return puntaje(Math.round(base.valor * 100) / 100) === puntaje(base.valor) ? cifra(base.valor) : cifra(base.valor, 4);
+	})();
 	let resultado: string;
 	if (base.valor <= 0) {
 		resultado = `Como la carga base para la calificación es de cero procesos, el puntaje del subfactor es de ${cifra(0)} puntos.`;
@@ -201,13 +229,26 @@ function parrafosDespacho(d: DespachoEficiencia, p: Palabras): string[] {
 	if (tieneDatos(d.oral)) {
 		out.push(`${siguiente()}. Factor Eficiencia o Rendimiento – Sistema Oral`);
 		out.push(
-			...parrafosSubfactor(d.oral, d, p, { maximo: 40, conCapacidad: true, principal: 'del sistema oral', conTutelas: !d.conEscritos })
+			...parrafosSubfactor(d.oral, d, p, {
+				maximo: d.esGarantias ? 45 : 40,
+				conCapacidad: true,
+				principal: 'del sistema oral',
+				conTutelas: !d.conEscritos,
+			})
 		);
-		out.push(...parrafosAudiencias(d.audiencias, p));
-		out.push(
-			`Total de los subfactores respuesta efectiva a la demanda de justicia y atención de audiencias programadas: ` +
-				`${cifra(d.oral.total)} + ${cifra(d.audiencias?.programadas ? d.audiencias.puntaje : 0)} = ${cifra(d.oralMasAudiencias)}.`
-		);
+		if (d.esGarantias)
+			// Como en el cálculo: sin audiencias y sobre 45 (generarCalificacionDespacho).
+			out.push(
+				`En los despachos con función de control de garantías, el subfactor respuesta efectiva a la demanda de justicia se ` +
+					`califica sobre 45 puntos y no se califica la atención de audiencias programadas.`
+			);
+		else {
+			out.push(...parrafosAudiencias(d.audiencias, p));
+			out.push(
+				`Total de los subfactores respuesta efectiva a la demanda de justicia y atención de audiencias programadas: ` +
+					`${cifra(d.oral.total)} + ${cifra(d.audiencias?.programadas ? d.audiencias.puntaje : 0)} = ${cifra(d.oralMasAudiencias)}.`
+			);
+		}
 		// Con otro sistema después (escritural o garantías), ARGUMENTOS cierra el oral con su total propio.
 		if (tieneDatos(d.escrito) || tieneDatos(d.garantias))
 			out.push(`TOTAL FACTOR EFICIENCIA O RENDIMIENTO SISTEMA ORAL: ${cifra(d.oralMasAudiencias)} puntos`);

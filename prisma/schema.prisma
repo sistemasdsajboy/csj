@@ -21,6 +21,17 @@ model DespachoSeccional {
   usuariosIds    String[]              @db.ObjectId
   usuarios       User[]                @relation(fields: [usuariosIds], references: [id])
   calificaciones CalificacionPeriodo[]
+  /// Cómo firma el consejero ponente del despacho en el formato de calificación integral,
+  /// p. ej. "Consejera Ponente: NOMBRE". Lo configura un administrador.
+  ponente        String?
+}
+
+/// Quién preside la sala y firma los formatos de calificación integral. Un solo registro;
+/// lo configura un administrador. El ponente de cada despacho está en DespachoSeccional.
+model FirmasCalificacion {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  presidente  String?
+  actualizado DateTime @updatedAt
 }
 
 model User {
@@ -286,6 +297,14 @@ type MotivacionEditada {
   base  String
 }
 
+/// Descripción de una novedad con días descontados modificada a mano. `base` es la
+/// descripción que armó el sistema cuando se modificó: si la novedad cambia después, se avisa.
+type DescuentoEditado {
+  novedadId String @db.ObjectId
+  texto     String
+  base      String
+}
+
 /// Lo que el sistema no calcula y se digita durante la revisión para generar el
 /// formato de calificación integral. El factor eficiencia sale del cálculo.
 type CalificacionIntegral {
@@ -307,8 +326,16 @@ type CalificacionIntegral {
   calidadMotivacion       MotivacionEditada?
   organizacionMotivacion  MotivacionEditada?
   publicacionesMotivacion MotivacionEditada?
+  /// Descripción de cada novedad con días descontados, modificada a mano, para la motivación de
+  /// eficiencia ("se descontaron un (1) día de <descripción>"). El número de días sale de la novedad.
+  descuentosEditados      DescuentoEditado[]
   /// Motivación completa digitada a mano, para el despacho que aún no tiene textos predeterminados.
   motivacionLibre         String?
+  /// Periodo calificado. Sin fecha, el año completo: 1 de enero y 31 de diciembre del periodo.
+  periodoDesde            DateTime?
+  periodoHasta            DateTime?
+  /// Firmas: se toman de la configuración (DespachoSeccional.ponente y FirmasCalificacion)
+  /// al guardar, y quedan fijas en la calificación cuando se aprueba.
   ponente                 String?
   presidente              String?
   iniciales               String?
