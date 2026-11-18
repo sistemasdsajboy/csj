@@ -6,6 +6,7 @@ import {
 	factoresDe,
 	revisarCompletitud,
 	seccionesMotivacion,
+	seDigitaIntegral,
 } from '$lib/core/calificaciones/integral/documento';
 import {
 	comoTexto,
@@ -24,8 +25,8 @@ import type { Actions, PageServerLoad } from './$types';
 
 /**
  * Formato de calificación integral: lo que el sistema no calcula se digita
- * aquí mientras la calificación está en revisión. Digitan revisores y
- * administradores. El documento se descarga en revisión (borrador) y cuando
+ * aquí mientras la calificación está en revisión o aprobada. Digitan revisores
+ * y administradores. El documento se descarga en revisión (borrador) y cuando
  * está aprobada.
  */
 
@@ -68,8 +69,8 @@ export const load = (async ({ params, locals }) => {
 			descuentos: g.descuentos.map((n) => ({ ...n, prefijo: prefijoDescuento(n.dias) })),
 		})),
 		sugerencias: await sugerencias(cp.despachoSeccionalId, cp.periodo, cp.id),
-		// En revisión, las firmas configuradas (las que se guardan; sin configurar, lo que ya tenía);
-		// aprobada, las que quedaron guardadas.
+		// Mientras se digita, las firmas configuradas (las que se guardan; sin configurar, lo que ya
+		// tenía); en otro estado, las que quedaron guardadas.
 		firmas: {
 			ponente: entrada.firmasConfiguradas?.ponente ?? cp.integral?.ponente ?? null,
 			presidente: entrada.firmasConfiguradas?.presidente ?? cp.integral?.presidente ?? null,
@@ -81,7 +82,8 @@ export const load = (async ({ params, locals }) => {
 		resultado: calcularIntegral(factores),
 		avisos: revisarCompletitud(entrada),
 		motivacion: seccionesMotivacion(entrada),
-		puedeEditar: cp.estado === 'revision' && ROLES_QUE_DIGITAN.some((r) => locals.user?.roles.includes(r)),
+		seDigita: seDigitaIntegral(cp.estado),
+		puedeEditar: seDigitaIntegral(cp.estado) && ROLES_QUE_DIGITAN.some((r) => locals.user?.roles.includes(r)),
 		puedeDescargar: cp.estado === 'revision' || cp.estado === 'aprobada',
 	};
 }) satisfies PageServerLoad;
@@ -149,9 +151,9 @@ export const actions = {
 			},
 		});
 		if (!cp) return fail(404, { error: 'Calificación no encontrada.' });
-		if (cp.estado !== 'revision')
+		if (!seDigitaIntegral(cp.estado))
 			return fail(400, {
-				error: 'Los datos de la calificación integral solo se pueden digitar mientras la calificación está en revisión.',
+				error: 'Los datos de la calificación integral solo se pueden digitar mientras la calificación está en revisión o aprobada.',
 			});
 
 		const crudo = Object.fromEntries(await request.formData());

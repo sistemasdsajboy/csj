@@ -335,7 +335,7 @@ type CalificacionIntegral {
   periodoDesde            DateTime?
   periodoHasta            DateTime?
   /// Firmas: se toman de la configuración (DespachoSeccional.ponente y FirmasCalificacion)
-  /// al guardar, y quedan fijas en la calificación cuando se aprueba.
+  /// cada vez que se guarda la calificación integral (en revisión o aprobada).
   ponente                 String?
   presidente              String?
   iniciales               String?

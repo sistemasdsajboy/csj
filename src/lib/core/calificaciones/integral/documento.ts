@@ -23,13 +23,19 @@ export type EntradaDocumento = {
 	textosPredeterminados: boolean;
 	/**
 	 * Ponente del despacho que califica y presidente, como están configurados hoy.
-	 * Solo mientras la calificación está en revisión: aprobada, el formato usa
-	 * únicamente lo que quedó guardado en ella.
+	 * Solo mientras la calificación integral se puede digitar (`seDigitaIntegral`);
+	 * en otro estado, el formato usa únicamente lo que quedó guardado en ella.
 	 */
 	firmasConfiguradas?: Firmas;
 };
 
 export type Firmas = { ponente: string | null; presidente: string | null };
+
+/**
+ * La calificación integral se digita y se corrige con la calificación en revisión
+ * o aprobada: también se completa después de que la sala aprueba el rendimiento.
+ */
+export const seDigitaIntegral = (estado: string) => estado === 'revision' || estado === 'aprobada';
 
 export type Seccion = { titulo: string; parrafos: string[] };
 

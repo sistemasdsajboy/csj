@@ -1,6 +1,13 @@
 import type { CalificacionIntegral } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { datosDocumento, descuentosPorJuzgado, revisarCompletitud, seccionesMotivacion, type EntradaDocumento } from './documento';
+import {
+	datosDocumento,
+	descuentosPorJuzgado,
+	revisarCompletitud,
+	seccionesMotivacion,
+	seDigitaIntegral,
+	type EntradaDocumento,
+} from './documento';
 import { comoTexto, motivacionCalidad } from './motivacion';
 import { fraseDeDescuentos, type DescuentoNovedad, type DespachoEficiencia } from './motivacion-eficiencia';
 
@@ -240,6 +247,14 @@ describe('periodo calificado', () => {
 		expect(revisarCompletitud(entrada({ periodoDesde: fecha('2025-11-01'), periodoHasta: fecha('2025-10-01') }))).toContain(
 			'El periodo calificado empieza después de la fecha en que termina: revise las fechas.'
 		);
+	});
+});
+
+describe('cuándo se digita la calificación integral', () => {
+	it('en revisión y aprobada sí; en los demás estados no', () => {
+		expect(seDigitaIntegral('revision')).toBe(true);
+		expect(seDigitaIntegral('aprobada')).toBe(true);
+		for (const estado of ['borrador', 'devuelta', 'eliminada', 'archivada']) expect(seDigitaIntegral(estado)).toBe(false);
 	});
 });
 
