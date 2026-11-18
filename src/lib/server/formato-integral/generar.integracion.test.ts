@@ -46,6 +46,8 @@ describe.skipIf(!activa)('formato de calificación integral con datos reales', (
 				publicacionesMotivacion: null,
 				descuentosEditados: [],
 				motivacionLibre: null,
+				periodoDesde: null,
+				periodoHasta: null,
 				ponente: 'Consejera Ponente: [NOMBRE DE PRUEBA]',
 				presidente: '[NOMBRE DE PRUEBA]',
 				iniciales: '[INICIALES]/',

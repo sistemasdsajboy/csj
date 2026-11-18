@@ -1,6 +1,6 @@
 import type { CalificacionIntegral } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { descuentosPorJuzgado, revisarCompletitud, seccionesMotivacion, type EntradaDocumento } from './documento';
+import { datosDocumento, descuentosPorJuzgado, revisarCompletitud, seccionesMotivacion, type EntradaDocumento } from './documento';
 import { comoTexto, motivacionCalidad } from './motivacion';
 import { fraseDeDescuentos, type DescuentoNovedad, type DespachoEficiencia } from './motivacion-eficiencia';
 
@@ -22,6 +22,8 @@ const integral: CalificacionIntegral = {
 	publicacionesMotivacion: null,
 	descuentosEditados: [],
 	motivacionLibre: null,
+	periodoDesde: null,
+	periodoHasta: null,
 	ponente: null,
 	presidente: null,
 	iniciales: null,
@@ -213,5 +215,69 @@ describe('redacción de los días descontados', () => {
 			const e = dos({ descuentosEditados: [{ novedadId: ID3, texto: 'Texto propio', base: 'licencia (del 01/02/2025 al 03/02/2025)' }] });
 			expect(revisarCompletitud(e).join(' ')).toContain('La redacción de los días descontados se modificó a mano');
 		});
+	});
+});
+
+describe('periodo calificado', () => {
+	it('sin fechas es el año completo; con fechas, las digitadas', () => {
+		expect(datosDocumento(entrada())).toMatchObject({
+			desdeDia: '01',
+			desdeMes: '01',
+			desdeAnio: '2025',
+			hastaDia: '31',
+			hastaMes: '12',
+			hastaAnio: '2025',
+		});
+		const e = entrada({ periodoDesde: fecha('2025-03-15'), periodoHasta: fecha('2025-10-31') });
+		expect(datosDocumento(e)).toMatchObject({ desdeDia: '15', desdeMes: '03', desdeAnio: '2025', hastaDia: '31', hastaMes: '10' });
+		expect(revisarCompletitud(e).join(' ')).not.toContain('periodo calificado');
+	});
+
+	it('avisa si se sale del año o si empieza después de terminar', () => {
+		expect(revisarCompletitud(entrada({ periodoDesde: fecha('2024-12-01') }))).toContain(
+			'El periodo calificado se sale del año 2025: revise las fechas.'
+		);
+		expect(revisarCompletitud(entrada({ periodoDesde: fecha('2025-11-01'), periodoHasta: fecha('2025-10-01') }))).toContain(
+			'El periodo calificado empieza después de la fecha en que termina: revise las fechas.'
+		);
+	});
+});
+
+describe('firmas', () => {
+	const configuradas = { ponente: 'Consejera Ponente: CONFIGURADA', presidente: 'PRESIDENTE CONFIGURADO' };
+	const guardadas = { ponente: 'Consejera Ponente: GUARDADA', presidente: 'PRESIDENTE GUARDADO' };
+
+	it('sin nada guardado salen las configuradas', () => {
+		const e = { ...entrada(), firmasConfiguradas: configuradas };
+		expect(datosDocumento(e)).toMatchObject({
+			ponente: 'Consejera Ponente: CONFIGURADA',
+			firmaPresidente: 'Firma Presidente – PRESIDENTE CONFIGURADO',
+		});
+		expect(revisarCompletitud(e).join(' ')).not.toMatch(/ponente|presidente/i);
+	});
+
+	it('lo guardado manda; si la configuración cambió después, avisa que hay que guardar de nuevo', () => {
+		const e = { ...entrada(guardadas), firmasConfiguradas: configuradas };
+		expect(datosDocumento(e)).toMatchObject({
+			ponente: 'Consejera Ponente: GUARDADA',
+			firmaPresidente: 'Firma Presidente – PRESIDENTE GUARDADO',
+		});
+		expect(revisarCompletitud(e)).toContain(
+			'El ponente o el presidente configurado cambió después de guardar esta calificación: guarde de nuevo para que el formato lo tome.'
+		);
+		// Igual a lo configurado: no hay aviso.
+		expect(revisarCompletitud({ ...entrada(configuradas), firmasConfiguradas: configuradas }).join(' ')).not.toMatch(/ponente|presidente/i);
+	});
+
+	it('aprobada (sin configuración a la vista) usa solo lo guardado y no compara', () => {
+		expect(datosDocumento(entrada(guardadas))).toMatchObject({ ponente: 'Consejera Ponente: GUARDADA' });
+		expect(revisarCompletitud(entrada(guardadas)).join(' ')).not.toMatch(/ponente|presidente/i);
+	});
+
+	it('sin ponente ni presidente, lo avisa y el formato deja el espacio', () => {
+		const avisos = revisarCompletitud(entrada()).join(' ');
+		expect(avisos).toContain('Falta el ponente del despacho que califica');
+		expect(avisos).toContain('Falta el presidente');
+		expect(datosDocumento(entrada())).toMatchObject({ ponente: '', firmaPresidente: 'Firma Presidente' });
 	});
 });

@@ -25,6 +25,8 @@ const integral = {
 	publicacionesMotivacion: null,
 	descuentosEditados: [],
 	motivacionLibre: null,
+	periodoDesde: null,
+	periodoHasta: null,
 	ponente: 'Consejera Ponente: NOMBRE DE PRUEBA',
 	presidente: 'NOMBRE DE PRUEBA',
 	iniciales: 'AAA/BBB/',

@@ -21,9 +21,29 @@ export type EntradaDocumento = {
 	integral: CalificacionIntegral | null;
 	/** Con textos predeterminados (despacho 2) o con la motivación digitada a mano (despacho 1). */
 	textosPredeterminados: boolean;
+	/**
+	 * Ponente del despacho que califica y presidente, como están configurados hoy.
+	 * Solo mientras la calificación está en revisión: aprobada, el formato usa
+	 * únicamente lo que quedó guardado en ella.
+	 */
+	firmasConfiguradas?: Firmas;
 };
 
+export type Firmas = { ponente: string | null; presidente: string | null };
+
 export type Seccion = { titulo: string; parrafos: string[] };
+
+/** Periodo calificado: lo digitado o, sin fecha, el año completo. */
+export const periodoCalificado = (e: Pick<EntradaDocumento, 'periodo' | 'integral'>) => ({
+	desde: e.integral?.periodoDesde ?? new Date(Date.UTC(e.periodo, 0, 1)),
+	hasta: e.integral?.periodoHasta ?? new Date(Date.UTC(e.periodo, 11, 31)),
+});
+
+/** Ponente y presidente del formato: lo guardado en la calificación; si falta, lo configurado. */
+export const firmasDe = (e: Pick<EntradaDocumento, 'integral' | 'firmasConfiguradas'>) => ({
+	ponente: e.integral?.ponente?.trim() || e.firmasConfiguradas?.ponente?.trim() || '',
+	presidente: e.integral?.presidente?.trim() || e.firmasConfiguradas?.presidente?.trim() || '',
+});
 
 const pendiente = (que: string) => `[Pendiente: ${que}]`;
 
@@ -135,6 +155,8 @@ export function datosDocumento(e: EntradaDocumento) {
 	const resultado: ResultadoIntegral = calcularIntegral(factores);
 	const completa = resultado.completa;
 	const sala = i?.fechaSala ?? null;
+	const { desde, hasta } = periodoCalificado(e);
+	const firmas = firmasDe(e);
 	const nombreCompleto = comoTitulo(`${e.funcionario.nombres} ${e.funcionario.apellidos}`.trim());
 
 	return {
@@ -152,12 +174,12 @@ export function datosDocumento(e: EntradaDocumento) {
 				distrito: c.distrito?.toUpperCase() ?? '',
 			})),
 
-		desdeDia: '01',
-		desdeMes: '01',
-		desdeAnio: String(e.periodo),
-		hastaDia: '31',
-		hastaMes: '12',
-		hastaAnio: String(e.periodo),
+		desdeDia: dos(desde.getUTCDate()),
+		desdeMes: dos(desde.getUTCMonth() + 1),
+		desdeAnio: String(desde.getUTCFullYear()),
+		hastaDia: dos(hasta.getUTCDate()),
+		hastaMes: dos(hasta.getUTCMonth() + 1),
+		hastaAnio: String(hasta.getUTCFullYear()),
 		salaDia: sala ? dos(sala.getUTCDate()) : '',
 		salaMes: sala ? dos(sala.getUTCMonth() + 1) : '',
 		salaAnio: sala ? String(sala.getUTCFullYear()) : '',
@@ -175,8 +197,8 @@ export function datosDocumento(e: EntradaDocumento) {
 
 		secciones: seccionesMotivacion(e),
 
-		ponente: i?.ponente?.trim() ?? '',
-		firmaPresidente: i?.presidente?.trim() ? `Firma Presidente – ${i.presidente.trim()}` : 'Firma Presidente',
+		ponente: firmas.ponente,
+		firmaPresidente: firmas.presidente ? `Firma Presidente – ${firmas.presidente}` : 'Firma Presidente',
 		iniciales: i?.iniciales?.trim() ?? '',
 
 		// Fecha en que se profirió el acto (la de la sala), en letras y en cifras como pide el formato.
@@ -207,6 +229,22 @@ export function revisarCompletitud(e: EntradaDocumento): string[] {
 	avisos.push(...erroresFactores(f));
 	if (!e.funcionario.genero) avisos.push('Falta el género del funcionario: el texto queda con "(a)".');
 	if (!i?.fechaSala) avisos.push('Falta la fecha de la sala (fecha de la calificación).');
+	const { desde, hasta } = periodoCalificado(e);
+	if (desde.getTime() > hasta.getTime())
+		avisos.push('El periodo calificado empieza después de la fecha en que termina: revise las fechas.');
+	else if (desde.getUTCFullYear() !== e.periodo || hasta.getUTCFullYear() !== e.periodo)
+		avisos.push(`El periodo calificado se sale del año ${e.periodo}: revise las fechas.`);
+	const firmas = firmasDe(e);
+	if (!firmas.ponente) avisos.push('Falta el ponente del despacho que califica: se configura en Configuración → Firmas.');
+	if (!firmas.presidente) avisos.push('Falta el presidente: se configura en Configuración → Firmas.');
+	// Lo guardado manda en el formato: si la configuración cambió después, hay que guardar de nuevo.
+	const distinto = (guardado: string | null | undefined, configurado: string | null | undefined) =>
+		!!guardado?.trim() && !!configurado?.trim() && guardado.trim() !== configurado.trim();
+	const c = e.firmasConfiguradas;
+	if (c && (distinto(i?.ponente, c.ponente) || distinto(i?.presidente, c.presidente)))
+		avisos.push(
+			'El ponente o el presidente configurado cambió después de guardar esta calificación: guarde de nuevo para que el formato lo tome.'
+		);
 	if (!i?.cargoCarrera?.cargo) avisos.push('Falta el cargo en carrera.');
 	if (f.calidad == null) avisos.push('Falta el factor calidad (formularios y suma).');
 	if (f.organizacion == null) avisos.push('Falta el factor organización del trabajo.');
