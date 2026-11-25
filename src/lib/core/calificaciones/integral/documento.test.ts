@@ -19,6 +19,7 @@ const integral: CalificacionIntegral = {
 	provisionalidad: [],
 	calidadFormularios: 13,
 	calidadSuma: 512,
+	calidadArticulo29: null,
 	organizacionFechaVisita: fecha('2026-07-24'),
 	organizacionOpcion: 'completo',
 	organizacionPuntaje: null,
@@ -28,11 +29,13 @@ const integral: CalificacionIntegral = {
 	organizacionMotivacion: null,
 	publicacionesMotivacion: null,
 	descuentosEditados: [],
+	plantillasEficiencia: [],
 	motivacionLibre: null,
 	periodoDesde: null,
 	periodoHasta: null,
 	ponente: null,
 	presidente: null,
+	notifica: null,
 	iniciales: null,
 };
 
@@ -41,7 +44,7 @@ const entrada = (i: Partial<CalificacionIntegral> = {}): EntradaDocumento => ({
 	funcionario: { nombres: 'Nombre', apellidos: 'Apellido', cedula: '1', genero: 'femenino' },
 	eficiencia: { despachos: [], ponderada: 30 },
 	integral: { ...integral, ...i },
-	textosPredeterminados: true,
+	redaccion: 'despacho2',
 });
 
 const parrafos = (e: EntradaDocumento, n: number) => seccionesMotivacion(e)[n].parrafos;

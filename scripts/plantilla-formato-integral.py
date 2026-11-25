@@ -17,6 +17,7 @@ import copy
 import sys
 
 import docx
+from docx.text.paragraph import Paragraph
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
@@ -186,23 +187,38 @@ def main(origen):
 
     # 6. Notificación: nombre, cédula, consejo, mes de la sesión y fecha en que se profirió
     # el acto, que es la de la sala (la misma "fecha de la calificación" del recuadro de arriba).
+    #    Lugar, días y firmas: en blanco para llenar a mano, o llenos cuando el despacho tiene
+    #    configurado quién notifica por correo electrónico (ver datosDocumento).
     n = celda(t_notif, 1, 0)
     escribir(
         n.paragraphs[1],
-        'En ___________________________ a los  _______________  (____)  días del mes de {notifMes} de dos mil '
+        'En {notifLugar} a los {notifDias} días del mes de {notifMes} de dos mil '
         '{notifAnioLetras} ({notifAnio}), se notifica personalmente {alDoctor} {nombreCompleto}, {identificado} con la '
         'cédula de ciudadanía No. {cedula} de ______________________, el presente acto administrativo proferido por el '
         'Consejo Seccional de la Judicatura de Boyacá y Casanare, el día {proferidoDia} ({proferidoDiaNum}) del mes de '
         '{proferidoMes} ({proferidoMesNum}) de dos mil {proferidoAnio} ({proferidoAnioNum}).',
     )
-    texto = n.paragraphs[3].text.replace('al interesado (a)', '{alInteresado}').replace('al notificado (a)', '{alNotificado}')
+    texto = (
+        n.paragraphs[3]
+        .text.replace('al interesado (a)', '{alInteresado}')
+        .replace('al notificado (a)', '{alNotificado}')
+        .replace('ante el Consejo Seccional de la Judicatura y', 'ante el Consejo Seccional de la Judicatura{consejoDe} y')
+    )
     escribir(n.paragraphs[3], texto)
-    # La línea de firma de quien se notifica, con el género del funcionario.
-    for fila in t_notif.rows:
-        for c in fila.cells:
-            for par in c.paragraphs:
-                if par.text.strip() == 'El notificado (a),':
-                    escribir(par, '{firmaNotificado},')
+    # Las celdas de firma (filas 2 a 4: notificado a la izquierda, quien notifica a la derecha).
+    filas = t_notif._tbl.findall(qn('w:tr'))
+
+    def parrafos(fila, columna):
+        return [Paragraph(p, None) for p in filas[fila].findall(qn('w:tc'))[columna].findall(qn('w:p'))]
+
+    # La línea de firma de quien se notifica, con el género del funcionario, y debajo su nombre.
+    escribir(parrafos(2, 0)[0], '{firmaNotificado},')
+    escribir(parrafos(2, 0)[1], '{firmaNotificadoNombre}')
+    escribir(parrafos(2, 1)[1], '{quienNotificaFirma}')
+    escribir(parrafos(3, 0)[2], 'C.C. No. {ccNotificado} de ___________________')
+    escribir(parrafos(3, 1)[2], 'C.C. No. {ccNotifica} de {ccNotificaDe}')
+    escribir(parrafos(4, 0)[1], 'Nombre: {nombreNotificado}')
+    escribir(parrafos(4, 1)[1], 'Nombre: {nombreNotifica}')
 
     # 7. Fuera de las tablas: sin la nota ni el instructivo; al final, iniciales y sesión.
     cuerpo = d.element.body
@@ -219,7 +235,8 @@ def main(origen):
             cuerpo.remove(el)
     ancla = parrafo_tras(t_notif._tbl, '')
     ancla = parrafo_tras(ancla, '')
-    parrafo_tras(ancla, '{iniciales} Aprobada en Sesión del {salaLarga}.', formato_de(celda(t_notif, 1, 0).paragraphs[1]))
+    # La frase cambia con la redacción de cada despacho (ver `aprobadaEn` en datosDocumento).
+    parrafo_tras(ancla, '{iniciales} {aprobadaEn}', formato_de(celda(t_notif, 1, 0).paragraphs[1]))
 
     d.save(SALIDA)
     # El servidor la lee como texto dentro del código: en Vercel no hay archivos sueltos que leer.
