@@ -5,11 +5,13 @@ import type { Actions, PageServerLoad } from './$types';
 
 /**
  * Quién firma los formatos de calificación integral: el consejero ponente de
- * cada despacho que califica y quien preside la sala. Cada calificación toma
- * lo configurado al guardarse y lo deja fijo cuando se aprueba.
+ * cada despacho que califica y quien preside la sala; y, por despacho, quién
+ * notifica por correo electrónico (con él, la notificación del formato sale
+ * llena). Cada calificación toma lo configurado al guardarse.
  */
 
 const MAXIMO = 200;
+const MAXIMO_CEDULA = 30;
 
 /** Lo último que se digitó a mano en una calificación, para tenerlo a la vista al configurar por primera vez. */
 async function ultimosUsados() {
@@ -28,7 +30,10 @@ async function ultimosUsados() {
 export const load = (async ({ locals }) => {
 	exigirRol(locals, 'admin');
 	const [despachos, firmas, usados] = await Promise.all([
-		db.despachoSeccional.findMany({ select: { id: true, nombre: true, numero: true, ponente: true }, orderBy: { numero: 'asc' } }),
+		db.despachoSeccional.findMany({
+			select: { id: true, nombre: true, numero: true, ponente: true, notifica: true },
+			orderBy: { numero: 'asc' },
+		}),
 		db.firmasCalificacion.findFirst({ select: { presidente: true } }),
 		ultimosUsados(),
 	]);
@@ -49,13 +54,43 @@ export const actions = {
 		const presidente = limpio(datos.get('presidente'));
 		// Los despachos salen de la base; del formulario solo se lee el campo de cada uno.
 		const despachos = await db.despachoSeccional.findMany({ select: { id: true } });
-		const ponentes = despachos.map((d) => ({ id: d.id, ponente: limpio(datos.get(`ponente_${d.id}`)) }));
-		if (presidente.length > MAXIMO || ponentes.some((p) => p.ponente.length > MAXIMO))
-			return fail(400, { error: `Cada firma admite máximo ${MAXIMO} caracteres.` });
+		const ponentes = despachos.map((d) => ({
+			id: d.id,
+			ponente: limpio(datos.get(`ponente_${d.id}`)),
+			notifica: {
+				nombre: limpio(datos.get(`notificaNombre_${d.id}`)),
+				cargo: limpio(datos.get(`notificaCargo_${d.id}`)),
+				cedula: limpio(datos.get(`notificaCedula_${d.id}`)),
+				expedicion: limpio(datos.get(`notificaExpedicion_${d.id}`)),
+			},
+		}));
+		const largos = (p: (typeof ponentes)[number]) =>
+			[p.ponente, p.notifica.nombre, p.notifica.cargo, p.notifica.expedicion].some((t) => t.length > MAXIMO) ||
+			p.notifica.cedula.length > MAXIMO_CEDULA;
+		if (presidente.length > MAXIMO || ponentes.some(largos))
+			return fail(400, { error: `Cada campo admite máximo ${MAXIMO} caracteres (la cédula, ${MAXIMO_CEDULA}).` });
+		if (ponentes.some((p) => !p.notifica.nombre && (p.notifica.cargo || p.notifica.cedula || p.notifica.expedicion)))
+			return fail(400, { error: 'Para configurar quién notifica hace falta su nombre.' });
 
 		const actual = await db.firmasCalificacion.findFirst({ select: { id: true } });
 		await db.$transaction([
-			...ponentes.map((p) => db.despachoSeccional.update({ where: { id: p.id }, data: { ponente: p.ponente || null } })),
+			...ponentes.map((p) =>
+				db.despachoSeccional.update({
+					where: { id: p.id },
+					data: {
+						ponente: p.ponente || null,
+						// Sin nombre, sin quién notifica: la notificación del formato sale en blanco.
+						notifica: p.notifica.nombre
+							? {
+									nombre: p.notifica.nombre,
+									cargo: p.notifica.cargo || null,
+									cedula: p.notifica.cedula || null,
+									expedicion: p.notifica.expedicion || null,
+								}
+							: null,
+					},
+				})
+			),
 			actual
 				? db.firmasCalificacion.update({ where: { id: actual.id }, data: { presidente: presidente || null } })
 				: db.firmasCalificacion.create({ data: { presidente: presidente || null } }),

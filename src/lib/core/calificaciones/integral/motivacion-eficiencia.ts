@@ -48,7 +48,12 @@ export type AudienciasEficiencia = {
 };
 
 export type DespachoEficiencia = {
+	/** Id del juzgado (Despacho). */
+	despachoId?: string;
 	nombre: string;
+	/** Especialidad y categoría del tipo de despacho, p. ej. "Promiscuo" y "Municipal". */
+	especialidad?: string | null;
+	categoria?: string | null;
 	desde: Date;
 	hasta: Date;
 	diasHabilesDespacho: number;
@@ -195,7 +200,7 @@ function parrafosAudiencias(a: AudienciasEficiencia | null, p: Palabras): string
 }
 
 /** "se descontó un (1) día de ..." si es una sola novedad de un día; si no, "se descontaron". */
-const verboDescuento = (descuentos: string) => {
+export const verboDescuento = (descuentos: string) => {
 	const t = descuentos.trim();
 	const unaSola = !/\)(,| y) /.test(t);
 	return unaSola && /^un \(1\) día\b/.test(t) ? 'se descontó' : 'se descontaron';

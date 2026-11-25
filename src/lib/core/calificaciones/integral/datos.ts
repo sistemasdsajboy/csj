@@ -158,7 +158,10 @@ export async function datosEficiencia(calificacionId: string) {
 		const finales = propias.map((r) => r.hasta.getTime());
 		const a = cd.registroAudiencias;
 		despachos.push({
+			despachoId: cd.despachoId,
 			nombre: cd.despacho.nombre,
+			especialidad: cd.despacho.tipoDespacho?.especialidad ?? null,
+			categoria: cd.despacho.tipoDespacho?.categoria ?? null,
 			desde: unico || !fechas.length ? new Date(Date.UTC(cp.periodo, 0, 1)) : new Date(Math.min(...fechas)),
 			hasta: unico || !finales.length ? new Date(Date.UTC(cp.periodo, 11, 31)) : new Date(Math.max(...finales)),
 			diasHabilesDespacho: cd.diasHabilesDespacho,

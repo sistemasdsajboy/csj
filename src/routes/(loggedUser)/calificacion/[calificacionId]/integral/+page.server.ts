@@ -4,10 +4,18 @@ import {
 	descuentosPorJuzgado,
 	descuentosPredeterminados,
 	factoresDe,
+	redaccionDe,
 	revisarCompletitud,
 	seccionesMotivacion,
 	seDigitaIntegral,
 } from '$lib/core/calificaciones/integral/documento';
+import {
+	esPlantillaDespacho1,
+	PLANTILLAS_DESPACHO_1,
+	plantillaDe,
+	plantillaSugerida,
+} from '$lib/core/calificaciones/integral/eficiencia-despacho-1';
+import { motivacionesPredeterminadasDespacho1 } from '$lib/core/calificaciones/integral/motivacion-despacho-1';
 import {
 	comoTexto,
 	mismoTexto,
@@ -58,8 +66,22 @@ export const load = (async ({ params, locals }) => {
 		calificacion: { id: cp.id, periodo: cp.periodo, estado: cp.estado, despachoSeccionalId: cp.despachoSeccionalId },
 		funcionario,
 		opcionesNombre: cortesDelNombre(funcionario.nombre),
-		integral: cp.integral,
-		textosPredeterminados: entrada.textosPredeterminados,
+		// Sin quién notifica: la página no lo usa de aquí (lo muestra `firmas`) y trae su cédula.
+		integral: cp.integral ? { ...cp.integral, notifica: null } : null,
+		redaccion: entrada.redaccion,
+		// Despacho 1: la especialidad (redacción de eficiencia) de cada juzgado con días laborados.
+		plantillasPorJuzgado:
+			entrada.redaccion === 'despacho1'
+				? entrada.eficiencia.despachos
+						.filter((d) => d.despachoId && d.diasLaborados > 0)
+						.map((d) => ({
+							despachoId: d.despachoId!,
+							juzgado: d.nombre,
+							sugerida: plantillaSugerida(d),
+							elegida: plantillaDe(d, cp.integral?.plantillasEficiencia),
+						}))
+				: [],
+		opcionesPlantilla: Object.entries(PLANTILLAS_DESPACHO_1).map(([valor, etiqueta]) => ({ valor, etiqueta })),
 		despachoSeccional: cp.despachoSeccional ? { nombre: cp.despachoSeccional.nombre, numero: cp.despachoSeccional.numero } : null,
 		despachosSeccionales,
 		opcionesOrganizacion: Object.entries(OPCIONES_ORGANIZACION).map(([valor, o]) => ({ valor, etiqueta: o.etiqueta })),
@@ -76,6 +98,12 @@ export const load = (async ({ params, locals }) => {
 			presidente: entrada.firmasConfiguradas?.presidente ?? cp.integral?.presidente ?? null,
 			ponenteConfigurado: !!entrada.firmasConfiguradas?.ponente,
 			presidenteConfigurado: !!entrada.firmasConfiguradas?.presidente,
+			// Quién notifica por correo: el nombre y el cargo, como sale en el formato.
+			notifica: (() => {
+				const n = entrada.firmasConfiguradas?.notifica ?? (cp.integral?.notifica?.nombre?.trim() ? cp.integral.notifica : null);
+				return n ? `${n.nombre}${n.cargo?.trim() ? ` – ${n.cargo.trim()}` : ''}` : null;
+			})(),
+			notificaConfigurado: !!entrada.firmasConfiguradas?.notifica,
 		},
 		esAdmin: !!locals.user?.roles.includes('admin'),
 		factores,
@@ -120,6 +148,8 @@ const formulario = z.object({
 	provDistrito2: texto,
 	calidadFormularios: entero(1, 1000),
 	calidadSuma: numero(0, 42000),
+	// Casilla del despacho 1: sin marcar, no llega.
+	calidadArticulo29: z.preprocess((v) => v === 'on', z.boolean()),
 	organizacionFechaVisita: fecha,
 	organizacionOpcion: z.preprocess((v) => (esOpcionOrganizacion(v) ? v : null), z.string().nullable()),
 	organizacionPuntaje: numero(0, 12),
@@ -146,6 +176,7 @@ export const actions = {
 				estado: true,
 				periodo: true,
 				despachoSeccionalId: true,
+				despachoSeccional: { select: { numero: true } },
 				integral: true,
 				funcionario: { select: { id: true, nombre: true } },
 			},
@@ -167,8 +198,12 @@ export const actions = {
 			return fail(400, { error: 'El factor calidad (suma / formularios) no puede pasar de 42.' });
 		// El despacho que califica solo se elige aquí si la calificación no lo tiene; si ya lo tiene, se cambia desde la calificación.
 		const despachoSeccionalId = cp.despachoSeccionalId ? null : d.despachoSeccionalId;
-		if (despachoSeccionalId && !(await db.despachoSeccional.count({ where: { id: despachoSeccionalId } })))
-			return fail(400, { error: 'El despacho que califica no existe.' });
+		const elegido = despachoSeccionalId
+			? await db.despachoSeccional.findFirst({ where: { id: despachoSeccionalId }, select: { numero: true } })
+			: null;
+		if (despachoSeccionalId && !elegido) return fail(400, { error: 'El despacho que califica no existe.' });
+		// Cada despacho seccional tiene su redacción; los textos se comparan con los de ese despacho.
+		const redaccion = redaccionDe(cp.despachoSeccional?.numero ?? elegido?.numero);
 
 		// Periodo calificado: la fecha del año completo se guarda vacía, que es el predeterminado.
 		const inicioAnio = Date.UTC(cp.periodo, 0, 1);
@@ -192,14 +227,16 @@ export const actions = {
 
 		// Un texto se guarda como modificado solo si quien califica lo tocó y quedó distinto
 		// del predeterminado con estos mismos datos; si no, sale el predeterminado.
-		const pre = motivacionesPredeterminadas({ ...d, periodo: cp.periodo });
+		const pre =
+			redaccion === 'despacho1' ? motivacionesPredeterminadasDespacho1(d) : motivacionesPredeterminadas({ ...d, periodo: cp.periodo });
 		const editada = (f: FactorEditable, texto: string | null, base: string | undefined) =>
 			base === undefined || !texto || mismoTexto(texto, comoTexto(pre[f])) ? null : { texto, base };
 		// La descripción de cada novedad con días descontados, de todos los juzgados. Los
 		// campos se llaman `descuento_<id de la novedad>`; los ids salen de la base, no del
 		// formulario. Va dentro de una oración, así que se guarda en una sola línea.
+		const eficiencia = await datosEficiencia(cp.id);
 		const descuentosEditados: { novedadId: string; texto: string; base: string }[] = [];
-		for (const n of descuentosPredeterminados({ eficiencia: await datosEficiencia(cp.id) })) {
+		for (const n of descuentosPredeterminados({ eficiencia })) {
 			const valor = crudo[`descuento_${n.novedadId}`];
 			const base = crudo[`descuento_${n.novedadId}Base`];
 			const texto = typeof valor === 'string' ? parrafosLibres(valor).join(' ') : '';
@@ -208,6 +245,17 @@ export const actions = {
 				return fail(400, { error: 'La redacción de un día descontado es demasiado larga (máximo 1000 caracteres).' });
 			descuentosEditados.push({ novedadId: n.novedadId, texto, base });
 		}
+		// Despacho 1: la especialidad de cada juzgado (`plantilla_<id del juzgado>`; los ids salen de la
+		// base). Se guarda solo si difiere de la que corresponde a sus datos, para que siga a los datos.
+		const plantillasEficiencia =
+			redaccion === 'despacho1'
+				? eficiencia.despachos.flatMap((dd) => {
+						const valor = dd.despachoId ? crudo[`plantilla_${dd.despachoId}`] : undefined;
+						return dd.despachoId && esPlantillaDespacho1(valor) && valor !== plantillaSugerida(dd)
+							? [{ despachoId: dd.despachoId, plantilla: valor }]
+							: [];
+					})
+				: [];
 
 		await db.$transaction([
 			db.funcionario.update({ where: { id: cp.funcionario.id }, data: { genero: d.genero, ...(partes ?? {}) } }),
@@ -222,6 +270,7 @@ export const actions = {
 							provisionalidad,
 							calidadFormularios: d.calidadFormularios,
 							calidadSuma: d.calidadSuma,
+							calidadArticulo29: redaccion === 'despacho1' ? d.calidadArticulo29 : null,
 							organizacionFechaVisita: d.organizacionFechaVisita,
 							organizacionOpcion: d.organizacionOpcion,
 							organizacionPuntaje: d.organizacionOpcion === 'otro' ? d.organizacionPuntaje : null,
@@ -231,11 +280,13 @@ export const actions = {
 							organizacionMotivacion: editada('organizacion', d.organizacionMotivacion, d.organizacionMotivacionBase),
 							publicacionesMotivacion: editada('publicaciones', d.publicacionesMotivacion, d.publicacionesMotivacionBase),
 							descuentosEditados,
+							plantillasEficiencia,
 							motivacionLibre: d.motivacionLibre,
 							periodoDesde,
 							periodoHasta,
 							ponente: firmas.ponente ?? cp.integral?.ponente ?? null,
 							presidente: firmas.presidente ?? cp.integral?.presidente ?? null,
+							notifica: firmas.notifica ?? cp.integral?.notifica ?? null,
 							iniciales: d.iniciales,
 						},
 					},

@@ -6,6 +6,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { calcularIntegral, MAXIMOS, notaCalidad, puntajeOrganizacion } from '$lib/core/calificaciones/integral/integral';
 	import { motivacionesPredeterminadas } from '$lib/core/calificaciones/integral/motivacion';
+	import { motivacionesPredeterminadasDespacho1 } from '$lib/core/calificaciones/integral/motivacion-despacho-1';
 	import { cantidad, cifra } from '$lib/core/calificaciones/integral/redaccion';
 	import MotivacionEditable from './motivacion-editable.svelte';
 
@@ -19,7 +20,9 @@
 	// Lo que mueve la nota en vivo mientras se digita.
 	let formularios = $state<number | string | null>(i?.calidadFormularios ?? null);
 	let suma = $state<number | string | null>(i?.calidadSuma ?? null);
-	let opcion = $state<string>(i?.organizacionOpcion ?? (data.textosPredeterminados ? '' : 'otro'));
+	const d1 = data.redaccion === 'despacho1';
+	let opcion = $state<string>(i?.organizacionOpcion ?? (data.redaccion ? '' : 'otro'));
+	let articulo29 = $state<boolean>(!!i?.calidadArticulo29);
 	let puntajeOtro = $state<number | string | null>(i?.organizacionPuntaje ?? null);
 	let publicaciones = $state<string>(i?.publicacionesPuntaje != null ? String(i.publicacionesPuntaje) : '');
 	// Lo que además cambia la redacción de los textos predeterminados.
@@ -33,21 +36,29 @@
 		const n = numeroONulo(v);
 		return n != null && Number.isInteger(n) && n >= 1 ? n : null;
 	};
-	// Los mismos textos que arma el servidor, con lo que se está digitando.
-	const predeterminadas = $derived(
-		motivacionesPredeterminadas({
-			genero: genero === 'femenino' || genero === 'masculino' ? genero : null,
-			periodo: data.calificacion.periodo,
+	// Los mismos textos que arma el servidor, con lo que se está digitando, con la redacción del despacho.
+	const predeterminadas = $derived.by(() => {
+		const g: 'femenino' | 'masculino' | null = genero === 'femenino' || genero === 'masculino' ? genero : null;
+		const comun = {
+			genero: g,
 			calidadFormularios: enteroONulo(formularios),
-			calidadSuma: numeroONulo(suma),
-			organizacionFechaVisita: /^\d{4}-\d{2}-\d{2}$/.test(fechaVisita) ? new Date(`${fechaVisita}T00:00:00Z`) : null,
 			organizacionOpcion: opcion || null,
 			oficioEscuela: oficio.trim() || null,
 			publicacionesPuntaje: publicaciones === '' ? null : Number(publicaciones),
-		})
-	);
-	// Se recalcula al guardar: los días descontados modificados a mano cambian este texto.
-	const eficienciaGuardada = $derived(data.motivacion.find((m) => m.titulo.startsWith('3.')));
+		};
+		return d1
+			? motivacionesPredeterminadasDespacho1({ ...comun, calidadArticulo29: articulo29 })
+			: motivacionesPredeterminadas({
+					...comun,
+					periodo: data.calificacion.periodo,
+					calidadSuma: numeroONulo(suma),
+					organizacionFechaVisita: /^\d{4}-\d{2}-\d{2}$/.test(fechaVisita) ? new Date(`${fechaVisita}T00:00:00Z`) : null,
+				});
+	});
+	// Se recalcula al guardar: los días descontados y la especialidad cambian este texto.
+	const eficienciaGuardada = $derived(data.motivacion.find((m) => m.clave === 'eficiencia'));
+	// Títulos de la sección 4: cada despacho con los suyos.
+	const titulo = (n: number, nombre: string) => (d1 ? `Factor ${nombre}` : `${n}. Factor ${nombre}`);
 	const vivo = $derived.by(() => {
 		const factores = {
 			calidad: notaCalidad(numeroONulo(formularios), numeroONulo(suma)),
@@ -301,7 +312,9 @@
 										<option value={d.id}>{d.nombre}</option>
 									{/each}
 								</select>
-								<p class="text-xs text-slate-500">El despacho 2 usa los textos predeterminados; el despacho 1 digita la motivación.</p>
+								<p class="text-xs text-slate-500">
+									Cada despacho tiene su propia redacción de los textos predeterminados. Al guardar, la página los muestra.
+								</p>
 							</div>
 						{/if}
 					</div>
@@ -332,6 +345,15 @@
 								</div>
 							</div>
 						</div>
+						{#if d1}
+							<label class="flex items-start gap-2 text-sm">
+								<input type="checkbox" name="calidadArticulo29" bind:checked={articulo29} class="mt-1" />
+								<span>
+									Se aplicó el artículo 29: al terminar el periodo no había llegado el mínimo de formularios y el Consejo escogió procesos
+									al azar para completarlo. Agrega ese párrafo al texto de calidad.
+								</span>
+							</label>
+						{/if}
 					</div>
 
 					<div class="space-y-3">
@@ -340,7 +362,28 @@
 							Factor eficiencia: <span class="font-semibold">{cifra(data.factores.eficiencia)}</span>. La motivación de este factor la arma
 							el sistema con los datos de la calificación.
 						</div>
-						{#if data.textosPredeterminados}
+						{#if d1 && data.plantillasPorJuzgado.length}
+							<div class="space-y-3">
+								<div class="text-sm font-medium">Especialidad (redacción del texto de eficiencia)</div>
+								<p class="text-xs text-slate-500">
+									Elija el formato que corresponde al juzgado. El sistema propone el que corresponde a sus datos. Las cifras no cambian,
+									solo la redacción. El texto de eficiencia se actualiza al guardar.
+								</p>
+								{#each data.plantillasPorJuzgado as pj (pj.despachoId)}
+									<div class="grid gap-2 md:grid-cols-3 md:items-center">
+										<Label for={`plantilla_${pj.despachoId}`}>{pj.juzgado}</Label>
+										<select id={`plantilla_${pj.despachoId}`} name={`plantilla_${pj.despachoId}`} class={`${campo} h-9 md:col-span-2`}>
+											{#each data.opcionesPlantilla as o}
+												<option value={o.valor} selected={o.valor === pj.elegida}
+													>{o.etiqueta}{o.valor === pj.sugerida ? ' (según sus datos)' : ''}</option
+												>
+											{/each}
+										</select>
+									</div>
+								{/each}
+							</div>
+						{/if}
+						{#if data.redaccion}
 							{@const variosJuzgados = data.descuentosPorJuzgado.length > 1}
 							{#if data.descuentosPorJuzgado.some((g) => g.descuentos.length)}
 								<div class="space-y-3">
@@ -382,12 +425,17 @@
 
 					<div class="space-y-3">
 						<h3 class="font-semibold">Organización del trabajo (hasta 12) — art. 47</h3>
-						{#if data.textosPredeterminados}
+						{#if data.redaccion}
 							<div class="grid gap-4 md:grid-cols-3">
-								<div class="space-y-1.5">
-									<Label for="organizacionFechaVisita">Fecha de la visita</Label>
-									<Input id="organizacionFechaVisita" name="organizacionFechaVisita" type="date" bind:value={fechaVisita} />
-								</div>
+								{#if d1}
+									<!-- Los textos del despacho 1 no citan la fecha de la visita: se conserva lo que hubiera. -->
+									<input type="hidden" name="organizacionFechaVisita" value={fechaVisita} />
+								{:else}
+									<div class="space-y-1.5">
+										<Label for="organizacionFechaVisita">Fecha de la visita</Label>
+										<Input id="organizacionFechaVisita" name="organizacionFechaVisita" type="date" bind:value={fechaVisita} />
+									</div>
+								{/if}
 								<div class="space-y-1.5 md:col-span-2">
 									<Label for="organizacionOpcion">Texto de la motivación (fija el puntaje)</Label>
 									<select id="organizacionOpcion" name="organizacionOpcion" class={`${campo} h-9`} bind:value={opcion}>
@@ -399,9 +447,13 @@
 									<p class="text-xs text-slate-500">El texto elegido aparece en la sección 4, donde se puede modificar.</p>
 								</div>
 							</div>
-							{#if opcion === 'sinEscuela' || opcion === 'sinAmbos'}
+							{#if d1 ? !!opcion && opcion !== 'otro' : opcion === 'sinEscuela' || opcion === 'sinAmbos'}
 								<div class="space-y-1.5">
-									<Label for="oficioEscuela">Oficio de la Escuela Judicial que citan los textos 3 y 4</Label>
+									<Label for="oficioEscuela"
+										>{d1
+											? 'Oficio de la Escuela Judicial que citan los textos'
+											: 'Oficio de la Escuela Judicial que citan los textos 3 y 4'}</Label
+									>
 									<Input id="oficioEscuela" name="oficioEscuela" bind:value={oficio} placeholder="EJO26-73 del 21 de enero de 2026" />
 								</div>
 							{:else}
@@ -424,9 +476,11 @@
 										bind:value={puntajeOtro}
 									/>
 								</div>
-								{#if data.textosPredeterminados}
+								{#if data.redaccion}
 									<p class="self-end text-xs text-slate-500 md:col-span-2">
-										La motivación de este puntaje se escribe en la sección 4, después del párrafo general de organización.
+										{d1
+											? 'La motivación de organización del trabajo se escribe completa en la sección 4.'
+											: 'La motivación de este puntaje se escribe en la sección 4, después del párrafo general de organización.'}
 									</p>
 								{/if}
 							</div>
@@ -451,35 +505,42 @@
 				<!-- 4. Motivación -->
 				<section class="space-y-5">
 					<h2 class="text-lg font-bold">4. Motivación de la evaluación</h2>
-					{#if data.textosPredeterminados}
+					{#if data.redaccion}
 						<p class="text-sm text-slate-600 dark:text-slate-300">
-							Calidad, organización y publicaciones salen con los textos predeterminados del despacho 2 y los datos de arriba, y se pueden
-							modificar. Eficiencia la arma el sistema y no se modifica. Párrafos separados por una línea en blanco.
+							Calidad, organización y publicaciones salen con los textos predeterminados del {d1 ? 'despacho 1' : 'despacho 2'} y los datos de
+							arriba, y se pueden modificar. Eficiencia la arma el sistema{d1 ? ' con la especialidad elegida' : ''} y no se modifica. Párrafos
+							separados por una línea en blanco.
 						</p>
 						<MotivacionEditable
 							name="calidadMotivacion"
-							etiqueta="1. Factor calidad"
+							etiqueta={titulo(1, 'calidad')}
 							predeterminada={predeterminadas.calidad}
 							guardada={i?.calidadMotivacion}
-							vacio="El texto aparece al digitar el número de formularios y la suma de los puntajes."
+							vacio={d1
+								? 'El texto aparece al digitar el número de formularios.'
+								: 'El texto aparece al digitar el número de formularios y la suma de los puntajes.'}
 							filas={5}
 							clase={`${campo} py-2 font-serif leading-relaxed`}
 						/>
 						<MotivacionEditable
 							name="organizacionMotivacion"
-							etiqueta="2. Factor organización del trabajo"
-							ayuda={opcion === 'otro'
+							etiqueta={titulo(2, 'organización del trabajo')}
+							ayuda={opcion === 'otro' && !d1
 								? 'Con "Otro", escriba después del párrafo general la motivación del puntaje, separada por una línea en blanco.'
 								: ''}
 							predeterminada={predeterminadas.organizacion}
 							guardada={i?.organizacionMotivacion}
-							vacio="El texto aparece al digitar la fecha de la visita y elegir el texto de organización del trabajo."
+							vacio={!d1
+								? 'El texto aparece al digitar la fecha de la visita y elegir el texto de organización del trabajo.'
+								: opcion === 'otro'
+									? 'Con "Otro", escriba aquí la motivación de organización del trabajo.'
+									: 'El texto aparece al elegir el texto de organización del trabajo.'}
 							filas={12}
 							clase={`${campo} py-2 font-serif leading-relaxed`}
 						/>
 						<div class="space-y-1.5">
 							<div class="text-sm font-medium">
-								3. Factor eficiencia o rendimiento <span class="font-normal text-slate-500">(sale del sistema, no se modifica)</span>
+								{titulo(3, 'eficiencia o rendimiento')} <span class="font-normal text-slate-500">(sale del sistema, no se modifica)</span>
 							</div>
 							<div
 								class="max-h-64 space-y-2 overflow-y-auto rounded-md border bg-slate-50 px-3 py-2 font-serif text-sm leading-relaxed text-slate-700 dark:bg-slate-900 dark:text-slate-300"
@@ -491,7 +552,7 @@
 						</div>
 						<MotivacionEditable
 							name="publicacionesMotivacion"
-							etiqueta="4. Factor publicaciones"
+							etiqueta={titulo(4, 'publicaciones')}
 							predeterminada={predeterminadas.publicaciones}
 							guardada={i?.publicacionesMotivacion}
 							vacio={publicaciones === '' ? 'Elija arriba el puntaje de publicaciones.' : 'Escriba el texto de la publicación presentada.'}
@@ -532,6 +593,9 @@
 					<div class="grid gap-4 md:grid-cols-3">
 						{@render firma('Ponente', data.firmas.ponente, data.firmas.ponenteConfigurado)}
 						{@render firma('Presidente', data.firmas.presidente, data.firmas.presidenteConfigurado)}
+						{#if d1 || data.firmas.notifica}
+							{@render firma('Quien notifica (por correo electrónico)', data.firmas.notifica, data.firmas.notificaConfigurado)}
+						{/if}
 						<div class="space-y-1.5">
 							<Label for="iniciales">Iniciales de quienes proyectaron y revisaron</Label>
 							<Input id="iniciales" name="iniciales" value={i?.iniciales ?? s.iniciales ?? ''} placeholder="CLRA/HEHR/IKBA/" />

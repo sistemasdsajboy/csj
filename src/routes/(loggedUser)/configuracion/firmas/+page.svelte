@@ -78,6 +78,60 @@
 				{/if}
 			</section>
 
+			<section class="space-y-4">
+				<h3 class="font-semibold">Quién notifica por correo electrónico</h3>
+				<p class="text-xs text-slate-500">
+					Con quién notifica, la notificación del formato sale llena: "En Tunja, a los (ver correo electrónico) días...", el nombre y la
+					cédula del funcionario calificado y los de quien notifica. Sin nombre, esas líneas salen en blanco para llenar a mano.
+				</p>
+				{#each data.despachos as despacho (despacho.id)}
+					<div class="space-y-2 rounded-md border p-3">
+						<div class="text-sm font-medium">{despacho.nombre}</div>
+						<div class="grid gap-3 md:grid-cols-2">
+							<div class="space-y-1.5">
+								<Label for={`notificaNombre_${despacho.id}`}>Nombre</Label>
+								<Input
+									id={`notificaNombre_${despacho.id}`}
+									name={`notificaNombre_${despacho.id}`}
+									value={despacho.notifica?.nombre ?? ''}
+									maxlength={data.maximo}
+									placeholder="Vacío: notificación en blanco"
+								/>
+							</div>
+							<div class="space-y-1.5">
+								<Label for={`notificaCargo_${despacho.id}`}>Cargo</Label>
+								<Input
+									id={`notificaCargo_${despacho.id}`}
+									name={`notificaCargo_${despacho.id}`}
+									value={despacho.notifica?.cargo ?? ''}
+									maxlength={data.maximo}
+									placeholder="Secretaria"
+								/>
+							</div>
+							<div class="space-y-1.5">
+								<Label for={`notificaCedula_${despacho.id}`}>Cédula</Label>
+								<Input
+									id={`notificaCedula_${despacho.id}`}
+									name={`notificaCedula_${despacho.id}`}
+									value={despacho.notifica?.cedula ?? ''}
+									maxlength={30}
+								/>
+							</div>
+							<div class="space-y-1.5">
+								<Label for={`notificaExpedicion_${despacho.id}`}>Lugar de expedición de la cédula</Label>
+								<Input
+									id={`notificaExpedicion_${despacho.id}`}
+									name={`notificaExpedicion_${despacho.id}`}
+									value={despacho.notifica?.expedicion ?? ''}
+									maxlength={data.maximo}
+									placeholder="Tunja - Boyacá"
+								/>
+							</div>
+						</div>
+					</div>
+				{/each}
+			</section>
+
 			<div class="flex justify-end">
 				<Button type="submit">{guardando ? 'Guardando…' : 'Guardar'}</Button>
 			</div>

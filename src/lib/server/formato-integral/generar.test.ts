@@ -15,6 +15,7 @@ const integral = {
 	provisionalidad: [],
 	calidadFormularios: 13,
 	calidadSuma: 512,
+	calidadArticulo29: null,
 	organizacionFechaVisita: fecha('2026-07-24'),
 	organizacionOpcion: 'sinArl',
 	organizacionPuntaje: null,
@@ -24,11 +25,13 @@ const integral = {
 	organizacionMotivacion: null,
 	publicacionesMotivacion: null,
 	descuentosEditados: [],
+	plantillasEficiencia: [],
 	motivacionLibre: null,
 	periodoDesde: null,
 	periodoHasta: null,
 	ponente: 'Consejera Ponente: NOMBRE DE PRUEBA',
 	presidente: 'NOMBRE DE PRUEBA',
+	notifica: null,
 	iniciales: 'AAA/BBB/',
 };
 
@@ -60,7 +63,7 @@ const entrada = (over: Partial<EntradaDocumento> = {}): EntradaDocumento => ({
 		],
 	},
 	integral,
-	textosPredeterminados: true,
+	redaccion: 'despacho2',
 	...over,
 });
 
@@ -149,9 +152,7 @@ describe('generarFormatoIntegral', () => {
 
 	it('despacho sin textos predeterminados: la motivación digitada a mano', () => {
 		const docx = generarFormatoIntegral(
-			datosDocumento(
-				entrada({ textosPredeterminados: false, integral: { ...integral, motivacionLibre: 'Primer párrafo.\n\nSegundo párrafo.' } })
-			)
+			datosDocumento(entrada({ redaccion: null, integral: { ...integral, motivacionLibre: 'Primer párrafo.\n\nSegundo párrafo.' } }))
 		);
 		const texto = textoDelDocx(docx);
 		expect(texto).toContain('Primer párrafo.');
@@ -174,6 +175,33 @@ describe('generarFormatoIntegral', () => {
 		// Con la marca hay exactamente un párrafo más: el del aviso.
 		const parrafos = (x: string) => (x.match(/<w:p[ >]/g) ?? []).length;
 		expect(parrafos(xml(con)) - parrafos(xml(sin))).toBe(1);
+	});
+
+	it('sin quién notifica, la notificación queda en blanco como en el formato oficial', () => {
+		const texto = textoDelDocx(generarFormatoIntegral(datosDocumento(entrada())));
+		expect(texto).toContain('En ___________________________ a los  _______________  (____)  días del mes de noviembre');
+		expect(texto).toContain('C.C. No. ________________ de ___________________');
+		expect(texto).toContain('C.C. No. ___________________ de _________________________');
+		expect(texto).toContain('ante el Consejo Seccional de la Judicatura y el de apelación');
+		expect(texto).not.toContain('Tunja,');
+		expect(texto).not.toContain('Por Correo Electrónico');
+	});
+
+	it('despacho 1 con quién notifica: la notificación sale llena, como en su formato', () => {
+		const notifica = { nombre: 'NOMBRE DE QUIEN NOTIFICA', cargo: 'Secretaria', cedula: '1000000', expedicion: 'Tunja - Boyacá' };
+		const texto = textoDelDocx(
+			generarFormatoIntegral(datosDocumento(entrada({ redaccion: 'despacho1', integral: { ...integral, notifica } })))
+		);
+		expect(texto).not.toMatch(/[{}]/);
+		expect(texto).toContain('En Tunja, a los (ver correo electrónico) días del mes de noviembre de dos mil veintiséis (2026)');
+		expect(texto).toContain('ante el Consejo Seccional de la Judicatura de Boyacá y Casanare y el de apelación');
+		expect(texto).toContain('NOMBRE DE PRUEBA APELLIDO PRUEBA');
+		expect(texto).toContain('C.C. No. 12345678 de ___________________');
+		expect(texto).toContain('NOMBRE DE QUIEN NOTIFICA – SECRETARIA - (Por Correo Electrónico)');
+		expect(texto).toContain('C.C. No. 1000000 de Tunja - Boyacá');
+		expect(texto).toContain('Nombre: NOMBRE DE PRUEBA APELLIDO PRUEBA');
+		expect(texto).toContain('Nombre: NOMBRE DE QUIEN NOTIFICA - Secretaria');
+		expect(texto).toContain('AAA/BBB/ Aprobada en sesión del día 13 del mes de noviembre de 2026');
 	});
 });
 

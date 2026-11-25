@@ -1,18 +1,21 @@
 import { datosDelFuncionario, datosEficiencia } from '$lib/core/calificaciones/integral/datos';
-import { seDigitaIntegral, type EntradaDocumento, type Firmas } from '$lib/core/calificaciones/integral/documento';
+import { redaccionDe, seDigitaIntegral, type EntradaDocumento, type Firmas } from '$lib/core/calificaciones/integral/documento';
 import { db } from '$lib/server/db-client';
 import { error } from '@sveltejs/kit';
 
-/** Con textos predeterminados solo el despacho 2: el despacho 1 aún digita la motivación a mano. */
-export const usaTextosPredeterminados = (numeroDespacho: number | null | undefined) => numeroDespacho === 2;
-
-/** Ponente del despacho que califica y presidente, como están configurados hoy (Configuración → Firmas). */
+/** Ponente y quién notifica del despacho que califica, y presidente, como están configurados hoy (Configuración → Firmas). */
 export async function firmasConfiguradas(despachoSeccionalId: string | null | undefined): Promise<Firmas> {
 	const [despacho, firmas] = await Promise.all([
-		despachoSeccionalId ? db.despachoSeccional.findFirst({ where: { id: despachoSeccionalId }, select: { ponente: true } }) : null,
+		despachoSeccionalId
+			? db.despachoSeccional.findFirst({ where: { id: despachoSeccionalId }, select: { ponente: true, notifica: true } })
+			: null,
 		db.firmasCalificacion.findFirst({ select: { presidente: true } }),
 	]);
-	return { ponente: despacho?.ponente?.trim() || null, presidente: firmas?.presidente?.trim() || null };
+	return {
+		ponente: despacho?.ponente?.trim() || null,
+		presidente: firmas?.presidente?.trim() || null,
+		notifica: despacho?.notifica?.nombre?.trim() ? despacho.notifica : null,
+	};
 }
 
 /**
@@ -32,7 +35,7 @@ export async function cargarEntrada(calificacionId: string) {
 		funcionario: { nombres: funcionario.nombres, apellidos: funcionario.apellidos, cedula: funcionario.cedula, genero: funcionario.genero },
 		eficiencia,
 		integral: cp.integral,
-		textosPredeterminados: usaTextosPredeterminados(cp.despachoSeccional?.numero),
+		redaccion: redaccionDe(cp.despachoSeccional?.numero),
 		// Mientras se puede digitar (revisión o aprobada), se compara con la configuración;
 		// en otro estado, las firmas quedan como se guardaron.
 		firmasConfiguradas: seDigitaIntegral(cp.estado) ? await firmasConfiguradas(cp.despachoSeccionalId) : undefined,

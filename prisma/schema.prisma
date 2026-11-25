@@ -24,6 +24,19 @@ model DespachoSeccional {
   /// Cómo firma el consejero ponente del despacho en el formato de calificación integral,
   /// p. ej. "Consejera Ponente: NOMBRE". Lo configura un administrador.
   ponente        String?
+  /// Quién notifica por correo electrónico los formatos de este despacho. Con él, la
+  /// notificación del formato sale llena; sin él, en blanco para llenar a mano.
+  notifica       Notificador?
+}
+
+/// Quien notifica la calificación integral por correo electrónico.
+type Notificador {
+  nombre     String
+  /// p. ej. "Secretaria".
+  cargo      String?
+  cedula     String?
+  /// Lugar de expedición de la cédula, p. ej. "Tunja - Boyacá".
+  expedicion String?
 }
 
 /// Quién preside la sala y firma los formatos de calificación integral. Un solo registro;
@@ -305,6 +318,13 @@ type DescuentoEditado {
   base      String
 }
 
+/// Despacho 1: redacción de eficiencia (especialidad) elegida para un juzgado, cuando no es la que
+/// corresponde a sus datos. Valores en PLANTILLAS_DESPACHO_1 (eficiencia-despacho-1.ts).
+type PlantillaEficiencia {
+  despachoId String @db.ObjectId
+  plantilla  String
+}
+
 /// Lo que el sistema no calcula y se digita durante la revisión para generar el
 /// formato de calificación integral. El factor eficiencia sale del cálculo.
 type CalificacionIntegral {
@@ -315,6 +335,8 @@ type CalificacionIntegral {
   /// Factor calidad (art. 31): suma de los puntajes / número de formularios.
   calidadFormularios      Int?
   calidadSuma             Float?
+  /// Despacho 1: se aplicó el artículo 29 (no llegó el mínimo de formularios y se escogieron procesos al azar).
+  calidadArticulo29       Boolean?
   organizacionFechaVisita DateTime?
   /// Texto predeterminado elegido; fija el puntaje. "otro" usa organizacionPuntaje.
   organizacionOpcion      String?
@@ -322,14 +344,16 @@ type CalificacionIntegral {
   /// Oficio de la Escuela Judicial que certifica los cursos del periodo, p. ej. "EJO26-73 del 21 de enero de 2026".
   oficioEscuela           String?
   publicacionesPuntaje    Int?
-  /// Motivación de cada factor modificada a mano (despacho 2). Sin ella sale el texto predeterminado.
+  /// Motivación de cada factor modificada a mano (cada despacho con su redacción). Sin ella sale el texto predeterminado.
   calidadMotivacion       MotivacionEditada?
   organizacionMotivacion  MotivacionEditada?
   publicacionesMotivacion MotivacionEditada?
   /// Descripción de cada novedad con días descontados, modificada a mano, para la motivación de
   /// eficiencia ("se descontaron un (1) día de <descripción>"). El número de días sale de la novedad.
   descuentosEditados      DescuentoEditado[]
-  /// Motivación completa digitada a mano, para el despacho que aún no tiene textos predeterminados.
+  /// Despacho 1: especialidad elegida para la redacción de eficiencia, por juzgado (solo si difiere de la sugerida).
+  plantillasEficiencia    PlantillaEficiencia[]
+  /// Motivación completa digitada a mano, para la calificación sin despacho que califica.
   motivacionLibre         String?
   /// Periodo calificado. Sin fecha, el año completo: 1 de enero y 31 de diciembre del periodo.
   periodoDesde            DateTime?
@@ -338,6 +362,8 @@ type CalificacionIntegral {
   /// cada vez que se guarda la calificación integral (en revisión o aprobada).
   ponente                 String?
   presidente              String?
+  /// Quién notifica: se toma de DespachoSeccional.notifica al guardar, igual que las firmas.
+  notifica                Notificador?
   iniciales               String?
 }
 
