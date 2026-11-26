@@ -181,7 +181,7 @@ describe('generarFormatoIntegral', () => {
 		const texto = textoDelDocx(generarFormatoIntegral(datosDocumento(entrada())));
 		expect(texto).toContain('En ___________________________ a los  _______________  (____)  días del mes de noviembre');
 		expect(texto).toContain('C.C. No. ________________ de ___________________');
-		expect(texto).toContain('C.C. No. ___________________ de _________________________');
+		expect(texto).toContain('C.C. No. ________________ de ___________________');
 		expect(texto).toContain('ante el Consejo Seccional de la Judicatura y el de apelación');
 		expect(texto).not.toContain('Tunja,');
 		expect(texto).not.toContain('Por Correo Electrónico');

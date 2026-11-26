@@ -95,6 +95,49 @@ def parrafo_tras(elemento, texto, rpr=None, negrita=None, justificado=False):
     return p
 
 
+def letra(negrita):
+    """Arial 10, como el resto del formulario (sin esto, la motivación salía en la letra por defecto, más pequeña)."""
+    rpr = OxmlElement('w:rPr')
+    fuentes = OxmlElement('w:rFonts')
+    for atributo in ('w:ascii', 'w:hAnsi', 'w:cs'):
+        fuentes.set(qn(atributo), 'Arial')
+    rpr.append(fuentes)
+    if negrita:
+        rpr.append(OxmlElement('w:b'))
+        rpr.append(OxmlElement('w:bCs'))
+    for etiqueta in ('w:sz', 'w:szCs'):
+        tam = OxmlElement(etiqueta)
+        tam.set(qn('w:val'), '20')
+        rpr.append(tam)
+    return rpr
+
+
+def parrafo_con_formato(elemento, runs, alineacion='both', antes=0, despues=120):
+    """Párrafo nuevo después de `elemento`, con espacio entre párrafos, alineación y runs (texto, negrita)."""
+    p = OxmlElement('w:p')
+    elemento.addnext(p)
+    ppr = OxmlElement('w:pPr')
+    espacio = OxmlElement('w:spacing')
+    espacio.set(qn('w:before'), str(antes))
+    espacio.set(qn('w:after'), str(despues))
+    espacio.set(qn('w:line'), '264')
+    espacio.set(qn('w:lineRule'), 'auto')
+    ppr.append(espacio)
+    jc = OxmlElement('w:jc')
+    jc.set(qn('w:val'), alineacion)
+    ppr.append(jc)
+    p.append(ppr)
+    for texto, negrita in runs:
+        r = OxmlElement('w:r')
+        r.append(letra(negrita))
+        t = OxmlElement('w:t')
+        t.text = texto
+        t.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+        r.append(t)
+        p.append(r)
+    return p
+
+
 def main(origen):
     d = docx.Document(origen)
     t_info, t_periodo, t_calif, t_motiv, t_firma, t_notif = d.tables[:6]
@@ -148,14 +191,40 @@ def main(origen):
     poner(t_calif, 9, 31, '{xInsatisfactoria}')
 
     # 4. Motivación: una sección por factor, con su título y sus párrafos. La motivación
-    #    libre (despacho 1) no tiene título: el párrafo del título desaparece.
+    #    libre (sin despacho que califica) no tiene título: el párrafo del título desaparece.
+    #    Cada párrafo es una lista de partes {t, n}: n en negrilla (los resultados). Las
+    #    fórmulas van centradas; el resto, justificado; con espacio entre párrafos.
     c = celda(t_motiv, 2, 1)
     base = c.paragraphs[0]
     rpr = formato_de(base)
     escribir(base, '{#secciones}')
     ultimo = base._p
-    for texto, negrita, just in [('{#titulo}', None, False), ('{titulo}', True, False), ('{/titulo}', None, False), ('{#parrafos}', None, False), ('{.}', False, True), ('{/parrafos}', None, False), ('{/secciones}', None, False)]:
-        ultimo = parrafo_tras(ultimo, texto, rpr, negrita, just)
+    partes = [('{#partes}{#n}', False), ('{t}', True), ('{/n}{^n}{t}{/n}{/partes}', False)]
+    for paso in [
+        '{#titulo}',
+        '{#tituloCentrado}',
+        ('titulo', 'center', 120, 120),
+        '{/tituloCentrado}',
+        '{^tituloCentrado}',
+        ('titulo', 'left', 120, 60),
+        '{/tituloCentrado}',
+        '{/titulo}',
+        '{#parrafos}',
+        '{#centrado}',
+        ('partes', 'center', 0, 120),
+        '{/centrado}',
+        '{^centrado}',
+        ('partes', 'both', 0, 120),
+        '{/centrado}',
+        '{/parrafos}',
+        '{/secciones}',
+    ]:
+        if isinstance(paso, str):
+            ultimo = parrafo_tras(ultimo, paso, rpr)
+        else:
+            que, alineacion, antes, despues = paso
+            runs = [('{titulo}', True)] if que == 'titulo' else partes
+            ultimo = parrafo_con_formato(ultimo, runs, alineacion, antes, despues)
     # Se quitan las filas vacías de escritura a mano: queda una de separación.
     quitar_filas(t_motiv, range(4, 20))
     # La fila de la motivación viene marcada para no partirse entre páginas: con un
@@ -215,8 +284,18 @@ def main(origen):
     escribir(parrafos(2, 0)[0], '{firmaNotificado},')
     escribir(parrafos(2, 0)[1], '{firmaNotificadoNombre}')
     escribir(parrafos(2, 1)[1], '{quienNotificaFirma}')
+    # Los nombres a la izquierda: justificados, al partirse la línea se separaban las palabras.
+    for p in (parrafos(2, 0)[1], parrafos(2, 1)[1]):
+        ppr = p._p.get_or_add_pPr()
+        for jc in ppr.findall(qn('w:jc')):
+            ppr.remove(jc)
+        jc = OxmlElement('w:jc')
+        jc.set(qn('w:val'), 'left')
+        ppr.append(jc)
     escribir(parrafos(3, 0)[2], 'C.C. No. {ccNotificado} de ___________________')
-    escribir(parrafos(3, 1)[2], 'C.C. No. {ccNotifica} de {ccNotificaDe}')
+    # Sin espacio antes de {ccNotificaDe}: en blanco queda "de_____" pegado, como el formato
+    # oficial (con espacio, la línea se partía y se descuadraba); lleno trae su propio espacio.
+    escribir(parrafos(3, 1)[2], 'C.C. No. {ccNotifica} de{ccNotificaDe}')
     escribir(parrafos(4, 0)[1], 'Nombre: {nombreNotificado}')
     escribir(parrafos(4, 1)[1], 'Nombre: {nombreNotifica}')
 

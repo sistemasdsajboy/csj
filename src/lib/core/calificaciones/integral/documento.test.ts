@@ -261,6 +261,54 @@ describe('cuándo se digita la calificación integral', () => {
 	});
 });
 
+describe('calificación integral al final de la motivación (despacho 2)', () => {
+	const integral = (e: EntradaDocumento) => seccionesMotivacion(e).find((s) => s.clave === 'integral');
+
+	it('la suma de los cuatro factores, el entero y el rango', () => {
+		const s = integral(entrada())!;
+		expect(s.titulo).toBe('CALIFICACIÓN INTEGRAL.');
+		expect(s.parrafos[0]).toBe(
+			'Sumados los puntajes de los cuatro factores (39,38 + 30,00 + 12,00 + 0,00), se obtiene un total de 81,38 puntos que, ' +
+				'aproximado al entero conforme al artículo 22 del Acuerdo PSAA16-10618 de 2016 y al instructivo del formulario, ' +
+				'corresponde a 81 puntos, es decir, una calificación SATISFACTORIA en el rango BUENA (60 a 84 puntos), según el ' +
+				'artículo 23 del mismo Acuerdo.'
+		);
+	});
+
+	it('excelente e insatisfactoria', () => {
+		expect(
+			integral({ ...entrada({ calidadFormularios: 1, calidadSuma: 42 }), eficiencia: { despachos: [], ponderada: 45 } })!.parrafos[0]
+		).toContain('corresponde a 99 puntos, es decir, una calificación SATISFACTORIA en el rango EXCELENTE (85 a 100 puntos)');
+		expect(integral(entrada({ calidadFormularios: 1, calidadSuma: 10 }))!.parrafos[0]).toContain(
+			'corresponde a 52 puntos, es decir, una calificación INSATISFACTORIA (0 a 59 puntos)'
+		);
+	});
+
+	it('si falta un factor, queda pendiente', () => {
+		expect(integral(entrada({ publicacionesPuntaje: null }))!.parrafos[0]).toMatch(/^\[Pendiente: completar los cuatro factores/);
+	});
+
+	it('el despacho 1 no la lleva', () => {
+		expect(integral({ ...entrada(), redaccion: 'despacho1' })).toBeUndefined();
+	});
+
+	it('en el Word: el título centrado y el entero en negrilla', () => {
+		const s = datosDocumento(entrada()).secciones.find((x) => x.titulo === 'CALIFICACIÓN INTEGRAL.')!;
+		expect(s.tituloCentrado).toBe(true);
+		expect(s.parrafos[0].partes.filter((p) => p.n).map((p) => p.t)).toEqual(['81 puntos']);
+		// Los textos que se digitan no llevan negrilla.
+		const calidad = datosDocumento(entrada()).secciones[0];
+		expect(calidad.parrafos.every((p) => p.partes.every((x) => !x.n))).toBe(true);
+	});
+});
+
+describe('género en un texto modificado a mano antes de elegirlo', () => {
+	it('sale con el género elegido', () => {
+		const e = entrada({ calidadMotivacion: { texto: 'Texto propio del factor calidad del (de la) funcionario (a).', base: 'x' } });
+		expect(parrafos(e, 0)).toEqual(['Texto propio del factor calidad de la funcionaria.']);
+	});
+});
+
 describe('firmas', () => {
 	const configuradas = { ponente: 'Consejera Ponente: CONFIGURADA', presidente: 'PRESIDENTE CONFIGURADO' };
 	const guardadas = { ponente: 'Consejera Ponente: GUARDADA', presidente: 'PRESIDENTE GUARDADO' };

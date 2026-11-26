@@ -30,6 +30,16 @@
 	let fechaVisita = $state<string>(comoFecha(i?.organizacionFechaVisita));
 	let oficio = $state<string>(i?.oficioEscuela ?? s.oficioEscuela ?? '');
 	let guardando = $state(false);
+	// El Word sale con lo guardado: con cambios sin guardar, descargar primero guarda.
+	let cambios = $state(false);
+	let descargarAlGuardar = false;
+	let formulario: HTMLFormElement | undefined = $state();
+	function descargar(e: MouseEvent) {
+		if (!cambios || !data.puedeEditar || !formulario) return;
+		e.preventDefault();
+		descargarAlGuardar = true;
+		formulario.requestSubmit();
+	}
 
 	const numeroONulo = (v: unknown) => (v === '' || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
 	const enteroONulo = (v: unknown) => {
@@ -110,11 +120,16 @@
 			</div>
 			<a href={`/calificacion/${data.calificacion.id}`} class={buttonVariants({ variant: 'outline' })}>Calificación de rendimiento</a>
 			{#if data.puedeDescargar}
-				<a href={urlFormato} download class={buttonVariants({ variant: enRevision ? 'outline' : 'default' })}>
-					{enRevision ? 'Descargar borrador (Word)' : 'Descargar formato (Word)'}
+				<a href={urlFormato} download onclick={descargar} class={buttonVariants({ variant: enRevision ? 'outline' : 'default' })}>
+					{cambios && data.puedeEditar ? 'Guardar y descargar' : enRevision ? 'Descargar borrador (Word)' : 'Descargar formato (Word)'}
 				</a>
 			{/if}
 		</div>
+		{#if cambios && data.puedeEditar}
+			<p class="-mt-4 text-right text-xs text-amber-700 dark:text-amber-300">
+				Hay cambios sin guardar. El Word sale con lo guardado: al descargar, se guardan primero.
+			</p>
+		{/if}
 
 		{#if form?.error}
 			<div
@@ -183,11 +198,20 @@
 		<form
 			method="post"
 			action="?/guardar"
+			bind:this={formulario}
+			oninput={() => (cambios = true)}
+			onchange={() => (cambios = true)}
 			use:enhance={() => {
 				guardando = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
 					await update({ reset: false });
 					guardando = false;
+					if (result.type === 'success') {
+						cambios = false;
+						// Guardado: ahora el Word sale con lo que estaba en pantalla.
+						if (descargarAlGuardar) window.location.href = urlFormato;
+					}
+					descargarAlGuardar = false;
 				};
 			}}
 		>

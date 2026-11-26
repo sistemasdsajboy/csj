@@ -24,6 +24,7 @@ import {
 	type FactorEditable,
 } from '$lib/core/calificaciones/integral/motivacion';
 import { prefijoDescuento } from '$lib/core/calificaciones/integral/motivacion-eficiencia';
+import { conGenero } from '$lib/core/calificaciones/integral/redaccion';
 import { exigirRol } from '$lib/server/acceso';
 import { db } from '$lib/server/db-client';
 import { cargarEntrada, firmasConfiguradas } from '$lib/server/formato-integral/entrada';
@@ -229,8 +230,11 @@ export const actions = {
 		// del predeterminado con estos mismos datos; si no, sale el predeterminado.
 		const pre =
 			redaccion === 'despacho1' ? motivacionesPredeterminadasDespacho1(d) : motivacionesPredeterminadas({ ...d, periodo: cp.periodo });
-		const editada = (f: FactorEditable, texto: string | null, base: string | undefined) =>
-			base === undefined || !texto || mismoTexto(texto, comoTexto(pre[f])) ? null : { texto, base };
+		// Con el género ya elegido, el texto modificado lo toma ("del (de la) funcionario (a)" → "del funcionario").
+		const editada = (f: FactorEditable, crudo: string | null, base: string | undefined) => {
+			const texto = crudo ? conGenero(crudo, d.genero) : crudo;
+			return base === undefined || !texto || mismoTexto(texto, comoTexto(pre[f])) ? null : { texto, base };
+		};
 		// La descripción de cada novedad con días descontados, de todos los juzgados. Los
 		// campos se llaman `descuento_<id de la novedad>`; los ids salen de la base, no del
 		// formulario. Va dentro de una oración, así que se guarda en una sola línea.
@@ -281,7 +285,7 @@ export const actions = {
 							publicacionesMotivacion: editada('publicaciones', d.publicacionesMotivacion, d.publicacionesMotivacionBase),
 							descuentosEditados,
 							plantillasEficiencia,
-							motivacionLibre: d.motivacionLibre,
+							motivacionLibre: d.motivacionLibre ? conGenero(d.motivacionLibre, d.genero) : null,
 							periodoDesde,
 							periodoHasta,
 							ponente: firmas.ponente ?? cp.integral?.ponente ?? null,

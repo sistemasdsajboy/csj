@@ -8,6 +8,13 @@ import type { Genero } from '@prisma/client';
 /** 704.605 → "704,61". Con `decimales = 0`, 714 → "714". */
 export const cifra = (n: number, decimales = 2) => n.toFixed(decimales).replace('.', ',');
 
+/**
+ * Como se redondea a mano: de 5 en adelante se sube. `toFixed` no siempre lo hace
+ * (36,145 queda en 36,14 porque internamente es 36,1449999...), y quien rehace la
+ * cuenta con las cifras del texto llega a 36,15.
+ */
+export const cifraAMano = (x: number, decimales = 2) => cifra(Math.floor(x * 10 ** decimales + 0.5 + 1e-6) / 10 ** decimales, decimales);
+
 /** Cifras de procesos o días: enteras sin decimales, fraccionarias con dos. */
 export const cantidad = (n: number) => (Number.isInteger(n) ? String(n) : cifra(n));
 
@@ -180,3 +187,24 @@ const SIN_GENERO: Palabras = {
 
 export const palabras = (genero: Genero | null | undefined): Palabras =>
 	genero === 'femenino' ? FEMENINO : genero === 'masculino' ? MASCULINO : SIN_GENERO;
+
+/**
+ * Pone el género en un texto escrito sin él: "del (de la) funcionario (a)" → "de la
+ * funcionaria". Para los textos modificados a mano antes de elegir el género, que
+ * no se rehacen solos. Sin género elegido, el texto queda igual.
+ */
+export function conGenero(texto: string, genero: Genero | null | undefined): string {
+	if (genero !== 'femenino' && genero !== 'masculino') return texto;
+	const destino = palabras(genero);
+	const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+	// Las formas más largas primero, para que "del (de la)" no la parta otra más corta.
+	const pares = (Object.keys(SIN_GENERO) as (keyof Palabras)[])
+		.map((k) => [SIN_GENERO[k], destino[k]] as const)
+		.sort((a, b) => b[0].length - a[0].length);
+	let t = texto;
+	for (const [de, a] of pares) {
+		t = t.split(de).join(a);
+		if (mayuscula(de) !== de) t = t.split(mayuscula(de)).join(mayuscula(a));
+	}
+	return t;
+}
