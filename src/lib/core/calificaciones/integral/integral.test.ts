@@ -394,7 +394,7 @@ describe('motivación de eficiencia', () => {
 		expect(t).toContain(
 			'= 26,88.\nTOTAL FACTOR EFICIENCIA O RENDIMIENTO SISTEMA ORAL: 26,88 puntos\nB. Factor Eficiencia o Rendimiento Sistema Escritural – Tutelas'
 		);
-		expect(t).toContain('Total factor eficiencia o rendimiento oral / sistema escritural: = 26,88 + 45,00 = 71,88 / 2 = 35,94');
+		expect(t).toContain('Total factor eficiencia o rendimiento oral / sistema escritural: 26,88 + 45,00 = 71,88 / 2 = 35,94');
 		expect(t).toMatch(/35,94 puntos$/);
 	});
 
@@ -486,7 +486,7 @@ describe('motivación de eficiencia', () => {
 		expect(t).not.toContain('Audiencias programadas) × 5');
 		expect(t).toContain('TOTAL FACTOR EFICIENCIA O RENDIMIENTO SISTEMA ORAL: 45,00 puntos');
 		expect(t).toContain('(459 / 490) × 45 = 42,15');
-		expect(t).toContain('= 45,00 + 42,15 = 87,15 / 2 = 43,58');
+		expect(t).toContain(': 45,00 + 42,15 = 87,15 / 2 = 43,58');
 	});
 
 	it('la cuenta de la fórmula se puede rehacer a mano: si con dos decimales no da, la carga va con cuatro', () => {

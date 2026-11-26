@@ -285,7 +285,7 @@ function parrafosDespacho(d: DespachoEficiencia, p: Palabras): string[] {
 	if (conPuntaje.length > 1) {
 		const suma = conPuntaje.reduce((s, c) => s + c.valor, 0);
 		out.push(
-			`Total factor eficiencia o rendimiento ${conPuntaje.map((c) => c.nombre).join(' / ')}: = ${conPuntaje.map((c) => cifra(c.valor)).join(' + ')} = ` +
+			`Total factor eficiencia o rendimiento ${conPuntaje.map((c) => c.nombre).join(' / ')}: ${conPuntaje.map((c) => cifra(c.valor)).join(' + ')} = ` +
 				`${cifra(suma)} / ${conPuntaje.length} = ${cifra(d.total)}`
 		);
 	}

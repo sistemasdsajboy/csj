@@ -4,7 +4,8 @@ import { motivacionEficienciaDespacho1, PLANTILLAS_DESPACHO_1, plantillaDe, plan
 import { comoTexto, mismoTexto, motivacionesPredeterminadas, parrafosLibres, type FactorEditable } from './motivacion';
 import { motivacionesPredeterminadasDespacho1 } from './motivacion-despacho-1';
 import { fraseDeDescuentos, motivacionEficiencia, type DescuentoNovedad, type DespachoEficiencia } from './motivacion-eficiencia';
-import { cantidad, cifra, comoTitulo, enLetras, fechaLarga, nombreMes, palabras } from './redaccion';
+import { formatoParrafo } from './formato-parrafos';
+import { cantidad, cifra, cifraAMano, comoTitulo, conGenero, enLetras, fechaLarga, nombreMes, palabras } from './redaccion';
 
 /**
  * Redacción de la motivación: cada despacho seccional tiene la suya (despacho 1:
@@ -52,7 +53,7 @@ export type Firmas = { ponente: string | null; presidente: string | null; notifi
  */
 export const seDigitaIntegral = (estado: string) => estado === 'revision' || estado === 'aprobada';
 
-export type Seccion = { titulo: string; parrafos: string[]; clave?: FactorEditable | 'eficiencia' };
+export type Seccion = { titulo: string; parrafos: string[]; clave?: FactorEditable | 'eficiencia' | 'integral' };
 
 /** Periodo calificado: lo digitado o, sin fecha, el año completo. */
 export const periodoCalificado = (e: Pick<EntradaDocumento, 'periodo' | 'integral'>) => ({
@@ -91,15 +92,16 @@ export function seccionesMotivacion(e: EntradaDocumento): Seccion[] {
 	const i = e.integral;
 	const genero = e.funcionario.genero;
 	if (!e.redaccion) {
-		const libres = parrafosLibres(i?.motivacionLibre);
+		const libres = parrafosLibres(i?.motivacionLibre).map((p) => conGenero(p, genero));
 		return [{ titulo: '', parrafos: libres.length ? libres : [pendiente('digitar la motivación de la evaluación.')] }];
 	}
 	const d1 = e.redaccion === 'despacho1';
 
 	const pre = predeterminadasDe(e);
-	// Lo modificado a mano manda; si no hay, el texto predeterminado; si faltan datos, lo pendiente.
+	// Lo modificado a mano manda (con el género puesto, si se escribió antes de elegirlo); si no
+	// hay, el texto predeterminado; si faltan datos, lo pendiente.
 	const elegir = (editada: MotivacionEditada | null | undefined, predeterminada: string[] | null, falta: string) => {
-		const propia = parrafosLibres(editada?.texto);
+		const propia = parrafosLibres(editada?.texto).map((p) => conGenero(p, genero));
 		if (propia.length) return propia;
 		if (predeterminada?.length) return predeterminada;
 		return [pendiente(falta)];
@@ -137,11 +139,40 @@ export function seccionesMotivacion(e: EntradaDocumento): Seccion[] {
 	const titulos = d1
 		? ['FACTOR CALIDAD', 'FACTOR ORGANIZACIÓN DEL TRABAJO', 'FACTOR EFICIENCIA O RENDIMIENTO', 'FACTOR PUBLICACIONES']
 		: ['1. FACTOR CALIDAD.', '2. FACTOR ORGANIZACIÓN DEL TRABAJO.', '3. FACTOR EFICIENCIA O RENDIMIENTO', '4. FACTOR PUBLICACIONES'];
-	return [
+	const secciones: Seccion[] = [
 		{ titulo: titulos[0], parrafos: calidad, clave: 'calidad' },
 		{ titulo: titulos[1], parrafos: organizacion, clave: 'organizacion' },
 		{ titulo: titulos[2], parrafos: eficiencia, clave: 'eficiencia' },
 		{ titulo: titulos[3], parrafos: publicaciones, clave: 'publicaciones' },
+	];
+	// Despacho 2: cierra con la suma de los cuatro factores y la categoría.
+	if (!d1) secciones.push({ titulo: 'CALIFICACIÓN INTEGRAL.', parrafos: parrafoIntegral(e), clave: 'integral' });
+	return secciones;
+}
+
+const RANGOS = {
+	EXCELENTE: 'SATISFACTORIA en el rango EXCELENTE (85 a 100 puntos)',
+	BUENA: 'SATISFACTORIA en el rango BUENA (60 a 84 puntos)',
+	INSATISFACTORIA: 'INSATISFACTORIA (0 a 59 puntos)',
+} as const;
+
+/**
+ * "Sumados los puntajes de los cuatro factores (39,42 + 40,52 + 9,00 + 0,00), se obtiene
+ * un total de 88,94 puntos que ... corresponde a 89 puntos ...". Si con los factores en dos
+ * decimales la suma rehecha a mano no da el total, se muestran con cuatro.
+ */
+function parrafoIntegral(e: EntradaDocumento): string[] {
+	const f = factoresDe(e);
+	const r = calcularIntegral(f);
+	if (!r.completa) return [pendiente('completar los cuatro factores para la calificación integral.')];
+	const valores = [f.calidad!, f.eficiencia!, f.organizacion!, f.publicaciones!];
+	const redondo = (n: number, dec: number) => Math.round(n * 10 ** dec) / 10 ** dec;
+	const dec = cifraAMano(valores.reduce((s, v) => s + redondo(v, 2), 0)) === cifra(r.suma) ? 2 : 4;
+	return [
+		`Sumados los puntajes de los cuatro factores (${valores.map((v) => cifra(redondo(v, dec), dec)).join(' + ')}), se obtiene un total ` +
+			`de ${cifra(r.suma)} puntos que, aproximado al entero conforme al artículo 22 del Acuerdo PSAA16-10618 de 2016 y al ` +
+			`instructivo del formulario, corresponde a ${r.entero} puntos, es decir, una calificación ${RANGOS[r.categoria]}, según el ` +
+			`artículo 23 del mismo Acuerdo.`,
 	];
 }
 
@@ -240,7 +271,13 @@ export function datosDocumento(e: EntradaDocumento) {
 		xInsatisfactoria: completa && resultado.categoria === 'INSATISFACTORIA' ? 'X' : '',
 		insatisfactoria: completa && resultado.categoria === 'INSATISFACTORIA',
 
-		secciones: seccionesMotivacion(e),
+		// Para la plantilla: cada párrafo en partes (negrilla en resultados) y las fórmulas centradas,
+		// solo en los textos que arma el sistema.
+		secciones: seccionesMotivacion(e).map((s) => ({
+			titulo: s.titulo,
+			tituloCentrado: s.clave === 'integral',
+			parrafos: s.parrafos.map((p) => formatoParrafo(p, s.clave === 'eficiencia' || s.clave === 'integral')),
+		})),
 
 		ponente: firmas.ponente,
 		firmaPresidente: firmas.presidente ? `Firma Presidente – ${firmas.presidente}` : 'Firma Presidente',
@@ -285,8 +322,10 @@ function datosNotificacion(e: EntradaDocumento, n: Notificador | null, sala: Dat
 		ccNotificado: n ? e.funcionario.cedula : '________________',
 		nombreNotificado: n ? nombre : '',
 		quienNotificaFirma: n ? `${n.nombre.trim().toUpperCase()}${cargo ? ` – ${cargo.toUpperCase()}` : ''} - (Por Correo Electrónico)` : '',
-		ccNotifica: n?.cedula?.trim() || '___________________',
-		ccNotificaDe: n?.expedicion?.trim() || '_________________________',
+		// En blanco, con las líneas del mismo largo que las del notificado: las del formato oficial
+		// no caben en la celda y la línea se partía. La plantilla dice "de{ccNotificaDe}".
+		ccNotifica: n?.cedula?.trim() || '________________',
+		ccNotificaDe: n?.expedicion?.trim() ? ` ${n.expedicion.trim()}` : ' ___________________',
 		nombreNotifica: n ? `${n.nombre.trim().toUpperCase()}${cargo ? ` - ${cargo}` : ''}` : '',
 		aprobadaEn: despacho1
 			? `Aprobada en sesión del día ${sala ? sala.getUTCDate() : '____'} del mes de ${sala ? nombreMes(sala) : '____________'} de ${sala ? sala.getUTCFullYear() : '______'}`

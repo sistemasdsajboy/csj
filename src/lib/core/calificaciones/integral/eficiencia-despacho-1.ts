@@ -1,6 +1,6 @@
 import type { Genero } from '@prisma/client';
 import { baseDelSubfactor, verboDescuento, type DespachoEficiencia, type SubfactorEficiencia } from './motivacion-eficiencia';
-import { cantidad, cifra, enLetras, fechaCorta, palabras, type Palabras } from './redaccion';
+import { cantidad, cifra, cifraAMano, enLetras, fechaCorta, palabras, type Palabras } from './redaccion';
 
 /**
  * Motivación del factor eficiencia o rendimiento con la redacción del despacho 1:
@@ -54,12 +54,6 @@ export function plantillaDe(d: DespachoEficiencia, elegidas: PlantillaElegida[] 
 const lista = (partes: string[]) =>
 	partes.length <= 1 ? partes.join('') : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
 const redondo = (n: number, dec = 2) => Math.round(n * 10 ** dec) / 10 ** dec;
-/**
- * Como se redondea a mano: de 5 en adelante se sube. `toFixed` no siempre lo hace
- * (36,145 queda en 36,14 porque internamente es 36,1449999...), y quien rehace la
- * cuenta con las cifras del texto llega a 36,15.
- */
-const aMano = (x: number, dec = 2) => cifra(Math.floor(x * 10 ** dec + 0.5 + 1e-6) / 10 ** dec, dec);
 
 /**
  * Sumandos, suma y resultado de un promedio. Con los sumandos redondeados a dos
@@ -71,7 +65,11 @@ function promedioMostrado(valores: number[], resultado: number) {
 	const con = (dec: number) => {
 		const partes = valores.map((v) => redondo(v, dec));
 		const suma = partes.reduce((a, b) => a + b, 0);
-		return { partes: partes.map((v) => cifra(v, dec)), suma: cifra(suma, dec), cuadra: aMano(suma / valores.length) === cifra(resultado) };
+		return {
+			partes: partes.map((v) => cifra(v, dec)),
+			suma: cifra(suma, dec),
+			cuadra: cifraAMano(suma / valores.length) === cifra(resultado),
+		};
 	};
 	const dos = con(2);
 	const m = dos.cuadra ? dos : con(4);
@@ -102,7 +100,7 @@ function lineaPuntaje(s: SubfactorEficiencia, d: DespachoEficiencia, p: Palabras
 				? `Carga ${p.del} ${p.funcionario}`
 				: 'Carga proporcional';
 	// Lo que da la cuenta rehecha a mano con la base tal como se muestra (dos decimales).
-	const aManoConDos = aMano((s.egreso / redondo(base.valor)) * maximo);
+	const aManoConDos = cifraAMano((s.egreso / redondo(base.valor)) * maximo);
 	const crudo = (s.egreso / base.valor) * maximo;
 	// Con tope el puntaje es el máximo: la cuenta se muestra con la base en dos decimales, tal como se rehace a mano.
 	const conTope = crudo > maximo + 1e-9;
@@ -369,7 +367,7 @@ export function motivacionEficienciaDespacho1(d: {
 	}
 	if (varios) {
 		const dias = despachos.reduce((s, x) => s + x.diasLaborados, 0);
-		const cuadra = aMano(despachos.reduce((s, x) => s + redondo(x.total) * x.diasLaborados, 0) / dias) === cifra(d.ponderada);
+		const cuadra = cifraAMano(despachos.reduce((s, x) => s + redondo(x.total) * x.diasLaborados, 0) / dias) === cifra(d.ponderada);
 		out.push(
 			'PONDERACIÓN POR DÍAS LABORADOS',
 			`Como ${p.el} ${p.funcionario} laboró en ${enLetras(despachos.length)} despachos durante el período, el factor eficiencia o ` +
